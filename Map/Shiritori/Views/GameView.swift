@@ -107,7 +107,8 @@ struct ShiritoriGameView: View {
                             // 導入会話と途中の特殊セリフは既存時間を維持し、最終セリフ後は統合用に3秒待機する
                             holdDuration: isShowingOpeningDialogue
                                 ? (openingDialogueIndex < 2 ? 2.0 : 5.0)
-                            : (noCPUTargetVictoryMessageHoldDuration
+                            : (playerLoseNMessageHoldDuration
+                                ?? noCPUTargetVictoryMessageHoldDuration
                                 ?? cpuFinalCardMessageHoldDuration
                                 ?? timeoutMercyVictoryMessageHoldDuration),
                             // 最後の英語・署名メッセージだけ、2行とも中央揃えにする
@@ -194,6 +195,19 @@ struct ShiritoriGameView: View {
 
         // 古いメッセージの完了通知では再生しない
         guard completedMessage == messageText else { return }
+
+        // 「ん」敗北は、気づきのセリフから敗北宣告へ段階的に進める。
+        if gameManager.isPlayerLoseNEndingActive {
+            switch gameManager.playerLoseNEndingStage {
+            case .recognitionMessage:
+                gameManager.advancePlayerLoseNEnding(after: completedMessage)
+                return
+            case .defeatMessage:
+                gameManager.advancePlayerLoseNEnding(after: completedMessage)
+            case .inactive, .finished:
+                break
+            }
+        }
 
         // CPU最終カードのエンディング。最後のセリフ全文表示後に統合用の待機を開始する。
         if gameManager.isCPUFinalCardEndingActive {
@@ -368,8 +382,19 @@ struct ShiritoriGameView: View {
         }
     }
 
-    // CPU最終カードの特殊セリフは、勝敗の既定メッセージより優先する
+    // 「ん」敗北の段階セリフとCPUの特殊エンディングは、勝敗の既定メッセージより優先する
     private var messageText: String {
+        if gameManager.isPlayerLoseNEndingActive {
+            switch gameManager.playerLoseNEndingStage {
+            case .recognitionMessage:
+                return gameManager.currentMessage ?? "なんと・・・ん？"
+            case .defeatMessage, .finished:
+                return "ん がついているではないか、お前の負けだ"
+            case .inactive:
+                break
+            }
+        }
+
         if gameManager.isCPUFinalCardEndingActive || gameManager.isTimeoutMercyVictoryActive || gameManager.isNoCPUTargetVictoryActive {
             return gameManager.currentMessage ?? ""
         }
@@ -402,6 +427,11 @@ struct ShiritoriGameView: View {
         // ゲーム中はShiritoriGameManagerが設定したメッセージを表示する
         return gameManager.currentMessage
             ?? "「さあ、始めるとしよう」"
+    }
+
+    // 「ん」敗北の気づきのセリフだけ、全文表示後に2秒保持する。
+    private var playerLoseNMessageHoldDuration: TimeInterval? {
+        gameManager.playerLoseNEndingStage == .recognitionMessage ? 2.0 : nil
     }
 
     // 時間切れ特別勝利の途中メッセージは2秒保持し、最後は統合用の3秒待機に委ねる
