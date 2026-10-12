@@ -1,0 +1,11 @@
+# ファイルごとの担当。GitHubのユーザー名に置き換えて使う。
+# 担当外のファイルを変更するプルリクエストには、担当者のレビューが付く。
+
+# 既定は A(コア・統合)
+*                              @26cm0130-tech
+
+# B:トラップ
+/Map/Events/Trap.swift         @26cm0130-tech
+
+# C:鍵・ゴール
+/Map/Events/Key.swift          @26cm0130-tech

@@ -1,0 +1,12 @@
+{
+  "data" : [
+    {
+      "filename" : "shiritori_message_beep.wav",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
