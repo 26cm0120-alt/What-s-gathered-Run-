@@ -72,6 +72,7 @@ struct CardData {
             Vocabulary(word: "きっず", displayWord: "きっず", type: .english),
             Vocabulary(word: "しょうねん", displayWord: "しょうねん", type: .rare),
             Vocabulary(word: "こども", displayWord: "こども", type: .surprise),
+            Vocabulary(word: "がき", displayWord: "がき", type: .surprise),
             Vocabulary(word: "おとこのこ", displayWord: "おとこのこ", type: .surprise)
         ], isCleared: false),
 
@@ -203,6 +204,8 @@ struct CardData {
             Vocabulary(word: "ねくたい", displayWord: "ねくたい", type: .rare),
             Vocabulary(word: "さむずあっぷ", displayWord: "さむずあっぷ", type: .surprise),
             Vocabulary(word: "ないすがい", displayWord: "ないすがい", type: .surprise),
+            Vocabulary(word: "らっきー", displayWord: "らっきー", type: .surprise),
+            Vocabulary(word: "いけめん", displayWord: "いけめん", type: .surprise),
             Vocabulary(word: "のーぷろぶれむ", displayWord: "のーぷろぶれむ", type: .surprise),
             Vocabulary(word: "ろうどうしゃ", displayWord: "ろうどうしゃ", type: .surprise),
         ], isCleared: false),
