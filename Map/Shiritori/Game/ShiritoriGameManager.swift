@@ -49,6 +49,15 @@ enum NoCPUTargetVictoryStage {
     case finished
 }
 
+// PLAYERが「ん」で終わる語を選んだ場合の敗北メッセージ進行段階
+// 気づきのセリフ→敗北宣告の順で進める。
+enum PlayerLoseNEndingStage {
+    case inactive
+    case recognitionMessage
+    case defeatMessage
+    case finished
+}
+
 // ゲーム全体の進行状態を管理する
 final class ShiritoriGameManager {
 
@@ -91,6 +100,10 @@ final class ShiritoriGameManager {
     // CPUが選べるカードを失った場合の勝利演出の進行状態
     private(set) var noCPUTargetVictoryStage: NoCPUTargetVictoryStage = .inactive
 
+
+    // PLAYERが「ん」で終わる語を選んだ場合の敗北演出の進行状態
+    private(set) var playerLoseNEndingStage: PlayerLoseNEndingStage = .inactive
+
     // 残り枚数がこの枚数以下なら、時間切れでも特別勝利を認める
     private let timeoutMercyVictoryRemainingCardThreshold = 7
 
@@ -113,6 +126,15 @@ final class ShiritoriGameManager {
     // CPUが選べるカードを失った場合の勝利演出が進行中かどうか
     var isNoCPUTargetVictoryActive: Bool {
         if case .inactive = noCPUTargetVictoryStage {
+            return false
+        }
+        return true
+    }
+
+
+    // PLAYERの「ん」敗北演出が進行中かどうか
+    var isPlayerLoseNEndingActive: Bool {
+        if case .inactive = playerLoseNEndingStage {
             return false
         }
         return true
@@ -154,6 +176,7 @@ final class ShiritoriGameManager {
         playerTimer?.invalidate()
         cpuReactionTimer?.invalidate()
         cpuScanTimer?.invalidate()
+        SoundEffectManager.shared.stopBGM()
     }
 
     // CPUのアニメーションイベントを開始する
@@ -188,6 +211,7 @@ final class ShiritoriGameManager {
         cpuFinalCardEndingStage = .inactive
         timeoutMercyVictoryStage = .inactive
         noCPUTargetVictoryStage = .inactive
+        playerLoseNEndingStage = .inactive
         cpuAnimationEvent = nil
         playerAnimationEvent = nil
         cpuScanState = .idle
@@ -375,6 +399,9 @@ final class ShiritoriGameManager {
             // PLAYERは失敗表情、勝者のCPUは成功ジャンプを開始する
             startPlayerAnimation(.failure)
             startCPUAnimation(.success)
+            // 気づきのセリフを先に表示し、完了後に敗北宣告へ進める。
+            currentMessage = "なんと、\(vocabulary.displayWord) か！・・・ん？"
+            playerLoseNEndingStage = .recognitionMessage
             gameResult = .playerLoseN
             SoundEffectManager.shared.stopBGM()
             gameState = .gameOver
@@ -598,7 +625,7 @@ final class ShiritoriGameManager {
         clearSelection()
 
         // 最終メッセージはスキャン終了後に初めて設定する。
-        currentMessage = "なんと、えらべるカードがないではないか。"
+        currentMessage = "なんと、選べるカードがないではないか"
         noCPUTargetVictoryStage = .noCardsMessage
 
         cpuTargetCardID = nil
@@ -774,6 +801,24 @@ final class ShiritoriGameManager {
         case .defeatAcknowledgement:
             // 最後のセリフはそのまま画面に残す
             noCPUTargetVictoryStage = .finished
+
+        case .inactive, .finished:
+            return
+        }
+    }
+
+    // PLAYERの「ん」敗北メッセージを、完了通知に応じて進める。
+    func advancePlayerLoseNEnding(after completedMessage: String) {
+        guard isPlayerLoseNEndingActive else { return }
+        guard completedMessage == currentMessage else { return }
+
+        switch playerLoseNEndingStage {
+        case .recognitionMessage:
+            playerLoseNEndingStage = .defeatMessage
+            currentMessage = "ん がついているではないか、お前の負けだ"
+
+        case .defeatMessage:
+            playerLoseNEndingStage = .finished
 
         case .inactive, .finished:
             return
