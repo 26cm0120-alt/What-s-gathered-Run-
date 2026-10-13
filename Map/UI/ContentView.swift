@@ -38,6 +38,12 @@ struct ContentView: View {
                 ShiritoriGameView { playerWon in
                     flow.finishShiritori(won: playerWon)
                 }
+
+            case .trialShiritoriGame:
+                // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
+                ShiritoriGameView(cards: TrialShiritoriCardData.cards) { playerWon in
+                    flow.finishShiritori(won: playerWon)
+                }
             }
         }
     }
