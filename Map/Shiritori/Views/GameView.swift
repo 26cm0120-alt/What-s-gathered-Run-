@@ -15,7 +15,13 @@ struct ShiritoriGameView: View {
     let onGameFinished: (Bool) -> Void
 
     // ゲーム進行を管理する
-    @State private var gameManager = ShiritoriGameManager()
+    @State private var gameManager: ShiritoriGameManager
+
+    /// 通常版・試練版でカードデータを差し替えられるようにする。
+    init(cards: [Card] = CardData.cards, onGameFinished: @escaping (Bool) -> Void) {
+        self.onGameFinished = onGameFinished
+        _gameManager = State(initialValue: ShiritoriGameManager(cards: cards))
+    }
 
     // 結果通知と遷移タイマーの重複を防ぐ
     @State private var hasScheduledGameFinish = false
