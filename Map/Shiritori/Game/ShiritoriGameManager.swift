@@ -61,6 +61,13 @@ enum PlayerLoseNEndingStage {
 // ゲーム全体の進行状態を管理する
 final class ShiritoriGameManager {
 
+    /// このゲームで使うカードデータ。通常版と試練版でデータだけを独立させる。
+    private let initialCards: [Card]
+
+    init(cards: [Card] = CardData.cards) {
+        self.initialCards = cards
+    }
+
     // 現在のゲーム状態
     private(set) var gameState: ShiritoriGameState = .waiting
 
@@ -218,7 +225,7 @@ final class ShiritoriGameManager {
         cpuScanRound = 0
 
         // 25枚のカードをシャッフルしてゲーム盤面に配置する
-        self.cards = CardData.cards.shuffled()
+        self.cards = initialCards.shuffled()
 
         // ゲーム開始時は次の文字を空欄にする
         self.currentPrompt = nil
