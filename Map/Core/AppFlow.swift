@@ -34,7 +34,8 @@ final class AppFlow: ObservableObject {
         case start              // ダンジョンのスタート画面
         case playing            // ダンジョンのプレイ画面
         case shiritoriPrologue  // しりとりの既存プロローグ
-        case shiritoriGame      // しりとりゲーム
+        case shiritoriGame      // 既存のしりとりゲーム
+        case trialShiritoriGame // 試練の迷宮専用しりとりゲーム
         case cleared            // ダンジョンのクリア表示
     }
 
@@ -89,19 +90,35 @@ final class AppFlow: ObservableObject {
         startGame(stage: Stages.random(seed: seed))
     }
 
-    /// しりとりのプロローグ終了後、しりとりゲーム画面へ進む。
+    /// しりとりのプロローグ終了後、開始元に対応するゲーム画面へ進む。
     func startShiritoriGame() {
         guard case .shiritoriPrologue = screen else { return }
-        screen = .shiritoriGame
+
+        if game?.stage.shiritoriStageKind == .trial {
+            screen = .trialShiritoriGame
+        } else {
+            screen = .shiritoriGame
+        }
     }
 
-    /// しりとりの結果を受け取り、勝利ならダンジョンクリア、敗北ならスタートへ戻す。
+    /// しりとりの結果を受け取る。試練専用ルートは勝敗に関係なくスタートへ戻す。
     func finishShiritori(won: Bool) {
-        guard case .shiritoriGame = screen else { return }
-        if won {
-            screen = .cleared
-        } else {
-            returnToStart()
+        switch screen {
+        case .trialShiritoriGame:
+            // 試練ルートも勝利時は既存のクリア画面・クリア音を表示する。
+            if won {
+                screen = .cleared
+            } else {
+                returnToStart()
+            }
+        case .shiritoriGame:
+            if won {
+                screen = .cleared
+            } else {
+                returnToStart()
+            }
+        default:
+            return
         }
     }
 
