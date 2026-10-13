@@ -49,6 +49,32 @@ struct ShiritoriGameView: View {
     // 通常アニメーションを基本画像から開始するための基準時刻
     @State private var characterAnimationEpoch = Date()
 
+    // 対戦中ヒントはCPUメッセージとは独立して5秒ごとに切り替える
+    @State private var upperHintIndex = 0
+    @State private var lowerHintIndex = 0
+    @State private var hintRotationTimer: Timer?
+
+    // ボスの独り言として表示する連想ヒント
+    private let bossHintMessages = [
+        "・・・こぶた、どうぶつ・・・ぬいぐるみ、ちょきんばこもありか・・ぶつぶつ。",
+        "おとな、あだると、すーつ、ねくたい、びじねすまん・・・ぬっ、いかんいかん。",
+        "めいろ、まよいみち、るーと、すたーと・・・はた に いけがき も みえるな。",
+        "りんご は あかりんごか。ふるーつ、きのみ、くだもの と いっても いいだろう。",
+        "まど ういんどう がらす・・・かーてん も あるな。なら なかまど とも いえるか。",
+        "どあ、のぶ・・・いりぐち、でぐち・・・げんかん・・・おっと、いかんな。",
+        "これは こども か。ひとり とも よめるな。きっず、おとこのこ・・・ぶつぶつ。"
+    ]
+
+    // 操作方法やゲームルールを案内するシステムヒント
+    private let systemHintMessages = [
+        "1回目のタップでオレンジ枠の狙いを定めて、2回目のタップで決定だ。",
+        "カードにはいろんな読み方がたくさんあるぞ。色々ためしてみよう。",
+        "お手つきすると、きみの持ち時間が５秒も減っちゃうぞ、気をつけよう。",
+        "カードを１枚取ると、きみの持ち時間が５秒増えるぞ、あせらないで。",
+        "よめるカードが見つからないときは、手当たり次第にためしてみよう。",
+        "驚きのよみかたをするとすぐに勝負が決まるかも？でもそのせいで負けるかも？"
+    ]
+
     var body: some View {
         GeometryReader { geometry in
             // PLAYER画像の表示サイズ（既存サイズを維持）
@@ -123,6 +149,10 @@ struct ShiritoriGameView: View {
                                 handleMessageDisplayCompleted(completedMessage)
                             }
                         )
+                        .overlay(alignment: .top) {
+                            HintLineView(text: bossHintMessages[upperHintIndex])
+                                .offset(y: -17)
+                        }
 
                         // MARK: - 中央：25枚のカード
 
@@ -162,11 +192,18 @@ struct ShiritoriGameView: View {
                                 .scaleEffect(x: -1, y: 1)
                                 .frame(width: characterSize, height: characterSize)
                         }
+                        .overlay(alignment: .top) {
+                            HintLineView(text: systemHintMessages[lowerHintIndex])
+                                .offset(y: -9)
+                        }
                     }
                     .padding(8)
                 }
             }
             .onAppear {
+                // 画面に戻った場合も、補助ヒントの切り替えを再開する
+                startHintRotation()
+
                 // 画面表示時にゲームを一度だけ開始する
                 guard !hasStarted else { return }
 
@@ -177,7 +214,20 @@ struct ShiritoriGameView: View {
             .onDisappear {
                 finishTransitionTimer?.invalidate()
                 finishTransitionTimer = nil
+                hintRotationTimer?.invalidate()
+                hintRotationTimer = nil
             }
+        }
+    }
+
+    // 上段・下段のヒントを独立して5秒ごとに切り替える
+    private func startHintRotation() {
+        hintRotationTimer?.invalidate()
+        hintRotationTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { _ in
+            let nextUpper = bossHintMessages.indices.filter { $0 != upperHintIndex }.randomElement()
+            let nextLower = systemHintMessages.indices.filter { $0 != lowerHintIndex }.randomElement()
+            if let nextUpper { upperHintIndex = nextUpper }
+            if let nextLower { lowerHintIndex = nextLower }
         }
     }
 
@@ -490,4 +540,21 @@ struct ShiritoriGameView: View {
 
 #Preview {
     ShiritoriGameView(onGameFinished: { _ in })
+}
+
+// 1行のヒント表示。オーバーレイで描画するため既存レイアウトのサイズを変えない。
+private struct HintLineView: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 4)
+            .background(Color.black)
+            .accessibilityLabel(text)
+    }
 }
