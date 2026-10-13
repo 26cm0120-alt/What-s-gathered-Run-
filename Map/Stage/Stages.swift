@@ -1,5 +1,13 @@
 import Foundation
 
+/// しりとり開始時に使用するルール・データの系統。
+enum ShiritoriStageKind {
+    /// チュートリアルとランダムステージで使う既存のしりとり
+    case standard
+    /// 試練の迷宮専用のしりとり
+    case trial
+}
+
 /// 面(ステージ)の定義(仕様書§5.5)
 struct Stage {
     /// 面の名前(スタート画面などで使う)
@@ -12,6 +20,8 @@ struct Stage {
     let isStepByStepTutorial: Bool
     /// ランダムステージの再現に使うseed（固定面では nil）
     let seed: UInt64?
+    /// この面をクリアした後に起動するしりとりの系統
+    let shiritoriStageKind: ShiritoriStageKind
 }
 
 /// 各面のマップ定義(仕様書 付録A)
@@ -58,7 +68,8 @@ enum Stages {
         ],
         initialDirection: .east,
         requiresKey: true,
-        isStepByStepTutorial: false
+        isStepByStepTutorial: false,
+        shiritoriStageKind: .trial
     )
 
     /// seedから同じランダム迷宮を生成する。seedはプレイ画面に表示する。
@@ -68,7 +79,8 @@ enum Stages {
             map: RandomMazeGenerator.generate(seed: seed),
             requiresKey: true,
             isStepByStepTutorial: false,
-            seed: seed
+            seed: seed,
+            shiritoriStageKind: .standard
         )
     }
 
@@ -78,7 +90,8 @@ enum Stages {
         rows: [String],
         initialDirection: Direction,
         requiresKey: Bool,
-        isStepByStepTutorial: Bool = false
+        isStepByStepTutorial: Bool = false,
+        shiritoriStageKind: ShiritoriStageKind = .standard
     ) -> Stage {
         guard let map = MapLoader.load(rows: rows, initialDirection: initialDirection) else {
             fatalError("\(title)のマップ定義に S がありません")
@@ -88,7 +101,8 @@ enum Stages {
             map: map,
             requiresKey: requiresKey,
             isStepByStepTutorial: isStepByStepTutorial,
-            seed: nil
+            seed: nil,
+            shiritoriStageKind: shiritoriStageKind
         )
     }
 }
