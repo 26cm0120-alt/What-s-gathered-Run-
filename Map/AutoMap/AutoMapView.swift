@@ -30,6 +30,8 @@ struct AutoMapView: View {
                     floorColor = Color(red: 0.42, green: 0.15, blue: 0.10)
                 case .key:
                     floorColor = Color(red: 0.48, green: 0.34, blue: 0.08)
+                case .enemy:
+                    floorColor = Color(red: 0.40, green: 0.10, blue: 0.16)
                 case .goal:
                     floorColor = Color(red: 0.48, green: 0.19, blue: 0.12)
                 default:
@@ -71,6 +73,8 @@ struct AutoMapView: View {
                         symbolColor = Color(red: 1.0, green: 0.66, blue: 0.46)
                     case .key:
                         symbolColor = Color(red: 1.0, green: 0.86, blue: 0.42)
+                    case .enemy:
+                        symbolColor = Color(red: 1.0, green: 0.48, blue: 0.48)
                     case .goal:
                         symbolColor = Color(red: 1.0, green: 0.88, blue: 0.69)
                     default:

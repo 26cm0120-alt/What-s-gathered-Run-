@@ -7,15 +7,17 @@ enum MapCell: Equatable {
     case start
     case trap
     case key
+    case enemy
     case goal
 
-    /// マップ定義の1文字から作る。# = 壁、S/T/K/G = 特殊マス、それ以外 = 床
+    /// マップ定義の1文字から作る。# = 壁、S/T/K/E/G = 特殊マス、それ以外 = 床
     init(_ character: Character) {
         switch character {
         case "#": self = .wall
         case "S": self = .start
         case "T": self = .trap
         case "K": self = .key
+        case "E": self = .enemy
         case "G": self = .goal
         default:  self = .floor
         }
@@ -28,6 +30,7 @@ enum MapCell: Equatable {
         switch self {
         case .trap: return "T"
         case .key:  return "K"
+        case .enemy: return "E"
         case .goal: return "G"
         case .wall, .floor, .start: return nil
         }

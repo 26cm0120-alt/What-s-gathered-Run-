@@ -1,6 +1,6 @@
 import Foundation
 
-/// seedから必ず連結した迷宮を作り、鍵とゴールを同じ経路上に置く。
+/// seedから必ず連結した迷宮を作り、敵・鍵・ゴールを配置する。
 enum RandomMazeGenerator {
     private static let mapSize = 17
     private static let directions = [(dx: 0, dy: -1), (dx: 1, dy: 0), (dx: 0, dy: 1), (dx: -1, dy: 0)]
@@ -70,6 +70,10 @@ enum RandomMazeGenerator {
         let path = shortestPath(from: start, to: goal, in: cells)
         let keyIndex = min(path.count - 2, max(1, path.count / 2))
         let key = path[keyIndex]
+        let enemyCandidates = path.enumerated().compactMap { index, position in
+            index > 0 && index < path.count - 1 && index != keyIndex ? position : nil
+        }
+        let enemy = enemyCandidates[random.nextInt(upperBound: enemyCandidates.count)]
 
         let routeToGoal = Set(path)
         let trapCandidates = cells.indices.flatMap { y in
@@ -85,6 +89,7 @@ enum RandomMazeGenerator {
         // TはSからGへの最短経路外に置く。イベント記号の置換で通路の連結性は変わらない。
         cells[start.y][start.x] = "S"
         cells[key.y][key.x] = "K"
+        cells[enemy.y][enemy.x] = "E"
         cells[trap.y][trap.x] = "T"
         cells[goal.y][goal.x] = "G"
 

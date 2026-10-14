@@ -99,7 +99,11 @@ struct PlayView: View {
                 .simultaneousGesture(movementFlickGesture)
 
             // ② メッセージ(段階案内と状況メッセージを固定の高さに表示する)
-            MonsterMessageView(message: displayedMessage, reactionID: monsterReactionID)
+            MonsterMessageView(
+                message: displayedMessage,
+                reactionID: monsterReactionID,
+                isTutorial: game.stage.isStepByStepTutorial
+            )
                 .contentShape(Rectangle())
                 .simultaneousGesture(movementFlickGesture)
 
@@ -126,13 +130,23 @@ struct PlayView: View {
             )
         }
         .padding()
-        .background(Color.black.ignoresSafeArea())
+        .background(DungeonBackground())
         // ギブアップの確認(表示中は、後ろの操作を受け付けない)
         .overlay {
             if isConfirmingGiveUp {
                 GiveUpConfirmView(
                     onYes: onGiveUp,
                     onNo: { isConfirmingGiveUp = false }
+                )
+            }
+        }
+        .overlay {
+            if let battle = game.state.enemyBattle {
+                EnemyBattleView(
+                    battle: battle,
+                    playerHP: game.state.playerHP,
+                    onAttack: game.attackEnemy,
+                    onFlee: game.fleeBattle
                 )
             }
         }
