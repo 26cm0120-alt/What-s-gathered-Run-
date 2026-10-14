@@ -16,6 +16,8 @@ struct PlayView: View {
     @State private var activeFlickDirection: MovementFlickDirection?
     /// プレイヤーの位置・向きが変わるたびに、メッセージ横のモンスターを動かす
     @State private var monsterReactionID = 0
+    @State private var dungeonShakeOffset: CGFloat = 0
+    @State private var collisionFlashOpacity = 0.0
 
     /// プレイヤーが鍵のあるマスにいるか
     private var isStandingAtKey: Bool {
@@ -90,6 +92,12 @@ struct PlayView: View {
                     .transition(.opacity)
                 }
             }
+            .overlay {
+                Rectangle()
+                    .fill(Color(red: 0.75, green: 0.12, blue: 0.16).opacity(collisionFlashOpacity))
+                    .allowsHitTesting(false)
+            }
+            .offset(x: dungeonShakeOffset)
             .contentShape(Rectangle())
             .simultaneousGesture(movementFlickGesture)
 
@@ -102,6 +110,7 @@ struct PlayView: View {
             MonsterMessageView(
                 message: displayedMessage,
                 reactionID: monsterReactionID,
+                surpriseReactionID: game.surpriseReactionID,
                 isTutorial: game.stage.isStepByStepTutorial
             )
                 .contentShape(Rectangle())
@@ -166,6 +175,20 @@ struct PlayView: View {
         }
         .onChange(of: playerMotionKey) { _, _ in
             monsterReactionID += 1
+        }
+        .onChange(of: game.wallCollisionID) { _, _ in
+            playWallCollisionAnimation()
+        }
+    }
+
+    private func playWallCollisionAnimation() {
+        Task { @MainActor in
+            withAnimation(.easeOut(duration: 0.07)) { collisionFlashOpacity = 0.24 }
+            for offset in [CGFloat(-8), 7, -4, 0] {
+                withAnimation(.easeOut(duration: 0.05)) { dungeonShakeOffset = offset }
+                try? await Task.sleep(nanoseconds: 55_000_000)
+            }
+            withAnimation(.easeOut(duration: 0.18)) { collisionFlashOpacity = 0 }
         }
     }
 
