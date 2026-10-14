@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7F560A0C306A388200A76BAC /* Map.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Map.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7F560A0C306A388200A76BAC /* ワギャラン.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ワギャラン.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		7F560A0D306A388200A76BAC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7F560A0C306A388200A76BAC /* Map.app */,
+				7F560A0C306A388200A76BAC /* ワギャラン.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7F560A0B306A388200A76BAC /* Map */ = {
+		7F560A0B306A388200A76BAC /* ワギャラン */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "Map" */;
+			buildConfigurationList = 7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "ワギャラン" */;
 			buildPhases = (
 				7F560A08306A388200A76BAC /* Sources */,
 				7F560A09306A388200A76BAC /* Frameworks */,
@@ -63,11 +63,11 @@
 			fileSystemSynchronizedGroups = (
 				7F560A0E306A388200A76BAC /* Map */,
 			);
-			name = Map;
+			name = "ワギャラン";
 			packageProductDependencies = (
 			);
-			productName = Map;
-			productReference = 7F560A0C306A388200A76BAC /* Map.app */;
+			productName = "ワギャラン";
+			productReference = 7F560A0C306A388200A76BAC /* ワギャラン.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7F560A07306A388200A76BAC /* Build configuration list for PBXProject "Map" */;
+			buildConfigurationList = 7F560A07306A388200A76BAC /* Build configuration list for PBXProject "ワギャラン" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -259,6 +259,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "ワギャラン";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -267,7 +268,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = jp.ac.jec.cm0130.Map;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "ワギャラン";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -291,6 +292,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "ワギャラン";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -299,7 +301,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = jp.ac.jec.cm0130.Map;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "ワギャラン";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -313,7 +315,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7F560A07306A388200A76BAC /* Build configuration list for PBXProject "Map" */ = {
+		7F560A07306A388200A76BAC /* Build configuration list for PBXProject "ワギャラン" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7F560A2B306A388300A76BAC /* Debug */,
@@ -322,7 +324,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "Map" */ = {
+		7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "ワギャラン" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7F560A2E306A388300A76BAC /* Debug */,

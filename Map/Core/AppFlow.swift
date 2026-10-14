@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AVFoundation
+import UIKit
 
 private final class AudioPlayerCompletionDelegate: NSObject, AVAudioPlayerDelegate {
     private let completion: () -> Void
@@ -50,6 +51,8 @@ final class AppFlow: ObservableObject {
     private var titleBackgroundAudioErrorDelegate: AudioPlaybackErrorDelegate?
     private var stageBackgroundAudioPlayer: AVAudioPlayer?
     private var stageBackgroundAudioErrorDelegate: AudioPlaybackErrorDelegate?
+    private var encounterBackgroundAudioPlayer: AVAudioPlayer?
+    private var encounterBackgroundAudioErrorDelegate: AudioPlaybackErrorDelegate?
     private var doorOpenAudioPlayer: AVAudioPlayer?
     private var doorOpenCompletionDelegate: AudioPlayerCompletionDelegate?
     private var isPlayingDoorOpenSequence = false
@@ -64,6 +67,7 @@ final class AppFlow: ObservableObject {
     func startGame(stage: Stage) {
         stopTitleBackgroundMusic()
         stopStageBackgroundMusic()
+        stopEncounterBackgroundMusic()
         doorOpenAudioPlayer?.stop()
         doorOpenAudioPlayer = nil
         doorOpenCompletionDelegate = nil
@@ -80,6 +84,10 @@ final class AppFlow: ObservableObject {
                       self.game === newGame, newGame.state.isGameOver else { return }
                 self.returnToStart()
             }
+        }
+        newGame.onBattleStateChanged = { [weak self, weak newGame] isInBattle in
+            guard let self, let newGame, self.game === newGame else { return }
+            self.setEncounterBackgroundMusic(isInBattle, game: newGame)
         }
         game = newGame
         screen = .playing
@@ -132,6 +140,7 @@ final class AppFlow: ObservableObject {
     /// スタート画面に戻る。現在のプレイの状態は破棄する
     func returnToStart() {
         stopStageBackgroundMusic()
+        stopEncounterBackgroundMusic()
         doorOpenAudioPlayer?.stop()
         doorOpenAudioPlayer = nil
         doorOpenCompletionDelegate = nil
@@ -146,6 +155,7 @@ final class AppFlow: ObservableObject {
         guard !isPlayingDoorOpenSequence else { return }
         isPlayingDoorOpenSequence = true
         stopStageBackgroundMusic()
+        stopEncounterBackgroundMusic()
         let gameAtClear = game
 
         guard let player = AudioPlayback.makePlayer(named: "ドアを開ける1") else {
@@ -186,6 +196,49 @@ final class AppFlow: ObservableObject {
         guard AudioPlayback.play(player, named: "3dmap") else { return }
         stageBackgroundAudioPlayer = player
         stageBackgroundAudioErrorDelegate = errorDelegate
+    }
+
+    /// 敵との戦闘中だけボス戦BGMをループし、通常探索BGMと重ねない。
+    private func setEncounterBackgroundMusic(_ isInBattle: Bool, game: GameManager) {
+        if isInBattle {
+            stopStageBackgroundMusic()
+            stopEncounterBackgroundMusic()
+            guard let asset = NSDataAsset(name: "nes_boss_15sec_rhythmic") else {
+                print("[Audio] 戦闘BGMデータが見つかりません: nes_boss_15sec_rhythmic")
+                return
+            }
+            do {
+                let player = try AVAudioPlayer(data: asset.data)
+                player.volume = AudioPlayback.backgroundMusicVolume
+                player.numberOfLoops = -1
+                let delegate = AudioPlaybackErrorDelegate(
+                    resourceName: "nes_boss_15sec_rhythmic",
+                    fileExtension: "wav"
+                )
+                player.delegate = delegate
+                guard player.prepareToPlay() else {
+                    print("[Audio] 戦闘BGMの再生準備に失敗しました: nes_boss_15sec_rhythmic.wav")
+                    return
+                }
+                guard AudioPlayback.play(player, named: "nes_boss_15sec_rhythmic", withExtension: "wav") else { return }
+                encounterBackgroundAudioPlayer = player
+                encounterBackgroundAudioErrorDelegate = delegate
+            } catch {
+                print("[Audio] 戦闘BGMの読み込みに失敗しました: \(error.localizedDescription)")
+            }
+        } else {
+            stopEncounterBackgroundMusic()
+            guard case .playing = screen,
+                  !game.state.isCleared,
+                  !game.state.isGameOver else { return }
+            playStageBackgroundMusic()
+        }
+    }
+
+    private func stopEncounterBackgroundMusic() {
+        encounterBackgroundAudioPlayer?.stop()
+        encounterBackgroundAudioPlayer = nil
+        encounterBackgroundAudioErrorDelegate = nil
     }
 
     /// タイトル画面のBGMをループ再生する。

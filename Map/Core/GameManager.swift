@@ -20,6 +20,8 @@ final class GameManager: ObservableObject {
     var onCleared: (() -> Void)?
     /// HPが0になったときに呼ばれる(スタート画面へ戻る)
     var onGameOver: (() -> Void)?
+    /// 敵との戦闘開始・終了時に呼ばれる(BGM切替に使う)
+    var onBattleStateChanged: ((Bool) -> Void)?
 
     init(stage: Stage) {
         self.stage = stage
@@ -98,6 +100,9 @@ final class GameManager: ObservableObject {
         newState.recordTutorialAction(action)
         event?.onEnter(state: &newState, from: state.player.position)
         state = newState
+        if newState.enemyBattle != nil {
+            onBattleStateChanged?(true)
+        }
         if cell == .trap || newState.enemyBattle != nil {
             surpriseReactionID += 1
         }
@@ -121,6 +126,7 @@ final class GameManager: ObservableObject {
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
             state = newState
+            onBattleStateChanged?(false)
             return
         }
 
@@ -131,6 +137,7 @@ final class GameManager: ObservableObject {
             newState.isGameOver = true
             newState.message = "力尽きた……"
             state = newState
+            onBattleStateChanged?(false)
             onGameOver?()
             return
         }
@@ -148,6 +155,7 @@ final class GameManager: ObservableObject {
         newState.enemyBattle = nil
         newState.message = "戦闘から逃げ出した。"
         state = newState
+        onBattleStateChanged?(false)
     }
 
     /// 壁にぶつかった後、移動と方向転換を2秒間受け付けない。
