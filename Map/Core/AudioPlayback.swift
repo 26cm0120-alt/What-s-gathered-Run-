@@ -4,6 +4,9 @@ import OSLog
 
 /// ゲーム音声の端末設定と再生失敗の記録をまとめる。
 enum AudioPlayback {
+    /// 控えめなBGM音量。効果音の音量には適用しない。
+    static let backgroundMusicVolume: Float = 0.2
+
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "DungeonGame",
         category: "Audio"

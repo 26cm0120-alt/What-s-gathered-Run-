@@ -7,12 +7,12 @@ protocol TileEvent {
     func blockReason(state: GameState) -> String?
 
     /// このマスに入った直後の処理。ゲームの状態を変更してよい
-    func onEnter(state: inout GameState)
+    func onEnter(state: inout GameState, from previousPosition: GridPos)
 }
 
 extension TileEvent {
     func blockReason(state: GameState) -> String? { nil }
-    func onEnter(state: inout GameState) {}
+    func onEnter(state: inout GameState, from previousPosition: GridPos) {}
 }
 
 /// マスの種類と処理の対応表
@@ -21,6 +21,7 @@ enum TileEvents {
         switch cell {
         case .trap: return TrapEvent()
         case .key:  return KeyEvent()
+        case .enemy: return EnemyEvent()
         case .goal: return GoalEvent()
         case .wall, .floor, .start: return nil
         }

@@ -2,7 +2,7 @@ import Foundation
 
 /// K:鍵・宝箱(C担当)。取得すると hasKey が true になる
 struct KeyEvent: TileEvent {
-    func onEnter(state: inout GameState) {
+    func onEnter(state: inout GameState, from previousPosition: GridPos) {
         let alreadyHadKey = state.hasKey
         state.hasKey = true
         if !alreadyHadKey && state.tutorialStep == .findKey {
@@ -24,7 +24,7 @@ struct GoalEvent: TileEvent {
         return nil
     }
 
-    func onEnter(state: inout GameState) {
+    func onEnter(state: inout GameState, from previousPosition: GridPos) {
         state.isCleared = true      // クリア状態にする(仕様書§3・§11)
         state.message = "ゴール!"
     }

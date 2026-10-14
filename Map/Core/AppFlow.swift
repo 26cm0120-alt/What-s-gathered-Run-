@@ -74,6 +74,13 @@ final class AppFlow: ObservableObject {
         newGame.onCleared = { [weak self] in
             self?.playDoorOpenThenStartShiritori()
         }
+        newGame.onGameOver = { [weak self, weak newGame] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                guard let self, let newGame,
+                      self.game === newGame, newGame.state.isGameOver else { return }
+                self.returnToStart()
+            }
+        }
         game = newGame
         screen = .playing
         playStageBackgroundMusic()
@@ -172,6 +179,7 @@ final class AppFlow: ObservableObject {
     private func playStageBackgroundMusic() {
         guard let player = AudioPlayback.makePlayer(named: "3dmap") else { return }
 
+        player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1
         let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "3dmap")
         player.delegate = errorDelegate
@@ -185,6 +193,7 @@ final class AppFlow: ObservableObject {
         guard titleBackgroundAudioPlayer?.isPlaying != true,
               let player = AudioPlayback.makePlayer(named: "Where_the_Stone_Eyes_Watch") else { return }
 
+        player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1
         let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "Where_the_Stone_Eyes_Watch")
         player.delegate = errorDelegate

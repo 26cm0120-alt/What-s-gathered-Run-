@@ -11,15 +11,15 @@ enum TutorialStep: Equatable {
     var instruction: String {
         switch self {
         case .moveForward:
-            return "ステップ1/5：上フリックで1マス進もう！"
+            return "ステップ1/5：上フリックで\n1マス進もう！"
         case .turnDirection:
-            return "ステップ2/5：左右フリックで向きを変えよう！"
+            return "ステップ2/5：左右フリックで\n向きを変えよう！"
         case .checkMap:
-            return "ステップ3/5：上のダンジョン画面で進む方向を見て、下の探索マップで現在地を確認しよう！"
+            return "ステップ3/5：上のダンジョン画面で\n進む方向を見て、下の探索マップで\n現在地を確認しよう！"
         case .findKey:
-            return "ステップ4/5：宝箱を探して鍵を見つけよう！"
+            return "ステップ4/5：宝箱を探して\n鍵を見つけよう！"
         case .reachGoal:
-            return "ステップ5/5：鍵を手に入れた！ゴールを探そう！"
+            return "ステップ5/5：鍵を手に入れた！\nゴールを探そう！"
         }
     }
 }
@@ -31,10 +31,26 @@ enum TutorialAction {
     case turnRight
 }
 
+/// 戦闘中の状態。敵は固定HPで管理し、seedが同じなら同じ配置になる。
+struct EnemyBattle: Equatable {
+    static let enemyMaxHP = 15
+
+    let enemyPosition: GridPos
+    let retreatPosition: GridPos
+    var enemyHP = enemyMaxHP
+    var message = "敵が現れた！"
+}
+
 /// ゲーム全体の状態(仕様書§11)
 struct GameState {
+    static let playerMaxHP = 20
+
     var player: Player
     var hasKey: Bool = false
+    var playerHP = playerMaxHP
+    var enemyBattle: EnemyBattle?
+    var defeatedEnemies: Set<GridPos> = []
+    var isGameOver = false
     /// この面でクリアするのに、鍵が必要か(仕様書§3.3)。面の定義から設定する
     let requiresKey: Bool
     /// クリア済みか(仕様書§11 クリア状態)

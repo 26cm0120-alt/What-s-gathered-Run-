@@ -7,7 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            DungeonBackground()
 
             switch flow.screen {
             case .start:
@@ -46,6 +46,22 @@ struct ContentView: View {
                 }
             }
         }
+    }
+}
+
+/// タイトル・プレイ・クリア画面で共通して使う、深い青から紫黒、ワインレッドへの背景。
+struct DungeonBackground: View {
+    var body: some View {
+        LinearGradient(
+            colors: [
+                Color(red: 0.12, green: 0.18, blue: 0.32),
+                Color(red: 0.035, green: 0.025, blue: 0.09),
+                Color(red: 0.25, green: 0.065, blue: 0.16)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .ignoresSafeArea()
     }
 }
 

@@ -4,6 +4,7 @@ import SwiftUI
 struct MonsterMessageView: View {
     let message: String
     let reactionID: Int
+    let isTutorial: Bool
 
     @State private var isBreathing = false
     @State private var actionFrame: String?
@@ -18,7 +19,7 @@ struct MonsterMessageView: View {
             Text(message)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.white)
-                .lineLimit(2)
+                .lineLimit(isTutorial ? 3 : 2)
                 .lineSpacing(2)
                 .multilineTextAlignment(.leading)
                 .minimumScaleFactor(0.78)

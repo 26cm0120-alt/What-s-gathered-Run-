@@ -15,12 +15,7 @@ struct StartView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.12, green: 0.105, blue: 0.085), .black, Color(red: 0.07, green: 0.065, blue: 0.055)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DungeonBackground()
 
             ScrollView {
                 VStack(spacing: 8) {
