@@ -7,8 +7,11 @@ final class GameManager: ObservableObject {
     let stage: Stage
     @Published private(set) var state: GameState
     @Published private(set) var isInputLocked = false
+    @Published private(set) var wallCollisionID = 0
+    @Published private(set) var surpriseReactionID = 0
 
     private var wallCollisionTask: Task<Void, Never>?
+    private let soundEffects = SoundEffectController()
 
     /// 現在の面のマップ
     var map: MapData { stage.map }
@@ -70,6 +73,9 @@ final class GameManager: ObservableObject {
             var newState = state
             newState.message = "\(blockedMessage) 2秒間動けません。"
             state = newState
+            wallCollisionID += 1
+            surpriseReactionID += 1
+            soundEffects.play(named: "wall_hit")
             lockInputAfterWallCollision()
             return
         }
@@ -92,6 +98,9 @@ final class GameManager: ObservableObject {
         newState.recordTutorialAction(action)
         event?.onEnter(state: &newState, from: state.player.position)
         state = newState
+        if cell == .trap || newState.enemyBattle != nil {
+            surpriseReactionID += 1
+        }
 
         // クリア状態になったら、画面を切り替えるために知らせる
         if newState.isCleared {
