@@ -58,14 +58,24 @@ enum PlayerLoseNEndingStage {
     case finished
 }
 
+// 通常ステージと試練ステージの差分を明示する。省略時は従来どおり通常ステージ。
+enum ShiritoriStageType {
+    case normal
+    case trial
+}
+
 // ゲーム全体の進行状態を管理する
 final class ShiritoriGameManager {
 
     /// このゲームで使うカードデータ。通常版と試練版でデータだけを独立させる。
     private let initialCards: [Card]
+    private let stage: ShiritoriStageType
 
-    init(cards: [Card] = CardData.cards) {
+    var isTrialStage: Bool { stage == .trial }
+
+    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal) {
         self.initialCards = cards
+        self.stage = stage
     }
 
     // 現在のゲーム状態
@@ -196,6 +206,12 @@ final class ShiritoriGameManager {
         playerAnimationEvent = CharacterAnimationEvent(kind: kind, startedAt: Date())
     }
 
+    private var initialCPUMessage: String {
+        stage == .trial
+            ? "れでぃふぁーすと というものをごぞんじザンス？まずは ミーから はじめるザマス。"
+            : "よし、まずは私から選ばせてもらうぞ"
+    }
+
     // ゲームを開始する
     // - Parameter waitForOpeningDialogue: trueの場合は導入会話が終わるまでCPUスキャンを開始しない
     func startGame(waitForOpeningDialogue: Bool = false) {
@@ -238,10 +254,14 @@ final class ShiritoriGameManager {
         self.gameState = .cpuReaction
         self.currentMessage = waitForOpeningDialogue
             ? nil
-            : "よし、まずは私から選ばせてもらうぞ"
+            : initialCPUMessage
 
-        // CPU先攻では普通読みのカードをランダムに1枚選ぶ
-        prepareInitialCPUTarget()
+        // 通常版の先攻ルールは維持し、試練版だけ専用優先順位で選ぶ
+        if stage == .trial {
+            prepareInitialTrialCPUTarget()
+        } else {
+            prepareInitialCPUTarget()
+        }
 
         // 導入会話がない場合は、従来どおり3秒後にCPUスキャンを開始する
         guard !waitForOpeningDialogue else { return }
@@ -255,7 +275,7 @@ final class ShiritoriGameManager {
         guard cpuReactionTimer == nil else { return }
 
         // 導入会話のあとも従来の案内文を残し、CPUが選択を始めることを伝える
-        currentMessage = "よし、まずは私から選ばせてもらうぞ"
+        currentMessage = initialCPUMessage
 
         // 従来の初回CPU先攻と同じく、案内文を表示してから3秒後にスキャンを開始する
         scheduleInitialCPUScan(after: 3.0)
@@ -407,7 +427,9 @@ final class ShiritoriGameManager {
             startPlayerAnimation(.failure)
             startCPUAnimation(.success)
             // 気づきのセリフを先に表示し、完了後に敗北宣告へ進める。
-            currentMessage = "なんと、\(vocabulary.displayWord) か！・・・ん？"
+            currentMessage = stage == .trial
+                ? "えええっ、\(vocabulary.displayWord) ザンスか！？・・・って、ちょっと まつザマス！？"
+                : "なんと、\(vocabulary.displayWord) か！・・・ん？"
             playerLoseNEndingStage = .recognitionMessage
             gameResult = .playerLoseN
             SoundEffectManager.shared.stopBGM()
@@ -439,7 +461,8 @@ final class ShiritoriGameManager {
 
         // プレイヤー取得メッセージを作成する
         currentMessage = MessageSelector.playerMessage(
-            for: vocabulary
+            for: vocabulary,
+            stage: stage
         )
 
         // 正常な読みなのでカードを取得する
@@ -497,6 +520,71 @@ final class ShiritoriGameManager {
         gameState = .playerTurn
     }
 
+    // 試練版の候補を優先順位で並べる。
+    // 1)「ん」で終わらない 2) 英語読み 3) 次にプレイヤーが選べるカード数
+    // 4) 同条件では既存の種類順。通常ステージには適用しない。
+    private func selectTrialCandidate(
+        from candidates: [(card: Card, vocabulary: Vocabulary)]
+    ) -> (card: Card, vocabulary: Vocabulary)? {
+        func nextMoveCount(for candidate: (card: Card, vocabulary: Vocabulary)) -> Int {
+            guard let nextPrompt = KanaNormalizer.lastCharacter(of: candidate.vocabulary.word) else { return 0 }
+            return cards.filter { !$0.isCleared && $0.id != candidate.card.id }
+                .reduce(0) { count, card in
+                    count + (card.vocabularies.contains {
+                        KanaNormalizer.firstCharacter(of: $0.word) == nextPrompt
+                    } ? 1 : 0)
+                }
+        }
+
+        let typePriority: [WordType] = [.normal, .surprise, .rare, .english]
+        return candidates.sorted { lhs, rhs in
+            let lhsEndsN = KanaNormalizer.endsWithN(lhs.vocabulary.word)
+            let rhsEndsN = KanaNormalizer.endsWithN(rhs.vocabulary.word)
+            if lhsEndsN != rhsEndsN { return !lhsEndsN }
+
+            let lhsEnglish = lhs.vocabulary.type == .english
+            let rhsEnglish = rhs.vocabulary.type == .english
+            if lhsEnglish != rhsEnglish { return lhsEnglish }
+
+            let lhsOptions = nextMoveCount(for: lhs)
+            let rhsOptions = nextMoveCount(for: rhs)
+            if lhsOptions != rhsOptions { return lhsOptions > rhsOptions }
+
+            let lhsType = typePriority.firstIndex(of: lhs.vocabulary.type) ?? typePriority.count
+            let rhsType = typePriority.firstIndex(of: rhs.vocabulary.type) ?? typePriority.count
+            return lhsType < rhsType
+        }.first
+    }
+
+    // 試練版の初手：英語読みを優先し、次にプレイヤーの選択肢数を比較し、「ん」終端は最後にする。
+    private func prepareInitialTrialCPUTarget() {
+        let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
+            .filter { !$0.isCleared }
+            .flatMap { card in card.vocabularies.map { (card: card, vocabulary: $0) } }
+
+        guard let result = selectTrialCandidate(from: candidates) else {
+            cpuTargetCardID = nil
+            cpuTargetVocabulary = nil
+            return
+        }
+        cpuTargetCardID = result.card.id
+        cpuTargetVocabulary = result.vocabulary
+    }
+
+    // 試練版の通常CPUターンも、初手と同じ優先順位で選ぶ。
+    private func selectTrialCPUTarget(currentPrompt: Character) -> (card: Card, vocabulary: Vocabulary)? {
+        let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
+            .filter { !$0.isCleared }
+            .flatMap { card in
+                card.vocabularies.compactMap { vocabulary in
+                    KanaNormalizer.firstCharacter(of: vocabulary.word) == currentPrompt
+                        ? (card: card, vocabulary: vocabulary)
+                        : nil
+                }
+            }
+        return selectTrialCandidate(from: candidates)
+    }
+
     // CPUの対象カードとVocabularyを事前に決定する
     func prepareCPUTarget() {
         guard gameState == .cpuReaction || gameState == .cpuTurn else {
@@ -509,11 +597,14 @@ final class ShiritoriGameManager {
             return
         }
 
-        // CPUSelectorで対象を事前に決定する
-        guard let result = CPUSelector.select(
-            from: cards,
-            currentPrompt: currentPrompt
-        ) else {
+        // 通常版は既存の選択規則を維持。試練版だけカタカナ英語読みを優先する。
+        let selectedResult: (card: Card, vocabulary: Vocabulary)?
+        if stage == .trial {
+            selectedResult = selectTrialCPUTarget(currentPrompt: currentPrompt)
+        } else {
+            selectedResult = CPUSelector.select(from: cards, currentPrompt: currentPrompt)
+        }
+        guard let result = selectedResult else {
             // 接続可能なカードがない場合は対象なし
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
@@ -632,7 +723,9 @@ final class ShiritoriGameManager {
         clearSelection()
 
         // 最終メッセージはスキャン終了後に初めて設定する。
-        currentMessage = "なんと、選べるカードがないではないか"
+        currentMessage = stage == .trial
+            ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
+            : "なんと、選べるカードがないではないか"
         noCPUTargetVictoryStage = .noCardsMessage
 
         cpuTargetCardID = nil
@@ -672,8 +765,9 @@ final class ShiritoriGameManager {
             clearSelection()
 
             // CPUが選択した実際の表示語をメッセージに使用する
-            currentMessage =
-                "・・・しまったいかん！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうではないか！私の負けだ"
+            currentMessage = stage == .trial
+                ? "・・・うぐっ、ゆだんしたザンス！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうザンス！ミーの まけザマス！"
+                : "・・・しまったいかん！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうではないか！私の負けだ"
 
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
@@ -701,7 +795,8 @@ final class ShiritoriGameManager {
         )
         currentMessage = MessageSelector.cpuMessageWithNextPrompt(
             for: targetVocabulary,
-            nextPrompt: nextPrompt
+            nextPrompt: nextPrompt,
+            stage: stage
         )
 
         // 「ん」でない場合はカードを取得する
@@ -748,7 +843,9 @@ final class ShiritoriGameManager {
         case .normalCPUMessage:
             // 通常メッセージのあと、カードを使い切ったことに気づくセリフへ進む
             cpuFinalCardEndingStage = .cardsExhaustedMessage
-            currentMessage = "・・・といいたいところだが、なんと カードを つかいきって しまったではないか"
+            currentMessage = stage == .trial
+                ? "・・・って、あら？ カードが もう ないザマスね？"
+                : "・・・といいたいところだが、なんと カードを つかいきって しまったではないか"
 
             // ここから先はCPUを通常ポーズ、PLAYERを勝利アニメーションにする
             startPlayerAnimation(.success)
@@ -756,7 +853,9 @@ final class ShiritoriGameManager {
         case .cardsExhaustedMessage:
             // 2秒保持後、CPUがPLAYERの勝利を認めるセリフへ進む
             cpuFinalCardEndingStage = .victoryAcknowledgement
-            currentMessage = "みごとだ。きさまの しょうりを みとめよう。"
+            currentMessage = stage == .trial
+                ? "ふふん、なかなかやるザンスね！ユーの かちってことにしてあげるザマス！"
+                : "みごとだ。きさまの しょうりを みとめよう。"
 
         case .victoryAcknowledgement:
             // 最後のセリフも2秒保持したら、ポーズとメッセージをそのまま維持する
@@ -778,12 +877,16 @@ final class ShiritoriGameManager {
             // 通常の時間切れセリフのあと、残り枚数を示して健闘を称える
             timeoutMercyVictoryStage = .hardFoughtMessage
             let remainingCardCount = cards.filter { !$0.isCleared }.count
-            currentMessage = "だが、のこり まいすう \(remainingCardCount) まい か。この わたしを あいてに よくたたかった。"
+            currentMessage = stage == .trial
+                ? "でも、のこり まいすう \(remainingCardCount) まい ザンスか。この ミーを あいてに よくやったとほめてあげたいところザマス。"
+                : "だが、のこり まいすう \(remainingCardCount) まい か。この わたしを あいてに よくたたかった。"
 
         case .hardFoughtMessage:
             // 健闘を称えるセリフのあと、CPUが勝利を譲る
             timeoutMercyVictoryStage = .victoryConcession
-            currentMessage = "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。"
+            currentMessage = stage == .trial
+                ? "いいザンス、ユーの がんばりをみとめて、しょうりを ゆずってあげるザマス。"
+                : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。"
 
         case .victoryConcession:
             // 最終セリフの保持が終わったら、メッセージとポーズをそのまま維持する
@@ -803,7 +906,9 @@ final class ShiritoriGameManager {
         case .noCardsMessage:
             // 最初のセリフを表示し終えたら、CPUが自分の負けを認める
             noCPUTargetVictoryStage = .defeatAcknowledgement
-            currentMessage = "ぐぬぬ・・・おみごと、わたしのまけだ。"
+            currentMessage = stage == .trial
+                ? "ううう・・・ミーの まけザマス・・・。"
+                : "ぐぬぬ・・・おみごと、わたしのまけだ。"
 
         case .defeatAcknowledgement:
             // 最後のセリフはそのまま画面に残す
@@ -822,7 +927,9 @@ final class ShiritoriGameManager {
         switch playerLoseNEndingStage {
         case .recognitionMessage:
             playerLoseNEndingStage = .defeatMessage
-            currentMessage = "ん がついているではないか、お前の負けだ"
+            currentMessage = stage == .trial
+                ? "ん がついてるザンス！やーい、ミーの かちザマス！"
+                : "ん がついているではないか、お前の負けだ"
 
         case .defeatMessage:
             playerLoseNEndingStage = .finished
@@ -882,7 +989,9 @@ final class ShiritoriGameManager {
         let remainingCardCount = cards.filter { !$0.isCleared }.count
         startPlayerAnimation(.failure)
         startCPUAnimation(.success)
-        currentMessage = "フハハハ！時間切れだ！貴様の負けだ！"
+        currentMessage = stage == .trial
+            ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
+            : "フハハハ！時間切れだ！貴様の負けだ！"
 
         if remainingCardCount <= timeoutMercyVictoryRemainingCardThreshold {
             // 残り7枚以下なら、時間切れの通常セリフを経て特別勝利の演出へ進む。
