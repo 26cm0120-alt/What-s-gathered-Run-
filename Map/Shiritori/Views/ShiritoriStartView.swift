@@ -10,16 +10,22 @@ import SwiftUI
 // ゲーム開始前のプロローグ画面を担当する
 struct ShiritoriStartView: View {
 
+    /// 開始元がランダムステージかどうか
+    let isRandomStage: Bool
+
     /// プロローグが完了したときに統合アプリへ通知する。
     let onGameStart: () -> Void
 
     // プロローグで表示するメッセージ
-    private let message = """
-    でぐちの とびらを ひらくと
-    もんばんが ２５まいの 
-    カードを ならべて
-    きみを まちうけていた ・・・
-    """
+    private var message: String {
+        let opponent = isRandomStage ? "まおう" : "もんばん"
+        return """
+        でぐちの とびらを ひらくと
+        \(opponent)が ２５まいの
+        カードを ならべて
+        きみを まちうけていた ・・・
+        """
+    }
 
     // 現在画面に表示されている文字
     @State private var displayedMessage = ""
@@ -45,7 +51,7 @@ struct ShiritoriStartView: View {
             // メッセージを画面中央に表示する
             Text(displayedMessage)
                 .font(
-                    .system(
+                    DungeonTypography.system(
                         size: 20,
                         weight: .regular,
                         design: .monospaced
@@ -155,5 +161,5 @@ struct ShiritoriStartView: View {
 }
 
 #Preview {
-    ShiritoriStartView(onGameStart: {})
+    ShiritoriStartView(isRandomStage: false, onGameStart: {})
 }

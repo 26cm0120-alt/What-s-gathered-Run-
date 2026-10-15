@@ -5,6 +5,7 @@ import SwiftUI
 struct KeyAcquisitionView: View {
     let hasKey: Bool
     let isAcquiringKey: Bool
+    let direction: Direction
     let onFinished: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -15,6 +16,18 @@ struct KeyAcquisitionView: View {
     @State private var chestOpenAudioPlayer: AVAudioPlayer?
     @State private var itemFoundAudioPlayer: AVAudioPlayer?
     @State private var audioErrorDelegates: [AudioPlaybackErrorDelegate] = []
+
+    private var restingChestImageName: String {
+        let stateName = hasKey ? "ChestOpen" : "ChestClosed"
+        let directionName: String
+        switch direction {
+        case .north: directionName = "Front"
+        case .south: directionName = "Back"
+        case .west: directionName = "Left"
+        case .east: directionName = "Right"
+        }
+        return stateName + directionName
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -59,7 +72,7 @@ struct KeyAcquisitionView: View {
                             y: geometry.size.height * 0.57 + keyRise
                         )
                 } else {
-                    Image(hasKey ? "OpenBox" : "CloseBox")
+                    Image(restingChestImageName)
                         .resizable()
                         .scaledToFit()
                         .frame(
@@ -152,7 +165,7 @@ struct SwordPickupView: View {
 
                 VStack(spacing: 8) {
                     Text("ITEM FOUND")
-                        .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .font(DungeonTypography.maruMonica(size: 13))
                         .tracking(3)
                         .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.36))
 
@@ -163,10 +176,10 @@ struct SwordPickupView: View {
                         .shadow(color: Color(red: 0.35, green: 0.72, blue: 1).opacity(isRevealed ? 0.8 : 0), radius: 24)
 
                     Text("剣を手に入れた！")
-                        .font(.system(size: 19, weight: .heavy, design: .serif))
+                        .font(DungeonTypography.maruMonica(size: 19))
                         .foregroundStyle(.white)
                     Text("攻撃力 UP")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .font(DungeonTypography.maruMonica(size: 13))
                         .foregroundStyle(Color(red: 0.74, green: 0.87, blue: 1.0))
                 }
                 .multilineTextAlignment(.center)

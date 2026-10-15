@@ -18,13 +18,13 @@ struct MessageSelector {
         if stage == .trial {
             switch vocabulary.type {
             case .normal:
-                return "ふ・・・ふふん、\(vocabulary.displayWord) ザマスか。 そうくるとおもってたザンス。"
+                return "ふ・・・ふふん、\(vocabulary.displayWord) ザマスか。\nそうくるとおもってたザンス。"
             case .english:
-                return "あ・・・あ〜ら、\(vocabulary.displayWord) ザンスね。なかなか やるザマス。"
+                return "あ・・・あ〜ら、\(vocabulary.displayWord) ザンスね。\nなかなか やるザマス。"
             case .surprise:
-                return "は・・・はあ！？ \(vocabulary.displayWord)・・・ザンスか・・・？そんなんありザマス・・・。"
+                return "は・・・はあ！？ \(vocabulary.displayWord)・・・ザンスか・・・？\nそんなんありザマス・・・。"
             case .rare:
-                return "ちょっ・・・\(vocabulary.displayWord)って・・・ありザマス？ミーの じしょ には ないザンス・・・。"
+                return "ちょっ・・・\(vocabulary.displayWord)って・・・ありザマス？\nミーの じしょ には ないザンス・・・。"
             }
         }
 
@@ -113,8 +113,8 @@ struct MessageSelector {
 
         let promptText = KanaNormalizer.promptDisplayText(for: nextPrompt)
         if stage == .trial {
-            return "\(baseMessage) さあ、『\(promptText)』から はじまるカードをえらぶザンス！"
+            return "\(baseMessage)\nさあ、『\(promptText)』から\nはじまるカードをえらぶザンス！"
         }
-        return "\(baseMessage) 「\(promptText)」 から はじまるカードを選べ！"
+        return "\(baseMessage)\n「\(promptText)」から\nはじまるカードを選べ！"
     }
 }

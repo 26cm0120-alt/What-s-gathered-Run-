@@ -7,7 +7,7 @@ struct AnimatedTitleDragonTitleRow: View {
     var body: some View {
         ZStack {
             Text("ワギャラン")
-                .font(.system(size: compact ? 15 : 20, weight: .semibold, design: .serif))
+                .font(DungeonTypography.maruMonica(size: compact ? 15 : 20))
                 .tracking(4)
                 .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
 

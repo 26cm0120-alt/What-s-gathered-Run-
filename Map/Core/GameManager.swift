@@ -13,6 +13,7 @@ final class GameManager: ObservableObject {
     @Published private(set) var enemyEncounterID = 0
     @Published private(set) var encounterEnemySpeech: EnemyEncounterSpeech?
     @Published private(set) var defeatedEnemySpeech: EnemyDefeatSpeech?
+    @Published private(set) var pendingSkeletonDrop: SkeletonDropItem?
 
     private var wallCollisionTask: Task<Void, Never>?
     private var encounterEnemySpeechTask: Task<Void, Never>?
@@ -73,6 +74,14 @@ final class GameManager: ObservableObject {
         turn(to: state.player.direction.reversed)
     }
 
+    /// チュートリアルで探索マップを拡大した操作を記録する。
+    func recordTutorialMapZoom() {
+        guard stage.isStepByStepTutorial else { return }
+        var newState = state
+        newState.recordTutorialAction(.zoomMap)
+        state = newState
+    }
+
     private func turn(to direction: Direction, tutorialAction: TutorialAction? = nil) {
         guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
         var newState = state
@@ -101,14 +110,14 @@ final class GameManager: ObservableObject {
                         newState.message = "壁に3回ぶつかった！\nHPが3減り、力尽きた……"
                         isGameOverFromWallDamage = true
                     } else {
-                        newState.message = "壁に3回ぶつかった！\nHPが3減った。2秒間動けません。"
+                        newState.message = "壁に3回ぶつかった！\nHPが3減った。\n2秒間は動けません。"
                     }
                 } else {
                     let remainingHits = 3 - wallCollisionCount % 3
-                    newState.message = "\(blockedMessage) あと\(remainingHits)回壁にぶつかるとHPが3減ります。2秒間動けません。"
+                    newState.message = "\(blockedMessage)\nあと\(remainingHits)回でHPが3減ります。\n2秒間は動けません。"
                 }
             } else {
-                newState.message = "\(blockedMessage) 2秒間動けません。"
+                newState.message = "\(blockedMessage)\n2秒間は動けません。"
             }
             state = newState
             wallCollisionID += 1
@@ -125,7 +134,8 @@ final class GameManager: ObservableObject {
         // 敵を倒したマスへ戻った場合は、再戦せず通過できる。
         let event: (any TileEvent)?
         if cell == .enemy && !state.defeatedEnemies.contains(next) {
-            event = EnemyEvent(kind: EnemyKind.encounter(seed: stage.seed, position: next))
+            let kind = map.enemyKinds[next] ?? EnemyKind.encounter(seed: stage.seed, position: next)
+            event = EnemyEvent(kind: kind)
         } else if cell == .enemy {
             event = nil
         } else {
@@ -182,6 +192,9 @@ final class GameManager: ObservableObject {
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
             state = newState
+            if battle.kind == .skeleton {
+                pendingSkeletonDrop = SkeletonDropItem.allCases.randomElement()
+            }
             soundEffects.play(named: "敵撃破")
             showDefeatedEnemySpeech(battle.kind)
             onBattleStateChanged?(nil)
@@ -202,9 +215,9 @@ final class GameManager: ObservableObject {
         }
 
         if gargoyleNeedsSword {
-            battle.message = "剣がないと攻撃が通じない！反撃で\(enemyDamage)ダメージを受けた。"
+            battle.message = "剣がないと攻撃が通じない！\n反撃で\(enemyDamage)ダメージを受けた。"
         } else {
-            battle.message = "攻撃！敵に\(playerDamage)ダメージ。反撃で\(enemyDamage)ダメージを受けた。"
+            battle.message = "攻撃！敵に\(playerDamage)ダメージ。\n反撃で\(enemyDamage)ダメージを受けた。"
         }
         newState.enemyBattle = battle
         state = newState
@@ -219,6 +232,28 @@ final class GameManager: ObservableObject {
         newState.message = "戦闘から逃げ出した。"
         state = newState
         onBattleStateChanged?(nil)
+    }
+
+    /// 撃破セリフの表示後に、ドロップアイテムの効果を適用する。
+    func collectPendingSkeletonDrop() {
+        guard let item = pendingSkeletonDrop else { return }
+        var newState = state
+        switch item {
+        case .shiritoriTime:
+            newState.shiritoriTimeBonusSeconds += 5
+            newState.message = "砂時計を手に入れた！\nしりとりの持ち時間が5秒増えた。"
+        case .runTimeReduction:
+            newState.runTimeReductionSeconds += 10
+            newState.message = "時短の砂時計を手に入れた！\n今回のクリアタイムが\n10秒短縮された。"
+        case .bandage:
+            let recovered = min(5, GameState.playerMaxHP - newState.playerHP)
+            newState.playerHP += recovered
+            newState.message = recovered > 0
+                ? "絆創膏を手に入れた！\nHPが\(recovered)回復。"
+                : "絆創膏を手に入れた！\nHPは満タンだ。"
+        }
+        state = newState
+        pendingSkeletonDrop = nil
     }
 
     private func showDefeatedEnemySpeech(_ kind: EnemyKind) {
@@ -236,7 +271,11 @@ final class GameManager: ObservableObject {
         defeatedEnemySpeech = nil
         pendingDefeatedEnemyKind = nil
         encounterEnemySpeechID += 1
-        let presentation = EnemyEncounterSpeech(id: encounterEnemySpeechID, kind: kind)
+        let presentation = EnemyEncounterSpeech(
+            id: encounterEnemySpeechID,
+            kind: kind,
+            message: kind.encounterDialogue(isTrialStage: stage.shiritoriStageKind == .trial)
+        )
         encounterEnemySpeech = presentation
         encounterEnemySpeechTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 5_000_000_000)
@@ -254,7 +293,11 @@ final class GameManager: ObservableObject {
     private func presentDefeatedEnemySpeech(_ kind: EnemyKind) {
         defeatedEnemySpeechTask?.cancel()
         defeatedEnemySpeechID += 1
-        let presentation = EnemyDefeatSpeech(id: defeatedEnemySpeechID, kind: kind)
+        let presentation = EnemyDefeatSpeech(
+            id: defeatedEnemySpeechID,
+            kind: kind,
+            message: kind.defeatDialogue(isTrialStage: stage.shiritoriStageKind == .trial)
+        )
         defeatedEnemySpeech = presentation
         defeatedEnemySpeechTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 3_000_000_000)

@@ -23,11 +23,20 @@ struct ShiritoriGameView: View {
     /// 通常版・試練版でカードデータを差し替えられるようにする。
     private let stage: ShiritoriStageType
 
-    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, onGameFinished: @escaping (Bool) -> Void) {
+    init(
+        cards: [Card] = CardData.cards,
+        stage: ShiritoriStageType = .normal,
+        initialPlayerTimeBonusSeconds: Int = 0,
+        onGameFinished: @escaping (Bool) -> Void
+    ) {
         self.onGameFinished = onGameFinished
         self.isTrialStage = stage == .trial
         self.stage = stage
-        _gameManager = State(initialValue: ShiritoriGameManager(cards: cards, stage: stage))
+        _gameManager = State(initialValue: ShiritoriGameManager(
+            cards: cards,
+            stage: stage,
+            initialPlayerTimeBonusSeconds: initialPlayerTimeBonusSeconds
+        ))
     }
 
     // 結果通知と遷移タイマーの重複を防ぐ
@@ -50,13 +59,13 @@ struct ShiritoriGameView: View {
     private var openingDialogueMessages: [String] {
         if stage == .trial {
             return [
-                "ほっほっほ・・・おみごとザンス。よく ミーのところまで たどりつけたと ほめてあげたいところザマス。",
-                "では、おフランスりゅうがく がえりの この ミーが きょうようというものを たたきこんでやるザマス。よごザンスね！？",
+                "ほっほっほ・・・おみごとザンス。\nよく ミーのところまで たどりつけたと\nほめてあげたいところザマス。",
+                "では、おフランスりゅうがく がえりの\nこの ミーが きょうようというものを\nたたきこんでやるザマス。よごザンスね！？",
                 "What's gathered? Run!\nワギャラン"
             ]
         }
         return [
-            "よくぞ　あのダンジョンをくぐりぬけた。ほめてやろう。",
+            "よくぞ　あのダンジョンをくぐりぬけた。\nほめてやろう。",
             "ふっふっふ・・・このカードのいみは、いうまでもあるまい。\nでは、いざ。",
             "What's gathered? Run!\nワギャラン"
         ]
@@ -169,7 +178,7 @@ struct ShiritoriGameView: View {
 
                                 Text("CPU")
                                     .font(
-                                        .system(
+                                        DungeonTypography.system(
                                             size: 14,
                                             weight: .bold,
                                             design: .monospaced
@@ -694,16 +703,19 @@ struct ShiritoriGameView: View {
     ShiritoriGameView(onGameFinished: { _ in })
 }
 
-// 1行のヒント表示。オーバーレイで描画するため既存レイアウトのサイズを変えない。
+// ヒントは意味のまとまりで折り返し、短い表示時間でも全文を読み取れるようにする。
 private struct HintLineView: View {
     let text: String
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .font(DungeonTypography.maruMonica(size: 11))
             .foregroundStyle(.white)
-            .lineLimit(1)
-            .truncationMode(.tail)
+            .lineLimit(2)
+            .lineSpacing(1)
+            .multilineTextAlignment(.center)
+            .minimumScaleFactor(0.82)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.horizontal, 4)
             .background(Color.black)

@@ -5,21 +5,24 @@ enum TutorialStep: Equatable {
     case moveForward
     case turnDirection
     case checkMap
+    case zoomMap
     case findKey
     case reachGoal
 
     var instruction: String {
         switch self {
         case .moveForward:
-            return "ステップ1/5：上フリックで\n1マス進もう！"
+            return "ステップ1/6：上フリックで\n1マス進もう！"
         case .turnDirection:
-            return "ステップ2/5：左右フリックで\n向きを変えよう！"
+            return "ステップ2/6：左右フリックで\n向きを変えよう！"
         case .checkMap:
-            return "ステップ3/5：上のダンジョン画面で\n進む方向を見て、下の探索マップで\n現在地を確認しよう！"
+            return "ステップ3/6：上のダンジョン画面で\n進む方向を見て、下の探索マップで\n現在地を確認しよう！"
+        case .zoomMap:
+            return "ステップ4/6：探索マップを\n2本指で広げて拡大しよう！"
         case .findKey:
-            return "ステップ4/5：宝箱を探して\n鍵を見つけよう！"
+            return "ステップ5/6：宝箱を探して\n鍵を見つけよう！"
         case .reachGoal:
-            return "ステップ5/5：鍵を手に入れた！\nゴールを探そう！"
+            return "ステップ6/6：鍵を手に入れた！\nゴールを探そう！"
         }
     }
 }
@@ -29,6 +32,7 @@ enum TutorialAction {
     case moveForward
     case turnLeft
     case turnRight
+    case zoomMap
 }
 
 /// 戦闘中の状態。敵は固定HPで管理し、seedが同じなら同じ配置になる。
@@ -52,14 +56,40 @@ struct EnemyBattle: Equatable {
 struct EnemyEncounterSpeech: Equatable {
     let id: Int
     let kind: EnemyKind
-    var message: String { kind.encounterDialogue }
+    let message: String
 }
 
 /// 敵を倒した直後、3秒間だけダンジョン画面に表示するセリフ。
 struct EnemyDefeatSpeech: Equatable {
     let id: Int
     let kind: EnemyKind
-    var message: String { kind.defeatDialogue }
+    let message: String
+}
+
+/// スケルトンが落とす3種類の回収アイテム。
+enum SkeletonDropItem: String, CaseIterable, Identifiable {
+    case shiritoriTime
+    case runTimeReduction
+    case bandage
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .shiritoriTime: "砂時計"
+        case .runTimeReduction: "時短の砂時計"
+        case .bandage: "絆創膏"
+        }
+    }
+
+    var effect: String {
+        switch self {
+        case .shiritoriTime: "しりとりの持ち時間が\n5秒増えた。"
+        case .runTimeReduction: "今回のクリアタイムが\n10秒短縮された。"
+        case .bandage: "HPを\n5回復"
+        }
+    }
+
 }
 
 /// ゲーム全体の状態(仕様書§11)
@@ -70,6 +100,10 @@ struct GameState {
     var hasKey: Bool = false
     var hasSword: Bool = false
     var playerHP = playerMaxHP
+    /// スケルトンの砂時計によるしりとり持ち時間加算。
+    var shiritoriTimeBonusSeconds = 0
+    /// 今回の探索タイムから差し引く秒数。
+    var runTimeReductionSeconds = 0
     var enemyBattle: EnemyBattle?
     var defeatedEnemies: Set<GridPos> = []
     var isGameOver = false
@@ -110,6 +144,8 @@ struct GameState {
         case (.turnDirection, .turnLeft), (.turnDirection, .turnRight):
             self.tutorialStep = .checkMap
         case (.checkMap, .moveForward), (.checkMap, .turnLeft), (.checkMap, .turnRight):
+            self.tutorialStep = .zoomMap
+        case (.zoomMap, .zoomMap):
             self.tutorialStep = .findKey
         default:
             break

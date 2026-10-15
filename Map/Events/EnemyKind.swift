@@ -25,6 +25,33 @@ enum EnemyKind: CaseIterable, Equatable {
         }
     }
 
+    var hitImageName: String {
+        switch self {
+        case .dragon: "MessageMonsterMove2"
+        case .slime: "SlimeHit"
+        case .skeleton: "SkeletonHit"
+        case .gargoyle: "GargoyleHit"
+        }
+    }
+
+    var attackImageName: String {
+        switch self {
+        case .dragon: "MessageMonsterMove1"
+        case .slime: "SlimeAttack"
+        case .skeleton: "SkeletonAttack"
+        case .gargoyle: "GargoyleAttack"
+        }
+    }
+
+    var defeatedImageName: String {
+        switch self {
+        case .dragon: "MessageMonsterMove3"
+        case .slime: "SlimeDefeated"
+        case .skeleton: "SkeletonDefeated"
+        case .gargoyle: "GargoyleDefeated"
+        }
+    }
+
     var encounterDialogue: String {
         switch self {
         case .slime: return "なんだか見たことないやつが\n迷い込んできたな・・・\n邪魔だ！"
@@ -34,6 +61,12 @@ enum EnemyKind: CaseIterable, Equatable {
         }
     }
 
+    func encounterDialogue(isTrialStage: Bool) -> String {
+        guard self == .skeleton else { return encounterDialogue }
+        let target = isTrialStage ? "門番" : "魔王"
+        return "なんだてめえ、この先にいる\(target)に\n出会いたかったら、俺を倒すんだな！"
+    }
+
     var defeatDialogue: String {
         switch self {
         case .slime: return "私が一番\n弱かったです、、"
@@ -41,6 +74,12 @@ enum EnemyKind: CaseIterable, Equatable {
         case .gargoyle: return "なんだよ！その武器！\nずるい！"
         case .dragon: return "見事だ…\n…。"
         }
+    }
+
+    func defeatDialogue(isTrialStage: Bool) -> String {
+        guard self == .skeleton else { return defeatDialogue }
+        let target = isTrialStage ? "門番" : "魔王"
+        return "ちくしょう！\n\(target)を倒したかったら\n語彙力をつけろよ！"
     }
 
     var maxHP: Int {

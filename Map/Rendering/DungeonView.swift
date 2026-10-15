@@ -7,6 +7,8 @@ struct DungeonView: View {
     let map: MapData
     let player: Player
     let theme: DungeonTheme?
+    let hasKey: Bool
+    let isGoalReached: Bool
 
     /// 描画する最大の奥行き(マス数)。仕様書§12.5
     let maxDepth = 5
@@ -58,7 +60,20 @@ struct DungeonView: View {
                 CGPoint(x: cx + f * x / z, y: cy - f * y / z)
             }
 
-            let doorImage = ctx.resolve(Image("door"))
+            let doorImage = ctx.resolve(Image(isGoalReached ? "DungeonDoorOpen" : "door"))
+            let chestImageName: String = {
+                switch (hasKey, player.direction) {
+                case (false, .north): "ChestClosedFront"
+                case (false, .south): "ChestClosedBack"
+                case (false, .west): "ChestClosedLeft"
+                case (false, .east): "ChestClosedRight"
+                case (true, .north): "ChestOpenFront"
+                case (true, .south): "ChestOpenBack"
+                case (true, .west): "ChestOpenLeft"
+                case (true, .east): "ChestOpenRight"
+                }
+            }()
+            let chestImage = ctx.resolve(Image(chestImageName))
 
             func polygon(_ points: [CGPoint]) -> Path {
                 var path = Path()
@@ -255,6 +270,9 @@ struct DungeonView: View {
                     let showsGoalDoor = i == 0
                         && (1...2).contains(d)
                         && map.cell(at: positionRelative(d, i)) == .goal
+                    let showsKeyChest = i == 0
+                        && (1...2).contains(d)
+                        && map.cell(at: positionRelative(d, i)) == .key
 
                     stoneSurface([
                         project(xl, 0.5, z0), project(xr, 0.5, z0),
@@ -303,6 +321,22 @@ struct DungeonView: View {
                         let bottomRight = project(xr, -0.5, z0)
                         ctx.draw(
                             doorImage,
+                            in: CGRect(
+                                x: topLeft.x,
+                                y: topLeft.y,
+                                width: bottomRight.x - topLeft.x,
+                                height: bottomRight.y - topLeft.y
+                            )
+                        )
+                    }
+
+                    // Kマスが前方2マス以内に見える場合、向きと開閉状態に合う宝箱を置く。
+                    if showsKeyChest {
+                        let chestDepth = Double(d) + 1.0
+                        let topLeft = project(-0.38, 0.05, chestDepth)
+                        let bottomRight = project(0.38, -0.5, chestDepth)
+                        ctx.draw(
+                            chestImage,
                             in: CGRect(
                                 x: topLeft.x,
                                 y: topLeft.y,

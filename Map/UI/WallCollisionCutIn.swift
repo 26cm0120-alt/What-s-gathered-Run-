@@ -42,7 +42,7 @@ struct PlayerEventCutIn: View {
                             Image(systemName: "drop.fill").rotationEffect(.degrees(18))
                             Image(systemName: "drop.fill").rotationEffect(.degrees(-18))
                         }
-                        .font(.system(size: 12, weight: .bold))
+                        .font(DungeonTypography.maruMonica(size: 12))
                         .foregroundStyle(Color(red: 0.35, green: 0.78, blue: 1.0))
                         .shadow(color: .black.opacity(0.9), radius: 2, y: 1)
                         .offset(y: -25)
@@ -52,7 +52,7 @@ struct PlayerEventCutIn: View {
                 .overlay(alignment: .topTrailing) {
                     if style.showsAlert {
                         Text("!")
-                            .font(.system(size: 30, weight: .black, design: .rounded))
+                            .font(DungeonTypography.maruMonica(size: 30))
                             .foregroundStyle(style.accent)
                             .shadow(color: .black, radius: 3, y: 2)
                             .offset(x: -8, y: 10)
@@ -62,12 +62,12 @@ struct PlayerEventCutIn: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .font(DungeonTypography.maruMonica(size: 11))
                     .tracking(2.4)
                     .foregroundStyle(style.accent)
 
                 Text(message)
-                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .font(DungeonTypography.maruMonica(size: 32))
                     .foregroundStyle(.white)
                     .shadow(color: style.accent.opacity(0.8), radius: 8)
                     .minimumScaleFactor(0.75)

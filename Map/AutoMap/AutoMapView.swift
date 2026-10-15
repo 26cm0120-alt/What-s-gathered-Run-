@@ -102,7 +102,7 @@ struct AutoMapView: View {
                     }
                     ctx.draw(
                         Text(symbol)
-                            .font(.system(size: cell * 0.6, weight: .bold))
+                            .font(DungeonTypography.maruMonica(size: cell * 0.6))
                             .foregroundColor(symbolColor),
                         at: CGPoint(x: r.midX, y: r.midY)
                     )

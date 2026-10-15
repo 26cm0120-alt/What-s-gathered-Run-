@@ -3,12 +3,17 @@ import SwiftUI
 
 /// クリア表示(仕様書§13.1、UI仕様書§14)。プレイ画面の上に重ねて、画面全体を覆って表示する
 struct ClearView: View {
-    /// ゴール到達までの今回のタイム
+    /// ゴール到達までの今回のタイム。チュートリアルではnil。
     let currentRunTime: TimeInterval?
-    /// モード初回クリアで、タイムを記録しないプレイだったことを示す
-    let isFirstClearRun: Bool
-    /// 試練の迷宮または同じランダムseedの最短タイム
+    /// 試練の迷宮またはランダムステージの最短タイム
     let bestClearTime: TimeInterval?
+    /// 次に進むステージ名
+    let nextStageTitle: String
+    let leaderboardTitle: String
+    let leaderboardEntries: [LeaderboardEntry]
+    let onSaveName: (String) -> Void
+    /// クリア後に次のステージへ進む
+    let onNextStage: () -> Void
     /// 対象モードだけ再挑戦を表示する
     let onReplay: (() -> Void)?
     /// 「スタート画面へ」が押されたときの処理
@@ -17,6 +22,9 @@ struct ClearView: View {
     @State private var clearAudioPlayer: AVAudioPlayer?
     @State private var clearAudioErrorDelegate: AudioPlaybackErrorDelegate?
     @State private var isCelebrating = false
+    @State private var playerName = ""
+    @State private var didSaveEntry = false
+    @FocusState private var isPlayerNameFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var formattedBestClearTime: String {
@@ -28,7 +36,6 @@ struct ClearView: View {
         GeometryReader { geometry in
             ZStack {
                 DungeonBackground()
-
                 VictoryBurst()
                     .opacity(0.42)
                     .ignoresSafeArea()
@@ -43,155 +50,51 @@ struct ClearView: View {
                         lineWidth: 2
                     )
                     .padding(16)
-
                 RoundedRectangle(cornerRadius: 22)
                     .stroke(Color(red: 0.82, green: 0.63, blue: 0.28).opacity(0.38), lineWidth: 1)
                     .padding(24)
 
-                VStack(spacing: 0) {
-                    Spacer(minLength: 24)
-
-                    HStack(spacing: 10) {
-                        Image(systemName: "sparkles")
-                        Text("DUNGEON CONQUERED")
-                            .tracking(3)
-                        Image(systemName: "sparkles")
+                ScrollView(.vertical) {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 12)
+                        titleBadge
+                        crownBadge
+                        titleText(width: max(0, geometry.size.width - 64))
+                        victoryTitle
+                        ornamentalDivider
+                        clearSummary
+                        timeSummary
+                        tutorialClearMessage
+                        nameEntrySection
+                        leaderboardPanel
+                        Spacer(minLength: currentRunTime == nil ? 64 : 18)
+                        nextStageButton
+                        replayButton
+                        returnButton
                     }
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(red: 0.94, green: 0.75, blue: 0.36))
-
-                    ZStack {
-                        Circle()
-                            .fill(Color(red: 0.88, green: 0.63, blue: 0.22).opacity(0.13))
-                            .frame(width: 112, height: 112)
-                        Circle()
-                            .stroke(Color(red: 0.96, green: 0.75, blue: 0.34).opacity(0.85), lineWidth: 2)
-                            .frame(width: 92, height: 92)
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 43, weight: .black))
-                            .foregroundStyle(LinearGradient(
-                                colors: [Color(red: 1.0, green: 0.88, blue: 0.52), Color(red: 0.78, green: 0.48, blue: 0.12)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ))
-                    }
-                    .scaleEffect(isCelebrating ? 1.06 : 0.96)
-                    .shadow(color: Color(red: 1.0, green: 0.67, blue: 0.18).opacity(0.65), radius: isCelebrating ? 30 : 12)
-                    .padding(.top, 22)
-                    .padding(.bottom, 14)
-
-                    Text("おめでとう!")
-                        .font(.system(size: min(geometry.size.width * 0.145, 58), weight: .black, design: .serif))
-                        .tracking(2)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.55)
-                        .foregroundStyle(LinearGradient(
-                            colors: [Color(red: 1.0, green: 0.91, blue: 0.62), Color(red: 0.94, green: 0.68, blue: 0.24), Color(red: 0.76, green: 0.43, blue: 0.10)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        .shadow(color: Color(red: 1.0, green: 0.66, blue: 0.18).opacity(0.7), radius: isCelebrating ? 24 : 8)
-
-                    Text("VICTORY")
-                        .font(.system(size: 23, weight: .black, design: .serif))
-                        .tracking(9)
-                        .foregroundStyle(Color.white.opacity(0.92))
-                        .padding(.top, 8)
-
-                    HStack(spacing: 12) {
-                        Rectangle().fill(Color(red: 0.80, green: 0.62, blue: 0.30).opacity(0.75)).frame(height: 1)
-                        Image(systemName: "diamond.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.35))
-                        Rectangle().fill(Color(red: 0.80, green: 0.62, blue: 0.30).opacity(0.75)).frame(height: 1)
-                    }
-                    .frame(maxWidth: 250)
+                    .padding(.horizontal, 18)
                     .padding(.vertical, 18)
-
-                    Text("ゲームクリア")
-                        .font(.system(size: 24, weight: .bold, design: .serif))
-                        .foregroundStyle(.white)
-
-                    Text("迷宮の試練を突破した")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.70))
-                        .padding(.top, 8)
-
-                    if isFirstClearRun {
-                        VStack(spacing: 7) {
-                            Text("初回クリアはタイム記録対象外")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Color.white.opacity(0.88))
-                            Text("次回の挑戦からタイムを記録します")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(Color.white.opacity(0.72))
-                            Text("最短クリアタイム：記録なし")
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.9))
-                                .padding(.top, 4)
-                        }
-                        .padding(.top, 18)
-                        .accessibilityElement(children: .combine)
-                    } else if let currentRunTime {
-                        VStack(spacing: 7) {
-                            Text("今回のクリアタイム")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Color.white.opacity(0.72))
-                            Text(DungeonTimeFormatter.string(from: currentRunTime))
-                                .font(.system(size: 30, weight: .bold, design: .monospaced))
-                                .monospacedDigit()
-                                .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
-                            Text("最短クリアタイム：\(formattedBestClearTime)")
-                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                .monospacedDigit()
-                                .foregroundStyle(.white.opacity(0.9))
-                                .padding(.top, 4)
-                        }
-                        .padding(.top, 18)
-                        .accessibilityElement(children: .combine)
-                    }
-
-                    Spacer(minLength: 16)
-
-                    if let onReplay {
-                        Button(action: onReplay) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "arrow.counterclockwise")
-                                Text("もう一度遊ぶ")
-                            }
-                            .font(.system(size: 17, weight: .bold, design: .serif))
-                            .frame(maxWidth: .infinity, minHeight: 54)
-                            .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
-                            .background(LinearGradient(
-                                colors: [Color(red: 1.0, green: 0.85, blue: 0.49), Color(red: 0.78, green: 0.53, blue: 0.18)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ), in: RoundedRectangle(cornerRadius: 14))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.68), lineWidth: 1))
-                        }
-                        .buttonStyle(DungeonPressButtonStyle())
-                        .frame(maxWidth: 290)
-                    }
-
-                    Button(action: onReturn) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "arrow.uturn.backward")
-                            Text("スタート画面へ")
-                        }
-                        .font(.system(size: 17, weight: .bold, design: .serif))
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .foregroundStyle(.white.opacity(0.9))
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.45), lineWidth: 1))
-                    }
-                    .buttonStyle(DungeonPressButtonStyle())
-                    .frame(maxWidth: 290)
-                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: max(0, geometry.size.height - 56), alignment: .top)
                 }
-                .padding(.horizontal, 38)
+                .scrollIndicators(.hidden)
+                .scrollDismissesKeyboard(.interactively)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 28)
+                .clipShape(RoundedRectangle(cornerRadius: 22))
+            }
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完了") {
+                    isPlayerNameFocused = false
+                }
+                .font(DungeonTypography.maruMonica(size: 16))
             }
         }
         .onAppear {
+            if playerName.isEmpty { playerName = "プレイヤー" }
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.15).repeatForever(autoreverses: true)) {
                 isCelebrating = true
             }
@@ -207,6 +110,281 @@ struct ClearView: View {
             clearAudioPlayer = nil
             clearAudioErrorDelegate = nil
         }
+    }
+
+    private var titleBadge: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "sparkles")
+            Text("DUNGEON CONQUERED")
+                .tracking(3)
+            Image(systemName: "sparkles")
+        }
+        .font(DungeonTypography.maruMonica(size: 14))
+        .foregroundStyle(Color(red: 0.94, green: 0.75, blue: 0.36))
+    }
+
+    private var crownBadge: some View {
+        ZStack {
+            Circle()
+                .fill(Color(red: 0.88, green: 0.63, blue: 0.22).opacity(0.13))
+                .frame(width: 112, height: 112)
+            Circle()
+                .stroke(Color(red: 0.96, green: 0.75, blue: 0.34).opacity(0.85), lineWidth: 2)
+                .frame(width: 92, height: 92)
+            Image(systemName: "crown.fill")
+                .font(DungeonTypography.maruMonica(size: 43))
+                .foregroundStyle(LinearGradient(
+                    colors: [Color(red: 1.0, green: 0.88, blue: 0.52), Color(red: 0.78, green: 0.48, blue: 0.12)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+        }
+        .scaleEffect(isCelebrating ? 1.06 : 0.96)
+        .shadow(color: Color(red: 1.0, green: 0.67, blue: 0.18).opacity(0.65), radius: isCelebrating ? 30 : 12)
+        .padding(.top, 22)
+        .padding(.bottom, 14)
+    }
+
+    private func titleText(width: CGFloat) -> some View {
+        Text("おめでとう!")
+            .font(DungeonTypography.maruMonica(size: min(width * 0.145, 58)))
+            .tracking(2)
+            .lineLimit(1)
+            .minimumScaleFactor(0.55)
+            .foregroundStyle(LinearGradient(
+                colors: [Color(red: 1.0, green: 0.91, blue: 0.62), Color(red: 0.94, green: 0.68, blue: 0.24), Color(red: 0.76, green: 0.43, blue: 0.10)],
+                startPoint: .top,
+                endPoint: .bottom
+            ))
+            .shadow(color: Color(red: 1.0, green: 0.66, blue: 0.18).opacity(0.7), radius: isCelebrating ? 24 : 8)
+    }
+
+    private var victoryTitle: some View {
+        Text("VICTORY")
+            .font(DungeonTypography.maruMonica(size: 25))
+            .tracking(9)
+            .foregroundStyle(Color.white.opacity(0.92))
+            .padding(.top, 8)
+    }
+
+    private var ornamentalDivider: some View {
+        HStack(spacing: 12) {
+            Rectangle().fill(Color(red: 0.80, green: 0.62, blue: 0.30).opacity(0.75)).frame(height: 1)
+            Image(systemName: "diamond.fill")
+                .font(DungeonTypography.maruMonica(size: 9))
+                .foregroundStyle(Color(red: 0.95, green: 0.75, blue: 0.35))
+            Rectangle().fill(Color(red: 0.80, green: 0.62, blue: 0.30).opacity(0.75)).frame(height: 1)
+        }
+        .frame(maxWidth: 250)
+        .padding(.vertical, 18)
+    }
+
+    private var clearSummary: some View {
+        VStack(spacing: 8) {
+            Text("ゲームクリア")
+                .font(DungeonTypography.maruMonica(size: 27))
+                .foregroundStyle(.white)
+            Text("迷宮の試練を突破した")
+                .font(DungeonTypography.maruMonica(size: 16))
+                .foregroundStyle(Color.white.opacity(0.70))
+        }
+    }
+
+    @ViewBuilder
+    private var tutorialClearMessage: some View {
+        if currentRunTime == nil {
+            Text("次からは\nクリアタイムが記録されます")
+                .font(DungeonTypography.maruMonica(size: 20))
+                .multilineTextAlignment(.center)
+                .lineSpacing(5)
+                .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                .padding(.top, 28)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private var timeSummary: some View {
+        if let currentRunTime {
+            VStack(spacing: 7) {
+                Text("今回のクリアタイム")
+                    .font(DungeonTypography.maruMonica(size: 16))
+                    .foregroundStyle(Color.white.opacity(0.72))
+                Text(DungeonTimeFormatter.string(from: currentRunTime))
+                    .font(DungeonTypography.maruMonica(size: 34))
+                    .monospacedDigit()
+                    .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                Text("最短クリアタイム：\(formattedBestClearTime)")
+                    .font(DungeonTypography.maruMonica(size: 16))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.top, 4)
+            }
+            .padding(.top, 18)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private var nameEntrySection: some View {
+        if currentRunTime != nil {
+            HStack(spacing: 8) {
+                TextField("", text: $playerName, prompt: Text("プレイヤー名を入力"))
+                    .font(DungeonTypography.maruMonica(size: 17))
+                    .textFieldStyle(.plain)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($isPlayerNameFocused)
+                    .submitLabel(.done)
+                    .onSubmit { isPlayerNameFocused = false }
+                    .padding(.horizontal, 12)
+                    .frame(height: 42)
+                    .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.35), lineWidth: 1))
+
+                Button {
+                    let trimmedName = playerName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmedName.isEmpty else { return }
+                    onSaveName(trimmedName)
+                    didSaveEntry = true
+                    isPlayerNameFocused = false
+                } label: {
+                    Text(didSaveEntry ? "登録済み" : "記録")
+                        .font(DungeonTypography.maruMonica(size: 16))
+                        .frame(width: 76, height: 42)
+                        .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
+                        .background(Color(red: 0.95, green: 0.74, blue: 0.32), in: RoundedRectangle(cornerRadius: 10))
+                }
+                .disabled(didSaveEntry)
+            }
+            .padding(.top, 16)
+
+            Text(didSaveEntry ? "ランキングに記録しました" : "名前を入力してランキングに記録")
+                .font(DungeonTypography.maruMonica(size: 14))
+                .foregroundStyle(.white.opacity(0.75))
+                .padding(.top, 5)
+        }
+    }
+
+    @ViewBuilder
+    private var leaderboardPanel: some View {
+        if currentRunTime != nil {
+            VStack(spacing: 6) {
+                Text("\(leaderboardTitle)  TOP 100")
+                    .font(DungeonTypography.maruMonica(size: 16))
+                    .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if leaderboardEntries.isEmpty {
+                    Text("記録はまだありません")
+                        .font(DungeonTypography.maruMonica(size: 15))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                } else {
+                    ScrollView(.vertical) {
+                        LazyVStack(spacing: 4) {
+                            ForEach(Array(leaderboardEntries.prefix(100).enumerated()), id: \.element.id) { index, entry in
+                                LeaderboardRowView(rank: index + 1, entry: entry)
+                            }
+                        }
+                    }
+                    .frame(height: 150)
+                    .scrollIndicators(.visible)
+                }
+            }
+            .padding(10)
+            .background(Color.black.opacity(0.36), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 0.82, green: 0.63, blue: 0.28).opacity(0.45), lineWidth: 1))
+            .padding(.top, 12)
+        }
+    }
+
+    private var nextStageButton: some View {
+        Button(action: onNextStage) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.right.circle.fill")
+                Text(nextStageTitle)
+            }
+            .font(DungeonTypography.maruMonica(size: 19))
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
+            .background(LinearGradient(
+                colors: [Color(red: 1.0, green: 0.85, blue: 0.49), Color(red: 0.78, green: 0.53, blue: 0.18)],
+                startPoint: .top,
+                endPoint: .bottom
+            ), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.68), lineWidth: 1))
+        }
+        .buttonStyle(DungeonPressButtonStyle())
+        .frame(maxWidth: 290)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var replayButton: some View {
+        if let onReplay {
+            Button(action: onReplay) {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.counterclockwise")
+                    Text("もう一度遊ぶ")
+                }
+                .font(DungeonTypography.maruMonica(size: 19))
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
+                .background(LinearGradient(
+                    colors: [Color(red: 1.0, green: 0.85, blue: 0.49), Color(red: 0.78, green: 0.53, blue: 0.18)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ), in: RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.68), lineWidth: 1))
+            }
+            .buttonStyle(DungeonPressButtonStyle())
+            .frame(maxWidth: 290)
+        }
+    }
+
+    private var returnButton: some View {
+        Button(action: onReturn) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.uturn.backward")
+                Text("スタート画面へ")
+            }
+            .font(DungeonTypography.maruMonica(size: 19))
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .foregroundStyle(.white.opacity(0.9))
+            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.45), lineWidth: 1))
+        }
+        .buttonStyle(DungeonPressButtonStyle())
+        .frame(maxWidth: 290)
+        .padding(.bottom, 24)
+    }
+}
+
+private struct LeaderboardRowView: View {
+    let rank: Int
+    let entry: LeaderboardEntry
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("\(rank)")
+                .frame(width: 32, alignment: .trailing)
+                .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+            Text(entry.playerName)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(DungeonTimeFormatter.string(from: entry.clearTime))
+                .monospacedDigit()
+            if let seed = entry.seed {
+                Text(String(format: "%04llX", seed & 0xFFFF))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+        }
+        .font(DungeonTypography.maruMonica(size: 14))
+        .foregroundStyle(.white.opacity(0.92))
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(rank.isMultiple(of: 2) ? Color.white.opacity(0.055) : .clear)
     }
 }
 
