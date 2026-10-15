@@ -23,10 +23,22 @@ struct ContentView: View {
             case .playing, .cleared:
                 // ダンジョンのプレイ画面。しりとり勝利後は既存のクリア表示を重ねる。
                 if let game = flow.game {
-                    PlayView(game: game, onGiveUp: flow.returnToStart)
+                    PlayView(
+                        game: game,
+                        timerStartedAt: flow.timerStartedAt,
+                        onGiveUp: flow.returnToStart
+                    )
                         .overlay {
                             if flow.screen == .cleared {
-                                ClearView(onReturn: flow.returnToStart)
+                                ClearView(
+                                    currentRunTime: flow.currentRunTime,
+                                    isFirstClearRun: flow.isFirstClearRun,
+                                    bestClearTime: flow.bestClearTime,
+                                    onReplay: flow.supportsReplayAndTiming
+                                        ? { flow.replayCurrentStage() }
+                                        : nil,
+                                    onReturn: flow.returnToStart
+                                )
                             }
                         }
                 }

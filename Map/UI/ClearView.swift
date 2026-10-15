@@ -3,6 +3,14 @@ import SwiftUI
 
 /// クリア表示(仕様書§13.1、UI仕様書§14)。プレイ画面の上に重ねて、画面全体を覆って表示する
 struct ClearView: View {
+    /// ゴール到達までの今回のタイム
+    let currentRunTime: TimeInterval?
+    /// モード初回クリアで、タイムを記録しないプレイだったことを示す
+    let isFirstClearRun: Bool
+    /// 試練の迷宮または同じランダムseedの最短タイム
+    let bestClearTime: TimeInterval?
+    /// 対象モードだけ再挑戦を表示する
+    let onReplay: (() -> Void)?
     /// 「スタート画面へ」が押されたときの処理
     let onReturn: () -> Void
 
@@ -10,6 +18,11 @@ struct ClearView: View {
     @State private var clearAudioErrorDelegate: AudioPlaybackErrorDelegate?
     @State private var isCelebrating = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var formattedBestClearTime: String {
+        guard let bestClearTime else { return "記録なし" }
+        return DungeonTimeFormatter.string(from: bestClearTime)
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -104,7 +117,61 @@ struct ClearView: View {
                         .foregroundStyle(Color.white.opacity(0.70))
                         .padding(.top, 8)
 
-                    Spacer(minLength: 24)
+                    if isFirstClearRun {
+                        VStack(spacing: 7) {
+                            Text("初回クリアはタイム記録対象外")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.88))
+                            Text("次回の挑戦からタイムを記録します")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.white.opacity(0.72))
+                            Text("最短クリアタイム：記録なし")
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(.top, 4)
+                        }
+                        .padding(.top, 18)
+                        .accessibilityElement(children: .combine)
+                    } else if let currentRunTime {
+                        VStack(spacing: 7) {
+                            Text("今回のクリアタイム")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.white.opacity(0.72))
+                            Text(DungeonTimeFormatter.string(from: currentRunTime))
+                                .font(.system(size: 30, weight: .bold, design: .monospaced))
+                                .monospacedDigit()
+                                .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                            Text("最短クリアタイム：\(formattedBestClearTime)")
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .monospacedDigit()
+                                .foregroundStyle(.white.opacity(0.9))
+                                .padding(.top, 4)
+                        }
+                        .padding(.top, 18)
+                        .accessibilityElement(children: .combine)
+                    }
+
+                    Spacer(minLength: 16)
+
+                    if let onReplay {
+                        Button(action: onReplay) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "arrow.counterclockwise")
+                                Text("もう一度遊ぶ")
+                            }
+                            .font(.system(size: 17, weight: .bold, design: .serif))
+                            .frame(maxWidth: .infinity, minHeight: 54)
+                            .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
+                            .background(LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.85, blue: 0.49), Color(red: 0.78, green: 0.53, blue: 0.18)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ), in: RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.68), lineWidth: 1))
+                        }
+                        .buttonStyle(DungeonPressButtonStyle())
+                        .frame(maxWidth: 290)
+                    }
 
                     Button(action: onReturn) {
                         HStack(spacing: 10) {
@@ -112,14 +179,10 @@ struct ClearView: View {
                             Text("スタート画面へ")
                         }
                         .font(.system(size: 17, weight: .bold, design: .serif))
-                        .frame(maxWidth: .infinity, minHeight: 58)
-                        .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
-                        .background(LinearGradient(
-                            colors: [Color(red: 1.0, green: 0.85, blue: 0.49), Color(red: 0.78, green: 0.53, blue: 0.18)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ), in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.68), lineWidth: 1))
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.45), lineWidth: 1))
                     }
                     .buttonStyle(DungeonPressButtonStyle())
                     .frame(maxWidth: 290)

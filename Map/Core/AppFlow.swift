@@ -4,10 +4,14 @@ import AVFoundation
 import UIKit
 
 private final class AudioPlayerCompletionDelegate: NSObject, AVAudioPlayerDelegate {
+    private let resourceName: String
+    private let fileExtension: String
     private let completion: () -> Void
     private var hasCompleted = false
 
-    init(completion: @escaping () -> Void) {
+    init(resourceName: String, fileExtension: String, completion: @escaping () -> Void) {
+        self.resourceName = resourceName
+        self.fileExtension = fileExtension
         self.completion = completion
     }
 
@@ -16,7 +20,7 @@ private final class AudioPlayerCompletionDelegate: NSObject, AVAudioPlayerDelega
     }
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        AudioPlayback.logDecodeError(for: "ドアを開ける1", error: error)
+        AudioPlayback.logDecodeError(for: resourceName, withExtension: fileExtension, error: error)
         finish()
     }
 
@@ -46,6 +50,19 @@ final class AppFlow: ObservableObject {
     @Published private(set) var game: GameManager?
     /// 前回のランダムステージseed。タイトル画面から同じ迷宮を再生成できる。
     @Published private(set) var lastRandomSeed: UInt64?
+    /// 計時対象ステージの計測開始時刻（単調増加時計）
+    @Published private(set) var timerStartedAt: TimeInterval?
+    /// G到達時に確定した今回のタイム
+    @Published private(set) var currentRunTime: TimeInterval?
+    /// 現在の試練モードまたはランダムseedの最短タイム
+    @Published private(set) var bestClearTime: TimeInterval?
+    /// 試練の迷宮・ランダムステージで再挑戦を表示する
+    @Published private(set) var supportsReplayAndTiming = false
+    /// モードの初回クリアで、今回のプレイがタイム記録対象外であることを示す
+    @Published private(set) var isFirstClearRun = false
+
+    private var currentRecordKey: String?
+    private var currentModeClearKey: String?
 
     private var titleBackgroundAudioPlayer: AVAudioPlayer?
     private var titleBackgroundAudioErrorDelegate: AudioPlaybackErrorDelegate?
@@ -55,6 +72,8 @@ final class AppFlow: ObservableObject {
     private var encounterBackgroundAudioErrorDelegate: AudioPlaybackErrorDelegate?
     private var doorOpenAudioPlayer: AVAudioPlayer?
     private var doorOpenCompletionDelegate: AudioPlayerCompletionDelegate?
+    private var shiritoriEnemyFallAudioPlayer: AVAudioPlayer?
+    private var shiritoriEnemyFallCompletionDelegate: AudioPlayerCompletionDelegate?
     private var isPlayingDoorOpenSequence = false
 
     init() {
@@ -71,12 +90,28 @@ final class AppFlow: ObservableObject {
         doorOpenAudioPlayer?.stop()
         doorOpenAudioPlayer = nil
         doorOpenCompletionDelegate = nil
+        shiritoriEnemyFallAudioPlayer?.stop()
+        shiritoriEnemyFallAudioPlayer = nil
+        shiritoriEnemyFallCompletionDelegate = nil
         isPlayingDoorOpenSequence = false
-        let newGame = GameManager(stage: stage)
+        let modeClearKey = modeClearKey(for: stage)
+        let hasClearedMode = modeClearKey.map(hasPreviouslyClearedMode) ?? false
+        let newGame = GameManager(stage: stage, wallCollisionDamageEnabled: hasClearedMode)
         lastRandomSeed = stage.seed
+        currentRecordKey = clearTimeRecordKey(for: stage)
+        currentModeClearKey = modeClearKey
+        supportsReplayAndTiming = currentRecordKey != nil
+        isFirstClearRun = supportsReplayAndTiming && !hasClearedMode
+        bestClearTime = currentRecordKey.flatMap { loadBestClearTime(for: $0) }
+        currentRunTime = nil
+        timerStartedAt = supportsReplayAndTiming && hasClearedMode
+            ? ProcessInfo.processInfo.systemUptime
+            : nil
         // ドアの音が終わってからしりとりのプロローグへ切り替える
-        newGame.onCleared = { [weak self] in
-            self?.playDoorOpenThenStartShiritori()
+        newGame.onCleared = { [weak self, weak newGame] in
+            guard let self, let newGame, self.game === newGame else { return }
+            self.stopTimerAtGoal()
+            self.playDoorOpenThenStartShiritori()
         }
         newGame.onGameOver = { [weak self, weak newGame] in
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
@@ -85,13 +120,13 @@ final class AppFlow: ObservableObject {
                 self.returnToStart()
             }
         }
-        newGame.onBattleStateChanged = { [weak self, weak newGame] isInBattle in
+        newGame.onBattleStateChanged = { [weak self, weak newGame] enemyKind in
             guard let self, let newGame, self.game === newGame else { return }
-            self.setEncounterBackgroundMusic(isInBattle, game: newGame)
+            self.setEncounterBackgroundMusic(for: enemyKind, game: newGame)
         }
         game = newGame
         screen = .playing
-        playStageBackgroundMusic()
+        playStageBackgroundMusic(for: newGame.stage)
     }
 
     /// 新しいseedでランダムステージを開始する。
@@ -103,6 +138,12 @@ final class AppFlow: ObservableObject {
     /// 前回のseedを使って同じ迷宮を再生成する。
     func replayRandomGame(seed: UInt64) {
         startGame(stage: Stages.random(seed: seed))
+    }
+
+    /// クリアした面を最初から再開する。ランダム面は同じseedを使う。
+    func replayCurrentStage() {
+        guard let stage = game?.stage, supportsReplayAndTiming else { return }
+        startGame(stage: stage)
     }
 
     /// しりとりのプロローグ終了後、開始元に対応するゲーム画面へ進む。
@@ -122,13 +163,17 @@ final class AppFlow: ObservableObject {
         case .trialShiritoriGame:
             // 試練ルートも勝利時は既存のクリア画面・クリア音を表示する。
             if won {
-                screen = .cleared
+                markCurrentModeAsCleared()
+                saveBestClearTimeIfNeeded()
+                playShiritoriEnemyFallThenShowClear()
             } else {
                 returnToStart()
             }
         case .shiritoriGame:
             if won {
-                screen = .cleared
+                markCurrentModeAsCleared()
+                saveBestClearTimeIfNeeded()
+                playShiritoriEnemyFallThenShowClear()
             } else {
                 returnToStart()
             }
@@ -145,6 +190,16 @@ final class AppFlow: ObservableObject {
         doorOpenAudioPlayer = nil
         doorOpenCompletionDelegate = nil
         isPlayingDoorOpenSequence = false
+        shiritoriEnemyFallAudioPlayer?.stop()
+        shiritoriEnemyFallAudioPlayer = nil
+        shiritoriEnemyFallCompletionDelegate = nil
+        timerStartedAt = nil
+        currentRunTime = nil
+        bestClearTime = nil
+        currentRecordKey = nil
+        currentModeClearKey = nil
+        supportsReplayAndTiming = false
+        isFirstClearRun = false
         game = nil
         screen = .start
         playTitleBackgroundMusic()
@@ -164,7 +219,7 @@ final class AppFlow: ObservableObject {
             return
         }
 
-        let completionDelegate = AudioPlayerCompletionDelegate { [weak self] in
+        let completionDelegate = AudioPlayerCompletionDelegate(resourceName: "ドアを開ける1", fileExtension: "mp3") { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.doorOpenAudioPlayer = nil
@@ -185,53 +240,81 @@ final class AppFlow: ObservableObject {
         }
     }
 
+    /// しりとり勝利後、敵が倒れる音を再生し終えてからクリア画面を出す。
+    private func playShiritoriEnemyFallThenShowClear() {
+        guard let player = AudioPlayback.makePlayer(named: "しりとり敵撃破", withExtension: "wav") else {
+            showClearScreenAfterShiritoriWin()
+            return
+        }
+        let delegate = AudioPlayerCompletionDelegate(resourceName: "しりとり敵撃破", fileExtension: "wav") { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.shiritoriEnemyFallAudioPlayer = nil
+                self.shiritoriEnemyFallCompletionDelegate = nil
+                self.showClearScreenAfterShiritoriWin()
+            }
+        }
+        shiritoriEnemyFallAudioPlayer = player
+        shiritoriEnemyFallCompletionDelegate = delegate
+        player.delegate = delegate
+        if !AudioPlayback.play(player, named: "しりとり敵撃破", withExtension: "wav") {
+            shiritoriEnemyFallAudioPlayer = nil
+            shiritoriEnemyFallCompletionDelegate = nil
+            showClearScreenAfterShiritoriWin()
+        }
+    }
+
+    private func showClearScreenAfterShiritoriWin() {
+        switch screen {
+        case .shiritoriGame, .trialShiritoriGame:
+            screen = .cleared
+        default:
+            break
+        }
+    }
+
     /// ステージ中のBGMをループ再生する。
-    private func playStageBackgroundMusic() {
-        guard let player = AudioPlayback.makePlayer(named: "3dmap") else { return }
+    private func playStageBackgroundMusic(for stage: Stage) {
+        let resourceName = stage.dungeonTheme?.backgroundMusicName ?? "探索BGM"
+        let fileExtension = stage.dungeonTheme?.backgroundMusicExtension ?? "mp3"
+        guard let player = AudioPlayback.makePlayer(named: resourceName, withExtension: fileExtension) else { return }
 
         player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1
-        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "3dmap")
+        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: fileExtension)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, named: "3dmap") else { return }
+        guard AudioPlayback.play(player, named: resourceName, withExtension: fileExtension) else { return }
         stageBackgroundAudioPlayer = player
         stageBackgroundAudioErrorDelegate = errorDelegate
     }
 
-    /// 敵との戦闘中だけボス戦BGMをループし、通常探索BGMと重ねない。
-    private func setEncounterBackgroundMusic(_ isInBattle: Bool, game: GameManager) {
-        if isInBattle {
+    /// 敵との戦闘中だけ新しい戦闘BGMをループし、通常探索BGMと重ねない。
+    private func setEncounterBackgroundMusic(for enemyKind: EnemyKind?, game: GameManager) {
+        if let enemyKind {
             stopStageBackgroundMusic()
             stopEncounterBackgroundMusic()
-            guard let asset = NSDataAsset(name: "nes_boss_15sec_rhythmic") else {
-                print("[Audio] 戦闘BGMデータが見つかりません: nes_boss_15sec_rhythmic")
+            let resourceName = enemyKind == .gargoyle ? "ガーゴイル戦闘BGM" : "通常戦闘BGM"
+            guard let player = AudioPlayback.makePlayer(named: resourceName, withExtension: "wav") else {
+                playStageBackgroundMusic(for: game.stage)
                 return
             }
-            do {
-                let player = try AVAudioPlayer(data: asset.data)
-                player.volume = AudioPlayback.backgroundMusicVolume
-                player.numberOfLoops = -1
-                let delegate = AudioPlaybackErrorDelegate(
-                    resourceName: "nes_boss_15sec_rhythmic",
-                    fileExtension: "wav"
-                )
-                player.delegate = delegate
-                guard player.prepareToPlay() else {
-                    print("[Audio] 戦闘BGMの再生準備に失敗しました: nes_boss_15sec_rhythmic.wav")
-                    return
-                }
-                guard AudioPlayback.play(player, named: "nes_boss_15sec_rhythmic", withExtension: "wav") else { return }
-                encounterBackgroundAudioPlayer = player
-                encounterBackgroundAudioErrorDelegate = delegate
-            } catch {
-                print("[Audio] 戦闘BGMの読み込みに失敗しました: \(error.localizedDescription)")
+            player.volume = AudioPlayback.encounterMusicVolume
+            player.numberOfLoops = -1
+            let delegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: "wav")
+            player.delegate = delegate
+            guard AudioPlayback.play(player, named: resourceName, withExtension: "wav") else {
+                playStageBackgroundMusic(for: game.stage)
+                return
             }
+            encounterBackgroundAudioPlayer = player
+            encounterBackgroundAudioErrorDelegate = delegate
         } else {
             stopEncounterBackgroundMusic()
             guard case .playing = screen,
                   !game.state.isCleared,
                   !game.state.isGameOver else { return }
-            playStageBackgroundMusic()
+            stopStageBackgroundMusic()
+            playStageBackgroundMusic(for: game.stage)
         }
     }
 
@@ -244,13 +327,13 @@ final class AppFlow: ObservableObject {
     /// タイトル画面のBGMをループ再生する。
     private func playTitleBackgroundMusic() {
         guard titleBackgroundAudioPlayer?.isPlaying != true,
-              let player = AudioPlayback.makePlayer(named: "Where_the_Stone_Eyes_Watch") else { return }
+              let player = AudioPlayback.makePlayer(named: "タイトルBGM") else { return }
 
         player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1
-        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "Where_the_Stone_Eyes_Watch")
+        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "タイトルBGM")
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, named: "Where_the_Stone_Eyes_Watch") else { return }
+        guard AudioPlayback.play(player, named: "タイトルBGM") else { return }
         titleBackgroundAudioPlayer = player
         titleBackgroundAudioErrorDelegate = errorDelegate
     }
@@ -267,5 +350,95 @@ final class AppFlow: ObservableObject {
         stageBackgroundAudioPlayer?.stop()
         stageBackgroundAudioPlayer = nil
         stageBackgroundAudioErrorDelegate = nil
+    }
+
+    /// タイマーは単調増加時計で計り、ゴールに入った時点で止める。
+    private func stopTimerAtGoal() {
+        guard let timerStartedAt else { return }
+        currentRunTime = max(0, ProcessInfo.processInfo.systemUptime - timerStartedAt)
+        self.timerStartedAt = nil
+    }
+
+    /// 完走タイムが既存の記録より短い場合だけ端末内に保存する。
+    private func saveBestClearTimeIfNeeded() {
+        guard let currentRecordKey, let currentRunTime else { return }
+        let savedTime = loadBestClearTime(for: currentRecordKey)
+        if let savedTime, savedTime <= currentRunTime {
+            bestClearTime = savedTime
+            return
+        }
+
+        UserDefaults.standard.set(currentRunTime, forKey: currentRecordKey)
+        bestClearTime = currentRunTime
+    }
+
+    private func loadBestClearTime(for key: String) -> TimeInterval? {
+        UserDefaults.standard.object(forKey: key) as? TimeInterval
+    }
+
+    /// 初回の成功クリア後、同じモードの次回以降を計時・壁ダメージの対象にする。
+    private func markCurrentModeAsCleared() {
+        guard let currentModeClearKey else { return }
+        UserDefaults.standard.set(true, forKey: currentModeClearKey)
+    }
+
+    /// 以前のバージョンで保存済みのベストタイムがあれば、クリア済みとして引き継ぐ。
+    private func hasPreviouslyClearedMode(_ key: String) -> Bool {
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: key) { return true }
+
+        let hasLegacyRecord: Bool
+        if key == "dungeon.hasCleared.random" {
+            hasLegacyRecord = defaults.dictionaryRepresentation().keys.contains {
+                $0.hasPrefix("dungeon.bestClearTime.random.")
+            }
+        } else {
+            hasLegacyRecord = defaults.object(forKey: "dungeon.bestClearTime.trial") != nil
+        }
+
+        if hasLegacyRecord {
+            defaults.set(true, forKey: key)
+        }
+        return hasLegacyRecord
+    }
+
+    /// 試練とランダムを別々に初回クリア管理する。チュートリアルは対象外。
+    private func modeClearKey(for stage: Stage) -> String? {
+        if stage.seed != nil {
+            return "dungeon.hasCleared.random"
+        }
+
+        guard !stage.isStepByStepTutorial else { return nil }
+        switch stage.shiritoriStageKind {
+        case .trial:
+            return "dungeon.hasCleared.trial"
+        case .standard:
+            return nil
+        }
+    }
+
+    /// 試練はモード共通、ランダムステージはseedごとに記録を分ける。
+    private func clearTimeRecordKey(for stage: Stage) -> String? {
+        if let seed = stage.seed {
+            return "dungeon.bestClearTime.random.\(String(format: "%016llX", seed))"
+        }
+
+        guard !stage.isStepByStepTutorial else { return nil }
+        switch stage.shiritoriStageKind {
+        case .trial:
+            return "dungeon.bestClearTime.trial"
+        case .standard:
+            return nil
+        }
+    }
+}
+
+enum DungeonTimeFormatter {
+    static func string(from time: TimeInterval) -> String {
+        let tenths = Int((max(0, time) * 10).rounded(.down))
+        let minutes = tenths / 600
+        let seconds = (tenths / 10) % 60
+        let fraction = tenths % 10
+        return String(format: "%02d:%02d.%d", minutes, seconds, fraction)
     }
 }

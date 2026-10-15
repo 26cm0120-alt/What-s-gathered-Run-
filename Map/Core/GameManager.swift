@@ -9,8 +9,19 @@ final class GameManager: ObservableObject {
     @Published private(set) var isInputLocked = false
     @Published private(set) var wallCollisionID = 0
     @Published private(set) var surpriseReactionID = 0
+    @Published private(set) var trapActivationID = 0
+    @Published private(set) var enemyEncounterID = 0
+    @Published private(set) var encounterEnemySpeech: EnemyEncounterSpeech?
+    @Published private(set) var defeatedEnemySpeech: EnemyDefeatSpeech?
 
     private var wallCollisionTask: Task<Void, Never>?
+    private var encounterEnemySpeechTask: Task<Void, Never>?
+    private var defeatedEnemySpeechTask: Task<Void, Never>?
+    private var encounterEnemySpeechID = 0
+    private var defeatedEnemySpeechID = 0
+    private var pendingDefeatedEnemyKind: EnemyKind?
+    private let wallCollisionDamageEnabled: Bool
+    private var wallCollisionCount = 0
     private let soundEffects = SoundEffectController()
 
     /// 現在の面のマップ
@@ -20,17 +31,24 @@ final class GameManager: ObservableObject {
     var onCleared: (() -> Void)?
     /// HPが0になったときに呼ばれる(スタート画面へ戻る)
     var onGameOver: (() -> Void)?
-    /// 敵との戦闘開始・終了時に呼ばれる(BGM切替に使う)
-    var onBattleStateChanged: ((Bool) -> Void)?
+    /// 戦闘の開始・終了に合わせたBGM切替通知
+    var onBattleStateChanged: ((EnemyKind?) -> Void)?
 
-    init(stage: Stage) {
+    init(stage: Stage, wallCollisionDamageEnabled: Bool = false) {
         self.stage = stage
+        self.wallCollisionDamageEnabled = wallCollisionDamageEnabled
         self.state = GameState(
             start: stage.map.startPosition,
             direction: stage.map.initialDirection,
             requiresKey: stage.requiresKey,
+            requiresSwordForKey: stage.requiresSwordForKey,
             isStepByStepTutorial: stage.isStepByStepTutorial
         )
+    }
+
+    deinit {
+        encounterEnemySpeechTask?.cancel()
+        defeatedEnemySpeechTask?.cancel()
     }
 
     // MARK: 操作
@@ -73,19 +91,46 @@ final class GameManager: ObservableObject {
         let cell = map.cell(at: next)
         if cell.isWall {
             var newState = state
-            newState.message = "\(blockedMessage) 2秒間動けません。"
+            var isGameOverFromWallDamage = false
+            if wallCollisionDamageEnabled {
+                wallCollisionCount += 1
+                if wallCollisionCount.isMultiple(of: 3) {
+                    newState.playerHP = max(0, newState.playerHP - 3)
+                    if newState.playerHP == 0 {
+                        newState.isGameOver = true
+                        newState.message = "壁に3回ぶつかった！\nHPが3減り、力尽きた……"
+                        isGameOverFromWallDamage = true
+                    } else {
+                        newState.message = "壁に3回ぶつかった！\nHPが3減った。2秒間動けません。"
+                    }
+                } else {
+                    let remainingHits = 3 - wallCollisionCount % 3
+                    newState.message = "\(blockedMessage) あと\(remainingHits)回壁にぶつかるとHPが3減ります。2秒間動けません。"
+                }
+            } else {
+                newState.message = "\(blockedMessage) 2秒間動けません。"
+            }
             state = newState
             wallCollisionID += 1
             surpriseReactionID += 1
-            soundEffects.play(named: "wall_hit")
-            lockInputAfterWallCollision()
+            soundEffects.play(named: "壁衝突音")
+            if isGameOverFromWallDamage {
+                onGameOver?()
+            } else {
+                lockInputAfterWallCollision()
+            }
             return
         }
 
         // 敵を倒したマスへ戻った場合は、再戦せず通過できる。
-        let event = cell == .enemy && state.defeatedEnemies.contains(next)
-            ? nil
-            : TileEvents.event(for: cell)
+        let event: (any TileEvent)?
+        if cell == .enemy && !state.defeatedEnemies.contains(next) {
+            event = EnemyEvent(kind: EnemyKind.encounter(seed: stage.seed, position: next))
+        } else if cell == .enemy {
+            event = nil
+        } else {
+            event = TileEvents.event(for: cell)
+        }
         if let reason = event?.blockReason(state: state) {
             var newState = state
             newState.message = reason
@@ -98,12 +143,20 @@ final class GameManager: ObservableObject {
         newState.explored.insert(next)
         newState.message = ""
         newState.recordTutorialAction(action)
+        if cell != .key && cell != .goal && cell != .sword {
+            soundEffects.play(named: "移動音")
+        }
         event?.onEnter(state: &newState, from: state.player.position)
         state = newState
-        if newState.enemyBattle != nil {
-            onBattleStateChanged?(true)
+        if let battle = newState.enemyBattle {
+            showEncounterEnemySpeech(battle.kind)
+            onBattleStateChanged?(battle.kind)
+            enemyEncounterID += 1
         }
-        if cell == .trap || newState.enemyBattle != nil {
+        if cell == .trap {
+            trapActivationID += 1
+        }
+        if newState.enemyBattle != nil {
             surpriseReactionID += 1
         }
 
@@ -117,7 +170,10 @@ final class GameManager: ObservableObject {
     func attackEnemy() {
         guard var battle = state.enemyBattle, !state.isCleared, !state.isGameOver else { return }
 
-        let playerDamage = 5
+        let gargoyleNeedsSword = state.requiresSwordForKey
+            && battle.kind == .gargoyle
+            && !state.hasSword
+        let playerDamage = gargoyleNeedsSword ? 0 : (state.hasSword ? 10 : 5)
         battle.enemyHP = max(0, battle.enemyHP - playerDamage)
         var newState = state
 
@@ -126,23 +182,30 @@ final class GameManager: ObservableObject {
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
             state = newState
-            onBattleStateChanged?(false)
+            soundEffects.play(named: "敵撃破")
+            showDefeatedEnemySpeech(battle.kind)
+            onBattleStateChanged?(nil)
             return
         }
 
-        let enemyDamage = 4
+        let enemyDamage = battle.kind.attackDamage
         newState.playerHP = max(0, newState.playerHP - enemyDamage)
         if newState.playerHP == 0 {
-            newState.enemyBattle = nil
+            battle.message = "力尽きた……"
+            newState.enemyBattle = battle
             newState.isGameOver = true
             newState.message = "力尽きた……"
             state = newState
-            onBattleStateChanged?(false)
+            onBattleStateChanged?(nil)
             onGameOver?()
             return
         }
 
-        battle.message = "攻撃！敵に\(playerDamage)ダメージ。反撃で\(enemyDamage)ダメージを受けた。"
+        if gargoyleNeedsSword {
+            battle.message = "剣がないと攻撃が通じない！反撃で\(enemyDamage)ダメージを受けた。"
+        } else {
+            battle.message = "攻撃！敵に\(playerDamage)ダメージ。反撃で\(enemyDamage)ダメージを受けた。"
+        }
         newState.enemyBattle = battle
         state = newState
     }
@@ -155,7 +218,51 @@ final class GameManager: ObservableObject {
         newState.enemyBattle = nil
         newState.message = "戦闘から逃げ出した。"
         state = newState
-        onBattleStateChanged?(false)
+        onBattleStateChanged?(nil)
+    }
+
+    private func showDefeatedEnemySpeech(_ kind: EnemyKind) {
+        guard encounterEnemySpeech == nil else {
+            pendingDefeatedEnemyKind = kind
+            return
+        }
+        presentDefeatedEnemySpeech(kind)
+    }
+
+    private func showEncounterEnemySpeech(_ kind: EnemyKind) {
+        encounterEnemySpeechTask?.cancel()
+        defeatedEnemySpeechTask?.cancel()
+        defeatedEnemySpeechTask = nil
+        defeatedEnemySpeech = nil
+        pendingDefeatedEnemyKind = nil
+        encounterEnemySpeechID += 1
+        let presentation = EnemyEncounterSpeech(id: encounterEnemySpeechID, kind: kind)
+        encounterEnemySpeech = presentation
+        encounterEnemySpeechTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled, let self,
+                  self.encounterEnemySpeech?.id == presentation.id else { return }
+            self.encounterEnemySpeech = nil
+            self.encounterEnemySpeechTask = nil
+            if let defeatedKind = self.pendingDefeatedEnemyKind {
+                self.pendingDefeatedEnemyKind = nil
+                self.presentDefeatedEnemySpeech(defeatedKind)
+            }
+        }
+    }
+
+    private func presentDefeatedEnemySpeech(_ kind: EnemyKind) {
+        defeatedEnemySpeechTask?.cancel()
+        defeatedEnemySpeechID += 1
+        let presentation = EnemyDefeatSpeech(id: defeatedEnemySpeechID, kind: kind)
+        defeatedEnemySpeech = presentation
+        defeatedEnemySpeechTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled, let self,
+                  self.defeatedEnemySpeech?.id == presentation.id else { return }
+            self.defeatedEnemySpeech = nil
+            self.defeatedEnemySpeechTask = nil
+        }
     }
 
     /// 壁にぶつかった後、移動と方向転換を2秒間受け付けない。

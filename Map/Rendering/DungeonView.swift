@@ -6,6 +6,7 @@ struct DungeonView: View {
     /// (関数ではなく値で受け取ることで、位置や向きが変わるたびに SwiftUI が再描画する)
     let map: MapData
     let player: Player
+    let theme: DungeonTheme?
 
     /// 描画する最大の奥行き(マス数)。仕様書§12.5
     let maxDepth = 5
@@ -95,28 +96,40 @@ struct DungeonView: View {
 
                 let averageHeight = (distance(corners[0], corners[3]) + distance(corners[1], corners[2])) / 2
                 let averageWidth = (distance(corners[0], corners[1]) + distance(corners[3], corners[2])) / 2
-                let rowCount = max(1, min(9, Int(averageHeight / 25)))
+                let activeTheme = theme ?? .temple
+                let isCave: Bool
+                let isForestMansion: Bool
+                switch activeTheme {
+                case .cave:
+                    isCave = true
+                    isForestMansion = false
+                case .forestMansion:
+                    isCave = false
+                    isForestMansion = true
+                case .temple, .hell:
+                    isCave = false
+                    isForestMansion = false
+                }
+                let rowSpacing = isForestMansion ? 16.0 : 25.0
+                let rowCount = max(1, min(12, Int(averageHeight / rowSpacing)))
                 let rowHeight = max(1, averageHeight / Double(rowCount))
-                let brickRatio = kind == 0 ? 1.8 : 2.25
+                let brickRatio = isForestMansion ? 4.8 : (kind == 0 ? 1.8 : 2.25)
                 let columnCount = max(1, min(14, Int(averageWidth / max(18, rowHeight * brickRatio))))
                 let step = 1.0 / Double(columnCount)
                 let depthShade = max(0.48, 1.0 - Double(depth) * 0.082)
                 let strokeWidth = max(0.7, min(1.5, rowHeight * 0.055))
 
-                let base: (red: Double, green: Double, blue: Double)
-                switch kind {
-                case 1:
-                    base = (0.17, 0.16, 0.13)
-                case 2:
-                    base = (0.105, 0.10, 0.085)
-                default:
-                    base = (0.30, 0.275, 0.235)
+                let base = activeTheme.stoneColor(surfaceKind: kind)
+                let accent = activeTheme.accentColor
+                func shaded(_ component: Double, _ tint: Double) -> Double {
+                    max(0, min(1, (component + tint) * depthShade))
                 }
 
                 for row in 0..<rowCount {
                     let v0 = Double(row) / Double(rowCount)
                     let v1 = Double(row + 1) / Double(rowCount)
-                    let stagger = row.isMultiple(of: 2) ? 0 : step * 0.5
+                    // 洋館の壁と床はまっすぐな板張り、ほかは石組みにする。
+                    let stagger = isForestMansion || row.isMultiple(of: 2) ? 0 : step * 0.5
                     var boundaries = [0.0]
                     var next = step + stagger
                     while next < 1 {
@@ -144,8 +157,37 @@ struct DungeonView: View {
                             green: max(0, min(1, (base.green + variation) * shade)),
                             blue: max(0, min(1, (base.blue + variation) * shade))
                         )
-                        ctx.fill(brick, with: .color(color))
-                        ctx.stroke(brick, with: .color(mortar), lineWidth: strokeWidth)
+                        if isCave {
+                            // 水晶洞窟はレンガ目地を使わず、透ける結晶面の集合として描く。
+                            let center = surfacePoint((u0 + u1) / 2, (v0 + v1) / 2, corners: corners)
+                            let facets = [
+                                [points[0], points[1], center],
+                                [points[1], points[2], center],
+                                [points[2], points[3], center],
+                                [points[3], points[0], center]
+                            ]
+                            for (facetIndex, facet) in facets.enumerated() {
+                                let facetPath = polygon(facet)
+                                let tint = Double((tone + facetIndex * 3) % 5 - 2) * 0.035
+                                let facetColor = Color(
+                                    red: max(0, min(1, shaded(base.red, variation + tint))),
+                                    green: max(0, min(1, shaded(base.green, variation + tint))),
+                                    blue: max(0, min(1, shaded(base.blue + 0.06, variation + tint)))
+                                )
+                                ctx.fill(facetPath, with: .color(facetColor))
+                                ctx.stroke(facetPath, with: .color(Color(red: accent.red, green: accent.green, blue: accent.blue).opacity(depthShade * 0.28)), lineWidth: 0.8)
+                            }
+                            if kind == 0 && abs(row * 7 + column * 11 + seed * 3 + depth).isMultiple(of: 3) {
+                                var vein = Path()
+                                vein.move(to: surfacePoint(u0 + (u1 - u0) * 0.25, v0 + (v1 - v0) * 0.9, corners: corners))
+                                vein.addLine(to: center)
+                                vein.addLine(to: surfacePoint(u0 + (u1 - u0) * 0.75, v0 + (v1 - v0) * 0.1, corners: corners))
+                                ctx.stroke(vein, with: .color(Color(red: accent.red, green: accent.green, blue: accent.blue).opacity(depthShade * 0.9)), lineWidth: max(1.1, min(2.2, rowHeight * 0.09)))
+                            }
+                        } else {
+                            ctx.fill(brick, with: .color(color))
+                            ctx.stroke(brick, with: .color(mortar), lineWidth: strokeWidth)
+                        }
 
                         var highlight = Path()
                         highlight.move(to: points[0])
@@ -156,6 +198,41 @@ struct DungeonView: View {
                             with: .color(Color.white.opacity(highlightOpacity)),
                             lineWidth: 0.7
                         )
+
+                        // 壁の一部にテーマ固有の意匠を刻み、単なる色替えに見えないようにする。
+                        let detailSeed = abs(row * 7 + column * 11 + seed * 3 + depth)
+                        let shouldDrawWallDetail = isForestMansion
+                            ? detailSeed.isMultiple(of: 2)
+                            : detailSeed.isMultiple(of: 5)
+                        if kind == 0 && shouldDrawWallDetail {
+                            var detail = Path()
+                            switch activeTheme {
+                            case .temple:
+                                detail.move(to: surfacePoint(u0 + (u1 - u0) * 0.18, v0 + (v1 - v0) * 0.28, corners: corners))
+                                detail.addLine(to: surfacePoint(u1 - (u1 - u0) * 0.18, v0 + (v1 - v0) * 0.28, corners: corners))
+                            case .cave:
+                                detail.move(to: surfacePoint(u0 + (u1 - u0) * 0.28, v0 + (v1 - v0) * 0.82, corners: corners))
+                                detail.addLine(to: surfacePoint(u0 + (u1 - u0) * 0.52, v0 + (v1 - v0) * 0.34, corners: corners))
+                                detail.addLine(to: surfacePoint(u0 + (u1 - u0) * 0.78, v0 + (v1 - v0) * 0.18, corners: corners))
+                            case .hell:
+                                detail.move(to: surfacePoint(u0 + (u1 - u0) * 0.45, v0 + (v1 - v0) * 0.05, corners: corners))
+                                detail.addLine(to: surfacePoint(u0 + (u1 - u0) * 0.38, v0 + (v1 - v0) * 0.45, corners: corners))
+                                detail.addLine(to: surfacePoint(u0 + (u1 - u0) * 0.62, v0 + (v1 - v0) * 0.7, corners: corners))
+                                detail.addLine(to: surfacePoint(u0 + (u1 - u0) * 0.54, v0 + (v1 - v0) * 0.96, corners: corners))
+                            case .forestMansion:
+                                detail.move(to: surfacePoint(u0 + (u1 - u0) * 0.18, v0 + (v1 - v0) * 0.92, corners: corners))
+                                detail.addCurve(
+                                    to: surfacePoint(u0 + (u1 - u0) * 0.78, v0 + (v1 - v0) * 0.10, corners: corners),
+                                    control1: surfacePoint(u0 + (u1 - u0) * 0.42, v0 + (v1 - v0) * 0.72, corners: corners),
+                                    control2: surfacePoint(u0 + (u1 - u0) * 0.56, v0 + (v1 - v0) * 0.22, corners: corners)
+                                )
+                            }
+                            ctx.stroke(
+                                detail,
+                                with: .color(Color(red: accent.red, green: accent.green, blue: accent.blue).opacity(depthShade * 0.65)),
+                                lineWidth: max(0.8, min(1.8, rowHeight * 0.08))
+                            )
+                        }
                     }
                 }
             }
@@ -237,6 +314,7 @@ struct DungeonView: View {
                 }
             }
         }
+
         .aspectRatio(1, contentMode: .fit)          // 3D表示領域は正方形(仕様書§12.6)
         .background(Color(red: 0.025, green: 0.024, blue: 0.022))
         .clipShape(RoundedRectangle(cornerRadius: 12))
