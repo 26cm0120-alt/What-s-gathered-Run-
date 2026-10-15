@@ -518,9 +518,9 @@ struct ShiritoriGameView: View {
         if gameManager.gameResult == .playerLoseTimeout || gameManager.gameResult == .playerLoseN {
             let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
             let sequence: [(String, TimeInterval)] = [
-                ("jump1", 1.0), ("jump2", 1.0), ("jump3", 0.5),
+                ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
                 ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
-                ("jump1", 1.0), ("jump2", 1.0), ("jump3", 0.5),
+                ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
                 ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
                 ("jump1", 0.5)
             ]
@@ -538,9 +538,9 @@ struct ShiritoriGameView: View {
             case .success:
                 // CPUが正しくカードを取ったときのジャンプは既存イベントに同期して7.5秒で終了。
                 let sequence: [(String, TimeInterval)] = [
-                    ("jump1", 1.0), ("jump2", 1.0), ("jump3", 0.5),
+                    ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
                     ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
-                    ("jump1", 1.0), ("jump2", 1.0), ("jump3", 0.5),
+                    ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
                     ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
                     ("jump1", 0.5)
                 ]
