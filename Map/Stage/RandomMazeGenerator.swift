@@ -68,12 +68,18 @@ enum RandomMazeGenerator {
         let farthestCells = distances.compactMap { $0.value == farthestDistance ? $0.key : nil }
         let goal = farthestCells[random.nextInt(upperBound: farthestCells.count)]
         let path = shortestPath(from: start, to: goal, in: cells)
-        let keyIndex = min(path.count - 2, max(1, path.count / 2))
+        precondition(path.count >= 6, "ランダム迷宮の経路が短すぎて剣・敵・鍵を配置できません")
+        let keyIndex = min(path.count - 3, max(3, path.count / 2))
+        let swordIndex = max(1, keyIndex / 3)
+        let sword = path[swordIndex]
         let key = path[keyIndex]
-        let enemyCandidates = path.enumerated().compactMap { index, position in
-            index > 0 && index < path.count - 1 && index != keyIndex ? position : nil
-        }
-        let enemy = enemyCandidates[random.nextInt(upperBound: enemyCandidates.count)]
+        let preKeyEnemyCandidates = Array((swordIndex + 1)..<keyIndex).map { path[$0] }
+        let postKeyEnemyCandidates = Array((keyIndex + 1)..<(path.count - 1)).map { path[$0] }
+        precondition(!preKeyEnemyCandidates.isEmpty && !postKeyEnemyCandidates.isEmpty, "剣・鍵の前後に敵を配置できません")
+        // 最初の敵は剣取得後・鍵の手前、2体目は鍵を取った後に配置する。
+        let firstEnemy = preKeyEnemyCandidates[random.nextInt(upperBound: preKeyEnemyCandidates.count)]
+        let secondEnemy = postKeyEnemyCandidates[random.nextInt(upperBound: postKeyEnemyCandidates.count)]
+        let enemies = [firstEnemy, secondEnemy]
 
         let routeToGoal = Set(path)
         let trapCandidates = cells.indices.flatMap { y in
@@ -88,8 +94,11 @@ enum RandomMazeGenerator {
 
         // TはSからGへの最短経路外に置く。イベント記号の置換で通路の連結性は変わらない。
         cells[start.y][start.x] = "S"
+        cells[sword.y][sword.x] = "W"
         cells[key.y][key.x] = "K"
-        cells[enemy.y][enemy.x] = "E"
+        for enemy in enemies {
+            cells[enemy.y][enemy.x] = "E"
+        }
         cells[trap.y][trap.x] = "T"
         cells[goal.y][goal.x] = "G"
 

@@ -14,66 +14,65 @@ struct StartView: View {
     let onReplayRandomStage: (UInt64) -> Void
 
     var body: some View {
-        ZStack {
-            DungeonBackground()
+        GeometryReader { geometry in
+            // iPhone 16e の表示領域では通常サイズを使い、特に小さい画面だけ縮小する。
+            let compact = geometry.size.height < 700
+            ZStack {
+                DungeonBackground()
 
-            ScrollView {
-                VStack(spacing: 8) {
+                VStack(spacing: compact ? 3 : 6) {
                     DungeonGateEmblem()
-                        .frame(width: 100, height: 88)
-                        .padding(.top, 12)
+                        .frame(width: compact ? 50 : 64, height: compact ? 44 : 56)
+                        .padding(.top, compact ? 2 : 4)
 
                     VStack(spacing: 0) {
                         VStack(spacing: -4) {
                             Text("What's gathered?")
-                                .font(.system(size: 29, weight: .bold, design: .serif))
-                                .minimumScaleFactor(0.85)
+                                .font(.system(size: compact ? 26 : 30, weight: .bold, design: .serif))
+                                .minimumScaleFactor(0.82)
                                 .lineLimit(1)
                             Text("Run!")
-                                .font(.system(size: 52, weight: .heavy, design: .serif))
+                                .font(.system(size: compact ? 46 : 54, weight: .heavy, design: .serif))
                         }
-                        Text("ワギャラン")
-                            .font(.system(size: 20, weight: .semibold, design: .serif))
-                            .tracking(4)
-                            .padding(.top, 5)
+                        .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
+                        AnimatedTitleDragonTitleRow(compact: compact)
                     }
-                    .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
                     .accessibilityElement(children: .combine)
 
                     Rectangle()
                         .fill(Color(red: 0.64, green: 0.52, blue: 0.29).opacity(0.8))
-                        .frame(width: 190, height: 1.5)
-                        .padding(.vertical, 2)
+                        .frame(width: compact ? 160 : 210, height: 1)
 
-                    VStack(spacing: 7) {
+                    VStack(spacing: compact ? 3 : 6) {
                         Text("ファミコン時代の Wizardry・女神転生を思わせる、\nグリッド型の3Dダンジョン探索ゲーム")
-                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .font(.system(size: compact ? 12 : 14, weight: .medium, design: .serif))
                             .foregroundStyle(Color.white.opacity(0.78))
 
                         Text("鍵を見つけ、石造りの迷宮を抜けて\nゴールを目指そう")
-                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .font(.system(size: compact ? 14 : 16, weight: .semibold, design: .serif))
                             .foregroundStyle(Color.white.opacity(0.96))
                     }
                     .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
                     .frame(maxWidth: 360)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, compact ? 8 : 14)
+                    .padding(.vertical, compact ? 6 : 9)
                     .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
                     .overlay {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.48), lineWidth: 1)
                     }
 
-                    AnimatedTitleMonsterView()
-                        .frame(height: 68)
+                    AnimatedTitleMonsterView(compact: compact)
 
                     Text("探索モードを選ぶ")
-                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .font(.system(size: compact ? 17 : 19, weight: .bold, design: .serif))
                         .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
                         .frame(maxWidth: 360, alignment: .leading)
-                        .padding(.top, 3)
+                        .padding(.top, compact ? 0 : 2)
 
-                    VStack(spacing: 10) {
+                    VStack(spacing: compact ? 5 : 8) {
                         ForEach(stages.indices, id: \.self) { index in
                             let stage = stages[index]
                             modeButton(
@@ -81,7 +80,8 @@ struct StartView: View {
                                 symbol: stage.isStepByStepTutorial ? "book.closed.fill" : "shield.fill",
                                 subtitle: stage.isStepByStepTutorial
                                     ? "操作と鍵の取り方を練習"
-                                    : "固定マップを探索"
+                                    : "固定マップを探索",
+                                compact: compact
                             ) {
                                 onSelect(stage)
                             }
@@ -90,7 +90,8 @@ struct StartView: View {
                         modeButton(
                             title: "ランダムステージ",
                             symbol: "shuffle",
-                            subtitle: "通路とイベントが毎回変わる"
+                            subtitle: "4つの迷宮と新要素を探索",
+                            compact: compact
                         ) {
                             onRandomStage()
                         }
@@ -99,7 +100,8 @@ struct StartView: View {
                             modeButton(
                                 title: "前回の迷宮を再現",
                                 symbol: "arrow.clockwise",
-                                subtitle: "SEED \(seedText(lastRandomSeed))"
+                                subtitle: "SEED \(seedText(lastRandomSeed))",
+                                compact: compact
                             ) {
                                 onReplayRandomStage(lastRandomSeed)
                             }
@@ -107,27 +109,35 @@ struct StartView: View {
                     }
                     .frame(maxWidth: 360)
 
-                    Text("上フリックで前進、左右で旋回、下で反転。\n鍵を手に入れてゴールへ。")
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                    Text("上フリックで前進、左右で旋回、下で反転。鍵を手に入れてゴールへ。")
+                        .font(.system(size: compact ? 11 : 13, weight: .medium, design: .serif))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.white.opacity(0.76))
                         .frame(maxWidth: 360)
-                        .padding(.top, 2)
-                        .padding(.bottom, 20)
+                        .padding(.horizontal, 4)
+                        .padding(.bottom, compact ? 3 : 8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 26)
-            }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, compact ? 24 : 26)
 
-            // 古い石碑を思わせる二重の金縁
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.65), lineWidth: 1)
-                .padding(8)
-                .allowsHitTesting(false)
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                .padding(13)
-                .allowsHitTesting(false)
+                // 古い石碑を思わせる二重の金縁
+                GeometryReader { geometry in
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.65), lineWidth: 1)
+                    .frame(width: max(0, geometry.size.width - 16), height: max(0, geometry.size.height - 16))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    .allowsHitTesting(false)
+                RoundedRectangle(cornerRadius: 9)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    .frame(width: max(0, geometry.size.width - 26), height: max(0, geometry.size.height - 26))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    .allowsHitTesting(false)
+                }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(.dark)
@@ -137,31 +147,36 @@ struct StartView: View {
         title: String,
         symbol: String,
         subtitle: String,
+        compact: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Image(systemName: symbol)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: compact ? 16 : 19, weight: .semibold))
                     .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
-                    .frame(width: 34, height: 34)
+                    .frame(width: compact ? 32 : 38, height: compact ? 32 : 38)
                     .background(Color.white.opacity(0.06), in: Circle())
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: compact ? 1 : 4) {
                     Text(title)
-                        .font(.system(size: 18, weight: .bold, design: .serif))
+                        .font(.system(size: compact ? 18 : 20, weight: .bold, design: .serif))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .foregroundStyle(Color.white.opacity(0.95))
                     Text(subtitle)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.system(size: compact ? 12 : 14, weight: .medium, design: .serif))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .foregroundStyle(Color.white.opacity(0.84))
                 }
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: compact ? 14 : 16, weight: .bold))
                     .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
             }
-            .padding(.horizontal, 15)
-            .frame(maxWidth: .infinity, minHeight: 68)
+            .padding(.horizontal, compact ? 10 : 15)
+            .frame(maxWidth: .infinity, minHeight: compact ? 58 : 68)
         }
         .buttonStyle(DungeonPressButtonStyle())
     }

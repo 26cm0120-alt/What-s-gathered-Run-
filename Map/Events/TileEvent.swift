@@ -20,8 +20,9 @@ enum TileEvents {
     static func event(for cell: MapCell) -> (any TileEvent)? {
         switch cell {
         case .trap: return TrapEvent()
+        case .sword: return SwordEvent()
         case .key:  return KeyEvent()
-        case .enemy: return EnemyEvent()
+        case .enemy: return nil // 敵種はseedと座標からGameManagerが決める
         case .goal: return GoalEvent()
         case .wall, .floor, .start: return nil
         }

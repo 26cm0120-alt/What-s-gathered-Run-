@@ -33,12 +33,33 @@ enum TutorialAction {
 
 /// 戦闘中の状態。敵は固定HPで管理し、seedが同じなら同じ配置になる。
 struct EnemyBattle: Equatable {
-    static let enemyMaxHP = 15
-
+    let kind: EnemyKind
     let enemyPosition: GridPos
     let retreatPosition: GridPos
-    var enemyHP = enemyMaxHP
-    var message = "敵が現れた！"
+    var enemyHP: Int
+    var message: String
+
+    init(kind: EnemyKind, enemyPosition: GridPos, retreatPosition: GridPos) {
+        self.kind = kind
+        self.enemyPosition = enemyPosition
+        self.retreatPosition = retreatPosition
+        self.enemyHP = kind.maxHP
+        self.message = "\(kind.name)が現れた！"
+    }
+}
+
+/// 敵との遭遇直後、5秒間ダンジョン画面に表示するセリフ。
+struct EnemyEncounterSpeech: Equatable {
+    let id: Int
+    let kind: EnemyKind
+    var message: String { kind.encounterDialogue }
+}
+
+/// 敵を倒した直後、3秒間だけダンジョン画面に表示するセリフ。
+struct EnemyDefeatSpeech: Equatable {
+    let id: Int
+    let kind: EnemyKind
+    var message: String { kind.defeatDialogue }
 }
 
 /// ゲーム全体の状態(仕様書§11)
@@ -47,12 +68,15 @@ struct GameState {
 
     var player: Player
     var hasKey: Bool = false
+    var hasSword: Bool = false
     var playerHP = playerMaxHP
     var enemyBattle: EnemyBattle?
     var defeatedEnemies: Set<GridPos> = []
     var isGameOver = false
     /// この面でクリアするのに、鍵が必要か(仕様書§3.3)。面の定義から設定する
     let requiresKey: Bool
+    /// ランダム面では剣がないとガーゴイルに攻撃が通らず、鍵宝箱も開けられない。
+    let requiresSwordForKey: Bool
     /// クリア済みか(仕様書§11 クリア状態)
     var isCleared: Bool = false
     /// 探索済みのマス(オートマップ用)
@@ -62,9 +86,16 @@ struct GameState {
     /// 段階式チュートリアルの現在位置。本番面では nil
     var tutorialStep: TutorialStep?
 
-    init(start: GridPos, direction: Direction, requiresKey: Bool, isStepByStepTutorial: Bool = false) {
+    init(
+        start: GridPos,
+        direction: Direction,
+        requiresKey: Bool,
+        requiresSwordForKey: Bool = false,
+        isStepByStepTutorial: Bool = false
+    ) {
         self.player = Player(position: start, direction: direction)
         self.requiresKey = requiresKey
+        self.requiresSwordForKey = requiresSwordForKey
         self.explored = [start]   // Sは開始時に探索済み
         self.tutorialStep = isStepByStepTutorial ? .moveForward : nil
     }

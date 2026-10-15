@@ -4,8 +4,11 @@ import OSLog
 
 /// ゲーム音声の端末設定と再生失敗の記録をまとめる。
 enum AudioPlayback {
-    /// 控えめなBGM音量。効果音の音量には適用しない。
-    static let backgroundMusicVolume: Float = 0.2
+    /// 通常のゲーム内BGMと効果音の音量。
+    static let backgroundMusicVolume: Float = 0.5
+    static let soundEffectVolume: Float = 0.5
+    /// 戦闘BGM専用の音量。
+    static let encounterMusicVolume: Float = 0.3
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "DungeonGame",
@@ -30,6 +33,7 @@ enum AudioPlayback {
 
         do {
             let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = soundEffectVolume
             guard player.prepareToPlay() else {
                 logger.error("音源の再生準備に失敗しました: \(resourceName, privacy: .public).\(fileExtension, privacy: .public)")
                 return nil
@@ -90,6 +94,7 @@ final class SoundEffectController {
         } else {
             guard let newPlayer = AudioPlayback.makePlayer(named: resourceName, withExtension: "wav") else { return }
             let delegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: "wav")
+            newPlayer.volume = AudioPlayback.soundEffectVolume
             newPlayer.delegate = delegate
             players[resourceName] = newPlayer
             delegates[resourceName] = delegate
