@@ -18,9 +18,12 @@ struct ShiritoriGameView: View {
     @State private var gameManager: ShiritoriGameManager
 
     /// 通常版・試練版でカードデータを差し替えられるようにする。
-    init(cards: [Card] = CardData.cards, onGameFinished: @escaping (Bool) -> Void) {
+    private let stage: ShiritoriStageType
+
+    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, onGameFinished: @escaping (Bool) -> Void) {
         self.onGameFinished = onGameFinished
-        _gameManager = State(initialValue: ShiritoriGameManager(cards: cards))
+        self.stage = stage
+        _gameManager = State(initialValue: ShiritoriGameManager(cards: cards, stage: stage))
     }
 
     // 結果通知と遷移タイマーの重複を防ぐ
@@ -40,11 +43,20 @@ struct ShiritoriGameView: View {
     @State private var defeatBGMPlayed = false
 
     // プロローグ直後にCPUが表示する3段階の導入メッセージ
-    private let openingDialogueMessages = [
-        "よくぞ　あのダンジョンをくぐりぬけた。ほめてやろう。",
-        "ふっふっふ・・・このカードのいみは、いうまでもあるまい。\nでは、いざ。",
-        "What's gathered? Run!\nワギャラン"
-    ]
+    private var openingDialogueMessages: [String] {
+        if stage == .trial {
+            return [
+                "ほっほっほ・・・おみごとザンス。よく ミーのところまで たどりつけたと ほめてあげたいところザマス。",
+                "では、おフランスりゅうがく がえりの この ミーが きょうようというものを たたきこんでやるザマス。よごザンスね！？",
+                "What's gathered? Run!\nワギャラン"
+            ]
+        }
+        return [
+            "よくぞ　あのダンジョンをくぐりぬけた。ほめてやろう。",
+            "ふっふっふ・・・このカードのいみは、いうまでもあるまい。\nでは、いざ。",
+            "What's gathered? Run!\nワギャラン"
+        ]
+    }
 
     // 通常アニメーションを基本画像から開始するための基準時刻
     @State private var characterAnimationEpoch = Date()
@@ -55,7 +67,32 @@ struct ShiritoriGameView: View {
     @State private var hintRotationTimer: Timer?
 
     // ボスの独り言として表示する連想ヒント
-    private let bossHintMessages = [
+    private var bossHintMessages: [String] {
+        if stage == .trial {
+            return [
+                "るびー、ぴじょんぶらっど、こうぎょく・・・ほうせきは きらきらザマス。",
+                "ぱん・・・は だめザマス。そうだ、いーすと とか ぶれっど っていうザンス。",
+                "とろふぃー は、ええと かっぷ とか ちゃんぴおんかっぷ とも いうザマスね。",
+                "すけーと は・・・は の ぶぶんを ぶれーど、えっじ なんて いうザンスね。",
+                "おやつ、じぇらーと、すいーつ、そるべ・・・あいすは だいこうぶつザマス。",
+                "ぷれぜんと、ぎふと・・・おくりものっていみで、おなじザンスよね・・・？",
+                "へー、とらんぷは、でっきとか、ぷれいんぐかーど というザマスか・・・。",
+                "しーる？すてっかー？てーぷ？らべる？なにが ちがうザンスかしら・・・。",
+                "・・・はっ！？なんザンスか、かんにんぐ なんて してないザマスよ！？",
+                "おとしすぎて、せんすの もじが  きえてきたザンス・・・まずいザマス！",
+                "ふっふっふ・・・この せんす が あれば ミーは むてきザマス！おほほほほ！",
+                "ねーぶる、ぶらっどおれんじ、だいだい・・・いろいろあるザンスねえ。",
+                "え？ずっと せんすを みていて あやしい？・・・き・・・きのせいザマス！",
+                "きのう いっぱい かきこんで きて よかったザンス。このこ、つよいザマス。",
+                "あの ぷらもでる、ゆーふぉー・・・みかくにんひこうぶったいザマスか。",
+                "くちべに は なんだったザマスかしら？えーと、るーじゅ りっぷぐろす・・・",
+                "ぺだる ふらっとぺだる。へえ、あしかけ や とうめん なんて いうザマスか？",
+                "とんねる は せんろ も みえるザマス。てつどうとんねる、こうどうザマスね。",
+                "びすけっと くっきー さぶれ がれっと・・・？みわけが つかないザマスねえ。",
+                "え？せんすで ぜんぜん あおいで いないって？きょうは すずしいザマスから。"
+            ]
+        }
+        return [
         "・・・こぶた、どうぶつ・・・ぬいぐるみ、ちょきんばこもありか・・ぶつぶつ。",
         "おとな、あだると、すーつ、ねくたい、びじねすまん・・・ぬっ、いかんいかん。",
         "めいろ、まよいみち、るーと、すたーと・・・はた に いけがき も みえるな。",
@@ -73,7 +110,9 @@ struct ShiritoriGameView: View {
         "りょうり、ちょうり、しょくじ、ごちそう・・・めだまやきにふらいぱんか。",
         "つき、まんげつ、おつきみ、じゅうごや・・・よぞらもみえるな、なるほど。",
         "らじお、でんぱ、ほうそう、おんがく、にゅーす・・・ばんぐみもあるか。"
-    ]
+        ]
+
+    }
 
     // 操作方法やゲームルールを案内するシステムヒント
     private let systemHintMessages = [
@@ -455,7 +494,9 @@ struct ShiritoriGameView: View {
             case .recognitionMessage:
                 return gameManager.currentMessage ?? "なんと・・・ん？"
             case .defeatMessage, .finished:
-                return "ん がついているではないか、お前の負けだ"
+                return gameManager.isTrialStage
+                    ? "ん がついてるザンス！やーい、ミーの かちザマス！"
+                    : "ん がついているではないか、お前の負けだ"
             case .inactive:
                 break
             }
@@ -469,21 +510,29 @@ struct ShiritoriGameView: View {
         if let gameResult = gameManager.gameResult {
             switch gameResult {
             case .playerWinAllCards:
-                return "見事だ…私の負けだ"
+                return gameManager.isTrialStage
+                    ? "おみごと・・・ミーのまけザマス・・・。"
+                    : "見事だ…私の負けだ"
 
             case .playerWinNoCPUTarget:
                 return gameManager.currentMessage
-                    ?? "なんと、選べるカードがないではないか"
+                    ?? (gameManager.isTrialStage
+                        ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
+                        : "なんと、選べるカードがないではないか")
 
             case .playerWinCPUN:
                 return gameManager.currentMessage
                     ?? "・・・しまったいかん！ 私の負けだ"
 
             case .playerWinTimeoutMercy:
-                return gameManager.currentMessage ?? "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。"
+                return gameManager.currentMessage ?? (gameManager.isTrialStage
+                    ? "いいザンス、ユーの がんばりをみとめて、しょうりを ゆずってあげるザマス。"
+                    : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。")
 
             case .playerLoseTimeout:
-                return "フハハハ！時間切れだ！貴様の負けだ！"
+                return gameManager.isTrialStage
+                    ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
+                    : "フハハハ！時間切れだ！貴様の負けだ！"
 
             case .playerLoseN:
                 return "ちょっと待て、’ん’ で終わりではないか。貴様の負けだ"
