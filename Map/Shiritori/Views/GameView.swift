@@ -14,6 +14,9 @@ struct ShiritoriGameView: View {
     /// 勝敗と最終演出が確定したあと、統合アプリへ結果を通知する。
     let onGameFinished: (Bool) -> Void
 
+    /// 試練ステージだけCPU2専用画像・演出を使用する。
+    private let isTrialStage: Bool
+
     // ゲーム進行を管理する
     @State private var gameManager: ShiritoriGameManager
 
@@ -22,6 +25,7 @@ struct ShiritoriGameView: View {
 
     init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, onGameFinished: @escaping (Bool) -> Void) {
         self.onGameFinished = onGameFinished
+        self.isTrialStage = stage == .trial
         self.stage = stage
         _gameManager = State(initialValue: ShiritoriGameManager(cards: cards, stage: stage))
     }
@@ -144,7 +148,7 @@ struct ShiritoriGameView: View {
                         HStack(alignment: .center, spacing: 8) {
                             // CPU画像を大きく表示する
                             Image(characterImage(
-                                prefix: "character_cpu",
+                                prefix: isTrialStage ? "character_cpu2" : "character_cpu",
                                 event: gameManager.cpuAnimationEvent,
                                 at: now,
                                 isPlayer: false
@@ -152,6 +156,8 @@ struct ShiritoriGameView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: cpuCharacterSize, height: cpuCharacterSize)
+                                // CPU2の元画像は画面端で見切れやすいため、試練ステージだけ表示を90%に縮小する。
+                                .scaleEffect(isTrialStage ? 0.9 : 1.0)
 
                             // 上段に「残り枚数」「次の文字」、その下段中央にCPUを表示する
                             VStack(spacing: 8) {
@@ -382,6 +388,10 @@ struct ShiritoriGameView: View {
         at date: Date,
         isPlayer: Bool
     ) -> String {
+        if isTrialStage && !isPlayer {
+            return trialCPUCharacterImage(prefix: "character_cpu2", event: event, at: date)
+        }
+
         // 時間切れ特別勝利の健闘セリフ以降は、CPUを通常画像、PLAYERをWrong画像に固定する。
         switch gameManager.timeoutMercyVictoryStage {
         case .hardFoughtMessage, .victoryConcession, .finished:
@@ -485,6 +495,89 @@ struct ShiritoriGameView: View {
         } else {
             return "\(prefix)_wing"
         }
+    }
+
+    /// 試練CPU専用の表示だけを切り替える。イベント発生条件・勝敗判定・メッセージ進行は共通処理を使う。
+    private func trialCPUCharacterImage(
+        prefix: String,
+        event: CharacterAnimationEvent?,
+        at date: Date
+    ) -> String {
+        // 時間切れ特別勝利ではCPUは譲る側なので、全段階で通常待機ループを維持する。
+        if gameManager.gameResult == .playerWinTimeoutMercy {
+            return trialIdleImage(prefix: prefix, at: date)
+        }
+
+        // CPUが「ん」で自滅、またはCPUが取れるカードなし：バラを掲げる反応を無期限で繰り返す。
+        if gameManager.gameResult == .playerWinCPUN || gameManager.gameResult == .playerWinNoCPUTarget {
+            let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
+            return Int(elapsed / 0.5) % 2 == 0 ? "\(prefix)_rose1" : "\(prefix)_rose2"
+        }
+
+        // プレイヤーが時間切れ／「ん」で敗北：CPUの勝利ジャンプを指定順で2周し、最後にjump1を表示。
+        if gameManager.gameResult == .playerLoseTimeout || gameManager.gameResult == .playerLoseN {
+            let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
+            let sequence: [(String, TimeInterval)] = [
+                ("jump1", 0.5), ("jump3", 1.0), ("jump2", 0.5),
+                ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
+                ("jump1", 0.5), ("jump3", 1.0), ("jump2", 0.5),
+                ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
+                ("jump1", 0.5)
+            ]
+            var cursor: TimeInterval = 0
+            for (frame, duration) in sequence {
+                if elapsed < cursor + duration { return "\(prefix)_\(frame)" }
+                cursor += duration
+            }
+            return trialIdleImage(prefix: prefix, elapsed: elapsed - cursor)
+        }
+
+        if let event {
+            let elapsed = max(0, date.timeIntervalSince(event.startedAt))
+            switch event.kind {
+            case .success:
+                // CPUが正しくカードを取ったときのジャンプは既存イベントに同期して7.5秒で終了。
+                let sequence: [(String, TimeInterval)] = [
+                    ("jump1", 0.5), ("jump3", 1.0), ("jump2", 0.5),
+                    ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
+                    ("jump1", 0.5), ("jump3", 1.0), ("jump2", 0.5),
+                    ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5),
+                    ("jump1", 0.5)
+                ]
+                var cursor: TimeInterval = 0
+                for (frame, duration) in sequence {
+                    if elapsed < cursor + duration { return "\(prefix)_\(frame)" }
+                    cursor += duration
+                }
+                return trialIdleImage(prefix: prefix, elapsed: elapsed - cursor)
+
+            case .failure:
+                // プレイヤーが正しくカードを取った際の悔しがり。判定は取得後の残り枚数で行う。
+                let framePrefix = remainingCardCount >= 13 ? "wrong1" : "wrong3"
+                let secondFrame = remainingCardCount >= 13 ? "wrong2" : "wrong4"
+                if elapsed < 0.5 { return "\(prefix)_\(framePrefix)" }
+                if elapsed < 1.0 { return "\(prefix)_\(secondFrame)" }
+                if elapsed < 1.5 { return "\(prefix)_\(framePrefix)" }
+                if elapsed < 2.0 { return "\(prefix)_\(secondFrame)" }
+                return trialIdleImage(prefix: prefix, elapsed: elapsed - 2.0)
+            }
+        }
+
+        return trialIdleImage(prefix: prefix, at: date)
+    }
+
+    /// 試練CPUの通常待機：基本→瞬き→呼吸1→呼吸2を繰り返す。
+    private func trialIdleImage(prefix: String, at date: Date) -> String {
+        let elapsed = max(0, date.timeIntervalSince(characterAnimationEpoch))
+        return trialIdleImage(prefix: prefix, elapsed: elapsed)
+    }
+
+    private func trialIdleImage(prefix: String, elapsed: TimeInterval) -> String {
+        let phase = max(0, elapsed).truncatingRemainder(dividingBy: 2.5)
+        if phase < 1.0 { return prefix }
+        if phase < 1.5 { return "\(prefix)_blink" }
+        if phase < 2.0 { return "\(prefix)_breath1" }
+        return "\(prefix)_breath2"
     }
 
     // 「ん」敗北の段階セリフとCPUの特殊エンディングは、勝敗の既定メッセージより優先する
