@@ -11,42 +11,78 @@ import Foundation
 struct MessageSelector {
 
     // プレイヤーがカードを取得したときのリアクション
-    static func playerMessage(for vocabulary: Vocabulary) -> String {
+    static func playerMessage(
+        for vocabulary: Vocabulary,
+        stage: ShiritoriStageType = .normal
+    ) -> String {
+        if stage == .trial {
+            switch vocabulary.type {
+            case .normal:
+                return "ふ・・・ふふん、\(vocabulary.displayWord) ザマスか。 そうくるとおもってたザンス。"
+            case .english:
+                return "あ・・・あ〜ら、\(vocabulary.displayWord) ザンスね。なかなか やるザマス。"
+            case .surprise:
+                return "は・・・はあ！？ \(vocabulary.displayWord)・・・ザンスか・・・？そんなんありザマス・・・。"
+            case .rare:
+                return "ちょっ・・・\(vocabulary.displayWord)って・・・ありザマス？ミーの じしょ には ないザンス・・・。"
+            }
+        }
+
         switch vocabulary.type {
         case .normal:
             return "ふむ、\(vocabulary.displayWord) か"
-
         case .english:
             return "ほほう、\(vocabulary.displayWord) か"
-
         case .surprise:
             return "むむむ！？ \(vocabulary.displayWord)・・・だと・・・？"
-
         case .rare:
             return "なんと、\(vocabulary.displayWord) と来たか。"
         }
     }
 
     // CPUがカードを取得したときのメッセージ候補
-    static func cpuMessages(for vocabulary: Vocabulary) -> [String] {
+    static func cpuMessages(
+        for vocabulary: Vocabulary,
+        stage: ShiritoriStageType = .normal
+    ) -> [String] {
+        if stage == .trial {
+            switch vocabulary.type {
+            case .normal:
+                return [
+                    "よーし、\(vocabulary.displayWord) ザマス！",
+                    "ここは・・・ \(vocabulary.displayWord) でいくザンス！"
+                ]
+            case .english:
+                return [
+                    "うふふふ・・・ \(vocabulary.displayWord) ザマス。ごぞんじザンス？",
+                    "これならどうザマス？ \(vocabulary.displayWord) ザンス！"
+                ]
+            case .surprise:
+                return [
+                    "おほほほ！\(vocabulary.displayWord) ザマス！ミーの きょうようが ひかってるザンス！"
+                ]
+            case .rare:
+                return [
+                    "ひらめいたザンス！\(vocabulary.displayWord) とも よめるザマス！"
+                ]
+            }
+        }
+
         switch vocabulary.type {
         case .normal:
             return [
                 "よし、\(vocabulary.displayWord) だ！",
                 "まあ・・・ぶなんに \(vocabulary.displayWord) といこうか"
             ]
-
         case .english:
             return [
                 "ふふふ・・・ \(vocabulary.displayWord) だ",
                 "これならどうだ？ \(vocabulary.displayWord) だ！"
             ]
-
         case .surprise:
             return [
                 "はっはっは、\(vocabulary.displayWord) という読み方もあるのだよ！"
             ]
-
         case .rare:
             return [
                 "どうだ、\(vocabulary.displayWord) だ！参ったか！"
@@ -55,23 +91,30 @@ struct MessageSelector {
     }
 
     // CPUメッセージを候補からランダムに1つ選ぶ
-    static func randomCPUMessage(for vocabulary: Vocabulary) -> String {
-        let messages = cpuMessages(for: vocabulary)
+    static func randomCPUMessage(
+        for vocabulary: Vocabulary,
+        stage: ShiritoriStageType = .normal
+    ) -> String {
+        let messages = cpuMessages(for: vocabulary, stage: stage)
         return messages.randomElement() ?? ""
     }
 
     // CPUがカードを取得した後に、次に選べる文字を付けたメッセージを作成する
     static func cpuMessageWithNextPrompt(
         for vocabulary: Vocabulary,
-        nextPrompt: Character?
+        nextPrompt: Character?,
+        stage: ShiritoriStageType = .normal
     ) -> String {
-        let baseMessage = randomCPUMessage(for: vocabulary)
+        let baseMessage = randomCPUMessage(for: vocabulary, stage: stage)
 
         guard let nextPrompt else {
             return baseMessage
         }
 
         let promptText = KanaNormalizer.promptDisplayText(for: nextPrompt)
+        if stage == .trial {
+            return "\(baseMessage) さあ、『\(promptText)』から はじまるカードをえらぶザンス！"
+        }
         return "\(baseMessage) 「\(promptText)」 から はじまるカードを選べ！"
     }
 }
