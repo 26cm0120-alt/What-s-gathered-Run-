@@ -15,7 +15,7 @@ struct GiveUpConfirmView: View {
 
             VStack(spacing: 24) {
                 Text("ギブアップしますか？")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(DungeonTypography.maruMonica(size: 24))
                     .foregroundColor(.white)
 
                 HStack(spacing: 8) {
@@ -32,7 +32,7 @@ struct GiveUpConfirmView: View {
     private func choiceButton(_ title: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 18, weight: .bold))
+                .font(DungeonTypography.maruMonica(size: 18))
                 .frame(maxWidth: .infinity, minHeight: 56)
         }
         .buttonStyle(DungeonPressButtonStyle())

@@ -70,12 +70,14 @@ final class ShiritoriGameManager {
     /// このゲームで使うカードデータ。通常版と試練版でデータだけを独立させる。
     private let initialCards: [Card]
     private let stage: ShiritoriStageType
+    private let initialPlayerTimeBonusSeconds: Int
 
     var isTrialStage: Bool { stage == .trial }
 
-    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal) {
+    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, initialPlayerTimeBonusSeconds: Int = 0) {
         self.initialCards = cards
         self.stage = stage
+        self.initialPlayerTimeBonusSeconds = max(0, initialPlayerTimeBonusSeconds)
     }
 
     // 現在のゲーム状態
@@ -247,7 +249,7 @@ final class ShiritoriGameManager {
         self.currentPrompt = nil
         self.selectedCardID = nil
         self.confirmedCardID = nil
-        self.playerTime = 90
+        self.playerTime = 90 + initialPlayerTimeBonusSeconds
 
         // CPU先攻状態を設定する。導入会話中は初期案内文を後回しにする
         self.turn = .cpu

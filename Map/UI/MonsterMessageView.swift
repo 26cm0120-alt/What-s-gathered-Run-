@@ -37,13 +37,18 @@ struct MonsterMessageView: View {
         battle?.message ?? message
     }
 
+    private var messageLineLimit: Int {
+        guard battle == nil else { return 2 }
+        return isTutorial || currentMessage.contains("\n") ? 3 : 2
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(currentMessage)
-                    .font(.system(size: battle == nil ? 15 : 13, weight: .medium, design: battle == nil ? .default : .monospaced))
+                    .font(DungeonTypography.maruMonica(size: battle == nil ? 15 : 13))
                     .foregroundStyle(.white)
-                    .lineLimit(isTutorial && battle == nil ? 3 : 2)
+                    .lineLimit(messageLineLimit)
                     .lineSpacing(2)
                     .multilineTextAlignment(.leading)
                     .minimumScaleFactor(0.75)
@@ -71,7 +76,7 @@ struct MonsterMessageView: View {
 
                 if isTrapReactionActive {
                     Text("！？")
-                        .font(.system(size: 21, weight: .black, design: .rounded))
+                        .font(DungeonTypography.maruMonica(size: 21))
                         .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.24))
                         .shadow(color: .black, radius: 2, y: 1)
                         .offset(x: -1, y: 0)
@@ -79,14 +84,14 @@ struct MonsterMessageView: View {
                         .accessibilityHidden(true)
                 } else if battle != nil {
                     Text("!")
-                        .font(.system(size: 23, weight: .black, design: .rounded))
+                        .font(DungeonTypography.maruMonica(size: 23))
                         .foregroundStyle(Color(red: 1.0, green: 0.79, blue: 0.22))
                         .shadow(color: .black, radius: 2, y: 1)
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
                 } else if isSurprised {
                     Text("!")
-                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .font(DungeonTypography.maruMonica(size: 22))
                         .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.24))
                         .shadow(color: .black, radius: 2, y: 1)
                         .offset(x: -3, y: 1)
@@ -149,7 +154,7 @@ struct MonsterMessageView: View {
 
     private var tearDrop: some View {
         Image(systemName: "drop.fill")
-            .font(.system(size: 10, weight: .bold))
+            .font(DungeonTypography.maruMonica(size: 10))
             .foregroundStyle(Color(red: 0.35, green: 0.78, blue: 1.0))
             .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
     }
@@ -163,7 +168,7 @@ struct MonsterMessageView: View {
                 Spacer(minLength: 1)
                 Text("\(current)/\(maximum)").monospacedDigit()
             }
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .font(DungeonTypography.maruMonica(size: 10))
             .foregroundStyle(.white.opacity(0.92))
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {

@@ -31,7 +31,7 @@ struct HeaderView: View {
             }
         }
         .font(
-            .system(
+            DungeonTypography.system(
                 size: 13,
                 weight: .bold,
                 design: .monospaced

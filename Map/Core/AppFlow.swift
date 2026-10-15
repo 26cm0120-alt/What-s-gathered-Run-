@@ -31,7 +31,7 @@ private final class AudioPlayerCompletionDelegate: NSObject, AVAudioPlayerDelega
     }
 }
 
-/// アプリ全体の画面の流れ(スタート画面 → プレイ画面 → クリア表示 → スタート画面)を管理する。
+/// アプリ全体の画面の流れ(スタート画面 → プレイ画面 → 結果表示 → スタート画面)を管理する。
 /// UIは、ここが持つ状態に従って画面を切り替えて表示するだけにする(仕様書§13.1、UI仕様書§8)
 final class AppFlow: ObservableObject {
     /// 画面の状態
@@ -42,9 +42,14 @@ final class AppFlow: ObservableObject {
         case shiritoriGame      // 既存のしりとりゲーム
         case trialShiritoriGame // 試練の迷宮専用しりとりゲーム
         case cleared            // ダンジョンのクリア表示
+        case gameOver           // 敗北後に表示する共通ゲームオーバー画面
     }
 
     @Published private(set) var screen: Screen = .start
+    /// 共通ゲームオーバー画面に表示する敗北理由。
+    @Published private(set) var gameOverReasonMessage = "HPが0になった"
+    /// 共通ゲームオーバー画面に表示する補足文。
+    @Published private(set) var gameOverDetailMessage = "迷宮の探索はここで終了です"
 
     /// 現在のプレイ(スタート画面のときは nil)
     @Published private(set) var game: GameManager?
@@ -58,11 +63,20 @@ final class AppFlow: ObservableObject {
     @Published private(set) var bestClearTime: TimeInterval?
     /// 試練の迷宮・ランダムステージで再挑戦を表示する
     @Published private(set) var supportsReplayAndTiming = false
-    /// モードの初回クリアで、今回のプレイがタイム記録対象外であることを示す
-    @Published private(set) var isFirstClearRun = false
+    /// クリア画面に表示する次のステージ名
+    var nextStageTitle: String {
+        guard let stage = game?.stage else { return "次の迷宮へ" }
+        if stage.isStepByStepTutorial { return "試練の迷宮へ" }
+        return stage.seed == nil ? "ランダムステージへ" : "新しいランダムステージへ"
+    }
+    /// スケルトンのドロップで増えた、しりとりの初期持ち時間。
+    @Published private(set) var shiritoriTimeBonusSeconds = 0
+    /// 選択中モードの端末内ランキング。
+    @Published private(set) var leaderboardEntries: [LeaderboardEntry] = []
 
     private var currentRecordKey: String?
     private var currentModeClearKey: String?
+    private var currentLeaderboardMode: LeaderboardMode?
 
     private var titleBackgroundAudioPlayer: AVAudioPlayer?
     private var titleBackgroundAudioErrorDelegate: AudioPlaybackErrorDelegate?
@@ -84,6 +98,8 @@ final class AppFlow: ObservableObject {
     /// 面を選んで、プレイを開始する。
     /// 毎回、新しいゲームを作るので、前回のプレイの状態は引き継がない(仕様書§13.2)
     func startGame(stage: Stage) {
+        gameOverReasonMessage = "HPが0になった"
+        gameOverDetailMessage = "迷宮の探索はここで終了です"
         stopTitleBackgroundMusic()
         stopStageBackgroundMusic()
         stopEncounterBackgroundMusic()
@@ -101,10 +117,12 @@ final class AppFlow: ObservableObject {
         currentRecordKey = clearTimeRecordKey(for: stage)
         currentModeClearKey = modeClearKey
         supportsReplayAndTiming = currentRecordKey != nil
-        isFirstClearRun = supportsReplayAndTiming && !hasClearedMode
+        shiritoriTimeBonusSeconds = 0
+        currentLeaderboardMode = leaderboardMode(for: stage)
+        leaderboardEntries = currentLeaderboardMode.map { LocalLeaderboard.load($0) } ?? []
         bestClearTime = currentRecordKey.flatMap { loadBestClearTime(for: $0) }
         currentRunTime = nil
-        timerStartedAt = supportsReplayAndTiming && hasClearedMode
+        timerStartedAt = supportsReplayAndTiming
             ? ProcessInfo.processInfo.systemUptime
             : nil
         // ドアの音が終わってからしりとりのプロローグへ切り替える
@@ -117,7 +135,12 @@ final class AppFlow: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                 guard let self, let newGame,
                       self.game === newGame, newGame.state.isGameOver else { return }
-                self.returnToStart()
+                self.stopStageBackgroundMusic()
+                self.stopEncounterBackgroundMusic()
+                self.timerStartedAt = nil
+                self.gameOverReasonMessage = "HPが0になった"
+                self.gameOverDetailMessage = "迷宮の探索はここで終了です"
+                self.screen = .gameOver
             }
         }
         newGame.onBattleStateChanged = { [weak self, weak newGame] enemyKind in
@@ -146,9 +169,20 @@ final class AppFlow: ObservableObject {
         startGame(stage: stage)
     }
 
+    /// クリア後の進行先へ移る。チュートリアルの次は試練、それ以降は新しいランダム面にする。
+    func startNextStage() {
+        guard case .cleared = screen, let stage = game?.stage else { return }
+        if stage.isStepByStepTutorial {
+            startGame(stage: Stages.trial)
+        } else {
+            startRandomGame()
+        }
+    }
+
     /// しりとりのプロローグ終了後、開始元に対応するゲーム画面へ進む。
     func startShiritoriGame() {
         guard case .shiritoriPrologue = screen else { return }
+        shiritoriTimeBonusSeconds = game?.state.shiritoriTimeBonusSeconds ?? 0
 
         if game?.stage.shiritoriStageKind == .trial {
             screen = .trialShiritoriGame
@@ -157,7 +191,7 @@ final class AppFlow: ObservableObject {
         }
     }
 
-    /// しりとりの結果を受け取る。試練専用ルートは勝敗に関係なくスタートへ戻す。
+    /// しりとりの結果を受け取り、勝利はクリア画面、敗北は共通ゲームオーバー画面へ進める。
     func finishShiritori(won: Bool) {
         switch screen {
         case .trialShiritoriGame:
@@ -167,7 +201,9 @@ final class AppFlow: ObservableObject {
                 saveBestClearTimeIfNeeded()
                 playShiritoriEnemyFallThenShowClear()
             } else {
-                returnToStart()
+                gameOverReasonMessage = "時間切れ・・・"
+                gameOverDetailMessage = "しりとりはここで終了です"
+                screen = .gameOver
             }
         case .shiritoriGame:
             if won {
@@ -175,7 +211,9 @@ final class AppFlow: ObservableObject {
                 saveBestClearTimeIfNeeded()
                 playShiritoriEnemyFallThenShowClear()
             } else {
-                returnToStart()
+                gameOverReasonMessage = "時間切れ・・・"
+                gameOverDetailMessage = "しりとりはここで終了です"
+                screen = .gameOver
             }
         default:
             return
@@ -194,12 +232,16 @@ final class AppFlow: ObservableObject {
         shiritoriEnemyFallAudioPlayer = nil
         shiritoriEnemyFallCompletionDelegate = nil
         timerStartedAt = nil
+        gameOverReasonMessage = "HPが0になった"
+        gameOverDetailMessage = "迷宮の探索はここで終了です"
         currentRunTime = nil
         bestClearTime = nil
         currentRecordKey = nil
         currentModeClearKey = nil
         supportsReplayAndTiming = false
-        isFirstClearRun = false
+        shiritoriTimeBonusSeconds = 0
+        leaderboardEntries = []
+        currentLeaderboardMode = nil
         game = nil
         screen = .start
         playTitleBackgroundMusic()
@@ -355,8 +397,24 @@ final class AppFlow: ObservableObject {
     /// タイマーは単調増加時計で計り、ゴールに入った時点で止める。
     private func stopTimerAtGoal() {
         guard let timerStartedAt else { return }
-        currentRunTime = max(0, ProcessInfo.processInfo.systemUptime - timerStartedAt)
+        let timeReduction = TimeInterval(game?.state.runTimeReductionSeconds ?? 0)
+        currentRunTime = max(0, ProcessInfo.processInfo.systemUptime - timerStartedAt - timeReduction)
         self.timerStartedAt = nil
+    }
+
+    /// クリア画面で入力された名前を、現在のモードの上位100件へ保存する。
+    func saveLeaderboardEntry(playerName: String) {
+        guard let currentLeaderboardMode, let currentRunTime else { return }
+        let cleanName = String(playerName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(16))
+        guard !cleanName.isEmpty else { return }
+        let entry = LeaderboardEntry(playerName: cleanName, clearTime: currentRunTime, seed: game?.stage.seed)
+        leaderboardEntries = LocalLeaderboard.add(entry, to: currentLeaderboardMode)
+        if bestClearTime == nil || currentRunTime < bestClearTime! {
+            bestClearTime = currentRunTime
+            if let currentRecordKey {
+                UserDefaults.standard.set(currentRunTime, forKey: currentRecordKey)
+            }
+        }
     }
 
     /// 完走タイムが既存の記録より短い場合だけ端末内に保存する。
@@ -373,7 +431,15 @@ final class AppFlow: ObservableObject {
     }
 
     private func loadBestClearTime(for key: String) -> TimeInterval? {
-        UserDefaults.standard.object(forKey: key) as? TimeInterval
+        let defaults = UserDefaults.standard
+        let stored = defaults.object(forKey: key) as? TimeInterval
+        guard key == "dungeon.bestClearTime.random" else { return stored }
+        let legacy = defaults.dictionaryRepresentation().compactMap { name, value -> TimeInterval? in
+            guard name.hasPrefix("dungeon.bestClearTime.random."),
+                  let time = value as? TimeInterval else { return nil }
+            return time
+        }
+        return ([stored].compactMap { $0 } + legacy).min()
     }
 
     /// 初回の成功クリア後、同じモードの次回以降を計時・壁ダメージの対象にする。
@@ -417,10 +483,10 @@ final class AppFlow: ObservableObject {
         }
     }
 
-    /// 試練はモード共通、ランダムステージはseedごとに記録を分ける。
+    /// 試練とランダムの最短タイムは各モード共通で保存する。
     private func clearTimeRecordKey(for stage: Stage) -> String? {
-        if let seed = stage.seed {
-            return "dungeon.bestClearTime.random.\(String(format: "%016llX", seed))"
+        if stage.seed != nil {
+            return "dungeon.bestClearTime.random"
         }
 
         guard !stage.isStepByStepTutorial else { return nil }
@@ -430,6 +496,12 @@ final class AppFlow: ObservableObject {
         case .standard:
             return nil
         }
+    }
+
+    private func leaderboardMode(for stage: Stage) -> LeaderboardMode? {
+        if stage.seed != nil { return .random }
+        guard !stage.isStepByStepTutorial, stage.shiritoriStageKind == .trial else { return nil }
+        return .trial
     }
 }
 

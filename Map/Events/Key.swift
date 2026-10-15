@@ -10,7 +10,7 @@ struct KeyEvent: TileEvent {
     func onEnter(state: inout GameState, from previousPosition: GridPos) {
         let alreadyHadKey = state.hasKey
         state.hasKey = true
-        if !alreadyHadKey && state.tutorialStep == .findKey {
+        if !alreadyHadKey && (state.tutorialStep == .findKey || state.tutorialStep == .zoomMap) {
             state.tutorialStep = .reachGoal
             state.message = "鍵を手に入れた！ゴールを探そう！"
         } else {

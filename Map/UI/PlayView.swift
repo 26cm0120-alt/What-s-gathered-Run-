@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import AVFoundation
 
 /// プレイ画面。表示と入力の受け渡しだけを行い、ゲームの状態は GameManager が持つ
 struct PlayView: View {
@@ -16,6 +18,13 @@ struct PlayView: View {
     /// 鍵取得演出を表示中か
     @State private var isShowingKeyAcquisition = false
     @State private var isShowingSwordPickup = false
+    @State private var isShowingDropPickup = false
+    @State private var dropPickupTask: Task<Void, Never>?
+    @State private var dropItemAudioPlayer: AVAudioPlayer?
+    @State private var dropItemAudioErrorDelegate: AudioPlaybackErrorDelegate?
+    @State private var isMapExpanded = false
+    @State private var isMapPinchGestureActive = false
+    @State private var pinchSuppressionTask: Task<Void, Never>?
     /// 直近のフリック方向を矢印ガイドに表示する
     @State private var activeFlickDirection: MovementFlickDirection?
     /// プレイヤーの位置・向きが変わるたびに、メッセージ横のモンスターを動かす
@@ -47,7 +56,7 @@ struct PlayView: View {
 
     /// 鍵・剣の取得演出中は、表示が重ならないよう移動入力を止める。
     private var isAcquisitionAnimationActive: Bool {
-        isShowingKeyAcquisition || isShowingSwordPickup
+        isShowingKeyAcquisition || isShowingSwordPickup || isShowingDropPickup
     }
 
     /// イベントの状況メッセージを優先し、なければチュートリアル案内を表示する
@@ -63,12 +72,14 @@ struct PlayView: View {
 
     private func finishFlick(in direction: MovementFlickDirection) {
         activeFlickDirection = direction
+        UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
     }
 
     /// ダンジョン画面、ステータス、メッセージ、探索マップからフリック操作を受け付ける。
     private var movementFlickGesture: some Gesture {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
+                guard !isMapPinchGestureActive, !isMapExpanded else { return }
                 if let direction = MovementFlickDirection.classify(
                     horizontal: value.translation.width,
                     vertical: value.translation.height,
@@ -78,7 +89,9 @@ struct PlayView: View {
                 }
             }
             .onEnded { value in
-                guard !isAcquisitionAnimationActive else { return }
+                guard !isAcquisitionAnimationActive,
+                      !isMapPinchGestureActive,
+                      !isMapExpanded else { return }
                 let horizontal = value.translation.width
                 let vertical = value.translation.height
                 guard let direction = MovementFlickDirection.classify(
@@ -108,13 +121,16 @@ struct PlayView: View {
             DungeonView(
                 map: game.map,
                 player: game.state.player,
-                theme: game.stage.dungeonTheme
+                theme: game.stage.dungeonTheme,
+                hasKey: game.state.hasKey,
+                isGoalReached: game.state.isCleared
             )
             .overlay {
                 if let battle = game.state.enemyBattle {
                     EnemyBattleView(
                         battle: battle,
-                        playerHP: game.state.playerHP
+                        playerHP: game.state.playerHP,
+                        playerAttackAnimationID: playerAttackAnimationID
                     )
                     .transition(.opacity)
                     .zIndex(3)
@@ -142,6 +158,7 @@ struct PlayView: View {
                     KeyAcquisitionView(
                         hasKey: game.state.hasKey,
                         isAcquiringKey: isShowingKeyAcquisition,
+                        direction: game.state.player.direction,
                         onFinished: {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 isShowingKeyAcquisition = false
@@ -150,6 +167,27 @@ struct PlayView: View {
                     )
                     .padding(2)
                     .transition(.opacity)
+                }
+            }
+            .overlay {
+                if game.state.isCleared {
+                    ZStack {
+                        Color.black.opacity(0.50)
+                        Image("DungeonDoorOpen")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: dungeonHeight * 0.76, height: dungeonHeight * 0.76)
+                            .shadow(color: .black.opacity(0.8), radius: 16)
+                        Text("扉が開いた！")
+                            .font(DungeonTypography.maruMonica(size: 18))
+                            .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                            .shadow(color: .black, radius: 4)
+                            .frame(maxHeight: .infinity, alignment: .bottom)
+                            .padding(.bottom, 18)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .transition(.opacity)
+                    .zIndex(5)
                 }
             }
             .overlay {
@@ -162,6 +200,29 @@ struct PlayView: View {
                     .padding(2)
                     .transition(.opacity)
                     .zIndex(4)
+                }
+            }
+            .overlay {
+                if isShowingDropPickup, let item = game.pendingSkeletonDrop {
+                    VStack(spacing: 16) {
+                        PixelDropItemIcon(item: item)
+                            .frame(width: 92, height: 92)
+                        Text("\(item.title)を手に入れた！")
+                            .font(DungeonTypography.maruMonica(size: 24))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(item.effect)
+                            .font(DungeonTypography.maruMonica(size: 20))
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .lineSpacing(5)
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.76))
+                    .padding(.horizontal, 28)
+                    .transition(.scale.combined(with: .opacity))
+                    .zIndex(6)
                 }
             }
             .overlay {
@@ -206,6 +267,17 @@ struct PlayView: View {
             )
             .frame(maxWidth: .infinity)
             .frame(height: explorationMapHeight)
+            .highPriorityGesture(
+                MagnificationGesture()
+                    .onChanged { scale in
+                        suppressMovementDuringMapPinch()
+                        if scale >= 1.12 {
+                            let wasExpanded = isMapExpanded
+                            withAnimation(.spring(response: 0.32)) { isMapExpanded = true }
+                            if !wasExpanded { game.recordTutorialMapZoom() }
+                        }
+                    }
+            )
             .contentShape(Rectangle())
             .simultaneousGesture(movementFlickGesture)
 
@@ -223,13 +295,50 @@ struct PlayView: View {
                 isBattleActionDisabled: isBattleActionLocked || game.state.isGameOver,
                 onBattleAttack: performBattleAttack,
                 onBattleFlee: performBattleFlee,
-                timerStartedAt: timerStartedAt
+                timerStartedAt: timerStartedAt,
+                timerReductionSeconds: game.state.runTimeReductionSeconds
             )
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DungeonBackground())
+        }
+        .overlay {
+            if isMapExpanded {
+                ZStack(alignment: .topTrailing) {
+                    Color.black.opacity(0.94).ignoresSafeArea()
+                    AutoMapView(
+                        map: game.map,
+                        explored: game.state.explored,
+                        player: game.state.player,
+                        defeatedEnemies: game.state.defeatedEnemies
+                    )
+                    .padding(22)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { scale in
+                                suppressMovementDuringMapPinch()
+                                if scale <= 0.82 { withAnimation(.easeOut(duration: 0.18)) { isMapExpanded = false } }
+                            }
+                    )
+                    Button {
+                        withAnimation(.easeOut(duration: 0.18)) { isMapExpanded = false }
+                    } label: {
+                        Label("閉じる", systemImage: "xmark.circle.fill")
+                            .font(DungeonTypography.maruMonica(size: 16))
+                            .padding(10)
+                            .background(.black.opacity(0.7), in: Capsule())
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.top, 14)
+                    .padding(.trailing, 14)
+                }
+                .transition(.opacity)
+                .zIndex(20)
+            }
         }
         // ギブアップの確認(表示中は、後ろの操作を受け付けない)
         .overlay {
@@ -282,13 +391,20 @@ struct PlayView: View {
             monsterReactionID += 1
         }
         .onChange(of: game.wallCollisionID) { _, _ in
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
             playWallCollisionAnimation()
         }
         .onChange(of: game.trapActivationID) { _, _ in
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
             showEventCutIn(title: "TRAP!", message: "滑った、、", style: .trap, startsTrapReaction: true)
         }
         .onChange(of: game.enemyEncounterID) { _, _ in
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
             showEventCutIn(title: "ENCOUNTER", message: "敵が現れた！", style: .encounter)
+        }
+        .onChange(of: game.defeatedEnemySpeech) { oldSpeech, newSpeech in
+            guard oldSpeech != nil, newSpeech == nil else { return }
+            beginPendingDropPickup()
         }
         .onChange(of: game.state.playerHP) { oldHP, newHP in
             guard newHP < oldHP, game.state.enemyBattle != nil else { return }
@@ -304,8 +420,10 @@ struct PlayView: View {
         .onDisappear {
             battleActionTask?.cancel()
             counterSoundTask?.cancel()
+            dropPickupTask?.cancel()
             eventCutInTask?.cancel()
             trapAnimationTask?.cancel()
+            pinchSuppressionTask?.cancel()
             isTrapReactionActive = false
             trapAnimationFrame = "PlayerIdle"
             trapAnimationOffset = 0
@@ -316,11 +434,13 @@ struct PlayView: View {
     private func performBattleAttack() {
         guard !isBattleActionLocked, game.state.enemyBattle != nil else { return }
         isBattleActionLocked = true
-        playerAttackAnimationID += 1
-        battleSoundEffects.play(named: "戦闘攻撃")
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
             // Playerの踏み込み攻撃を見せてから、敵へのダメージと反撃を進める。
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+            playerAttackAnimationID += 1
+            battleSoundEffects.play(named: "戦闘攻撃")
             try? await Task.sleep(nanoseconds: 530_000_000)
             guard !Task.isCancelled else { return }
             game.attackEnemy()
@@ -331,12 +451,52 @@ struct PlayView: View {
         }
     }
 
+    /// 撃破セリフと倒れる動作が終わってから、ドロップを回収する。
+    private func beginPendingDropPickup() {
+        guard game.pendingSkeletonDrop != nil else { return }
+        withAnimation(.easeIn(duration: 0.18)) { isShowingDropPickup = true }
+        playDropItemFoundSound()
+        dropPickupTask?.cancel()
+        dropPickupTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_800_000_000)
+            guard !Task.isCancelled else { return }
+            game.collectPendingSkeletonDrop()
+            withAnimation(.easeOut(duration: 0.18)) { isShowingDropPickup = false }
+            dropPickupTask = nil
+        }
+    }
+
+    /// ピンチ操作の直後までフリックを抑止し、二本指の拡大縮小を誤移動にしない。
+    private func suppressMovementDuringMapPinch() {
+        isMapPinchGestureActive = true
+        pinchSuppressionTask?.cancel()
+        pinchSuppressionTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            isMapPinchGestureActive = false
+            pinchSuppressionTask = nil
+        }
+    }
+
+    /// MP3形式のアイテム発見音を再生し、再生中のプレイヤーとdelegateを保持する。
+    private func playDropItemFoundSound() {
+        dropItemAudioPlayer?.stop()
+        guard let player = AudioPlayback.makePlayer(named: "アイテム発見") else { return }
+        let delegate = AudioPlaybackErrorDelegate(resourceName: "アイテム発見")
+        player.delegate = delegate
+        guard AudioPlayback.play(player, named: "アイテム発見") else { return }
+        dropItemAudioPlayer = player
+        dropItemAudioErrorDelegate = delegate
+    }
+
     private func performBattleFlee() {
         guard !isBattleActionLocked, game.state.enemyBattle != nil else { return }
         isBattleActionLocked = true
-        battleSoundEffects.play(named: "戦闘逃走")
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+            battleSoundEffects.play(named: "戦闘逃走")
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
             game.fleeBattle()
@@ -431,13 +591,13 @@ struct PlayView: View {
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(game.stage.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(DungeonTypography.maruMonica(size: 13))
                     .foregroundColor(Color(red: 0.88, green: 0.84, blue: 0.73))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 if let seed = game.stage.seed {
                     Text("SEED \(String(format: "%016llX", seed))")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .font(DungeonTypography.maruMonica(size: 9))
                         .foregroundColor(.white.opacity(0.6))
                         .accessibilityLabel("seed \(seed)")
                 }
@@ -448,10 +608,10 @@ struct PlayView: View {
             HStack(spacing: 5) {
                 if game.stage.requiresSwordForKey {
                     Text("⚔")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(DungeonTypography.maruMonica(size: 14))
                         .foregroundStyle(game.state.hasSword ? Color(red: 1.0, green: 0.79, blue: 0.25) : .white.opacity(0.35))
                     Text(game.state.hasSword ? "剣：所持" : "剣：未所持")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(DungeonTypography.maruMonica(size: 10))
                         .foregroundStyle(game.state.hasSword ? Color(red: 1.0, green: 0.79, blue: 0.25) : .white.opacity(0.68))
                 }
                 Image("key")
@@ -461,7 +621,7 @@ struct PlayView: View {
                     .opacity(game.state.hasKey ? 1 : 0.34)
 
                 Text("鍵：\(keyText)")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(DungeonTypography.maruMonica(size: 13))
                     .foregroundColor(
                         game.state.hasKey
                             ? Color(red: 1.0, green: 0.83, blue: 0.36)
@@ -479,5 +639,106 @@ struct PlayView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(game.stage.title)\(game.stage.seed.map { "。seed \($0)" } ?? "")。\(game.stage.requiresSwordForKey ? "剣：\(game.state.hasSword ? "所持" : "未所持")。" : "")鍵：\(keyText)")
+    }
+}
+
+/// ドロップアイテムをMaruMonicaに合う小さなドット絵で表示する。
+private struct PixelDropItemIcon: View {
+    let item: SkeletonDropItem
+
+    private var rows: [String] {
+        switch item {
+        case .shiritoriTime:
+            [
+                "..oooooooo..",
+                ".oyyyyyyyyyo.",
+                ".oywwwwwwyyo.",
+                "..oywwwwyo..",
+                "...oyyyyyo...",
+                "....oyyyo....",
+                ".....oyo.....",
+                ".....oo......",
+                ".....oo......",
+                "....osso.....",
+                "...osssso....",
+                "..oyssssyo...",
+                ".oyssssssyo..",
+                ".oyyyyyyyyyo.",
+                "..oooooooo.."
+            ]
+        case .runTimeReduction:
+            [
+                "..oooooooo....>>",
+                ".obbbbbbbbbo..>>>",
+                ".obccccccbcbo.>>>",
+                "..obccccbcbo..>>",
+                "...obbbbbbo...>>",
+                "....obbbbo....>>",
+                ".....obo......>>",
+                ".....oo.......>>",
+                ".....oo.......>>",
+                "....obbo......>>",
+                "...obssbo.....>>",
+                "..obssssbo....>>",
+                ".obbbbbbbbbo..>>",
+                "..oooooooo....>>"
+            ]
+        case .bandage:
+            [
+                "....oooooooo....",
+                "..oottttttttoo..",
+                ".otttthhthhhhtto.",
+                "otttthhrrhhhtttto",
+                "otttthhrrhhhtttto",
+                "ottttrrrrrtttttto",
+                "otttthhrrhhhtttto",
+                "otttthhrrhhhtttto",
+                ".otttthhthhhhtto.",
+                "..oottttttttoo..",
+                "....oooooooo...."
+            ]
+        }
+    }
+
+    private func color(for pixel: Character) -> Color? {
+        switch pixel {
+        case "o": Color(red: 0.16, green: 0.08, blue: 0.12)
+        case "y": Color(red: 1.0, green: 0.83, blue: 0.35)
+        case "s": Color(red: 0.74, green: 0.42, blue: 0.16)
+        case "w": Color(red: 1.0, green: 0.93, blue: 0.67)
+        case "b": Color(red: 0.20, green: 0.52, blue: 0.88)
+        case "c": Color(red: 0.64, green: 0.86, blue: 1.0)
+        case "p": Color(red: 0.94, green: 0.51, blue: 0.57)
+        case "t": Color(red: 1.0, green: 0.90, blue: 0.68)
+        case "h": Color(red: 0.55, green: 0.37, blue: 0.28)
+        case "r": Color(red: 0.84, green: 0.16, blue: 0.20)
+        case ">": Color(red: 1.0, green: 0.82, blue: 0.35)
+        default: nil
+        }
+    }
+
+    var body: some View {
+        Canvas { context, size in
+            let pixelRows = rows.map(Array.init)
+            let columnCount = pixelRows.map(\.count).max() ?? 1
+            let pixelSize = min(size.width / CGFloat(columnCount), size.height / CGFloat(pixelRows.count))
+            let left = (size.width - CGFloat(columnCount) * pixelSize) / 2
+            let top = (size.height - CGFloat(pixelRows.count) * pixelSize) / 2
+
+            for (rowIndex, row) in pixelRows.enumerated() {
+                let rowOffset = CGFloat(columnCount - row.count) / 2
+                for (columnIndex, pixel) in row.enumerated() {
+                    guard let pixelColor = color(for: pixel) else { continue }
+                    let rect = CGRect(
+                        x: left + (rowOffset + CGFloat(columnIndex)) * pixelSize,
+                        y: top + CGFloat(rowIndex) * pixelSize,
+                        width: pixelSize,
+                        height: pixelSize
+                    )
+                    context.fill(Path(rect), with: .color(pixelColor))
+                }
+            }
+        }
+        .accessibilityHidden(true)
     }
 }

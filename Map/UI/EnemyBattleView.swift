@@ -4,19 +4,21 @@ import SwiftUI
 struct EnemyBattleView: View {
     let battle: EnemyBattle
     let playerHP: Int
+    let playerAttackAnimationID: Int
 
     @State private var isBreathing = false
     @State private var isCountering = false
     @State private var isHit = false
     @State private var enemyOffset: CGFloat = 0
+    @State private var enemyHitTilt = 0.0
     @State private var damageLabel: String?
     @State private var damageLabelOffset: CGFloat = 12
     @State private var hitTask: Task<Void, Never>?
     @State private var counterTask: Task<Void, Never>?
 
     private var enemyImage: String {
-        if isCountering { return battle.kind == .dragon ? "MessageMonsterMove1" : battle.kind.imageName }
-        if isHit { return battle.kind == .dragon ? "MessageMonsterMove2" : battle.kind.imageName }
+        if isCountering { return battle.kind.attackImageName }
+        if isHit { return battle.kind.hitImageName }
         if battle.kind == .dragon && isBreathing { return "MessageMonsterBreath" }
         return battle.kind.imageName
     }
@@ -34,25 +36,33 @@ struct EnemyBattleView: View {
                     )
                     .overlay {
                         Rectangle()
-                            .fill(Color(red: 0.95, green: 0.16, blue: 0.12).opacity(isHit ? 0.62 : 0))
-                            .animation(.easeOut(duration: 0.07), value: isHit)
+                            .fill(Color(red: 0.98, green: 0.16, blue: 0.12))
+                            .mask {
+                                Image(enemyImage)
+                                    .interpolation(.none)
+                                    .resizable()
+                                    .scaledToFit()
+                            }
+                            .opacity(isHit ? 0.82 : 0)
+                            .animation(.easeOut(duration: 0.08), value: isHit)
                     }
                     .offset(x: enemyOffset, y: isBreathing && enemyOffset == 0 ? -3 : 0)
-                    .scaleEffect(isHit ? 0.84 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
-                    .rotationEffect(.degrees(isHit ? -8 : (enemyOffset == 0 ? 0 : 5)))
+                    .scaleEffect(isHit ? 1.06 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
+                    .rotationEffect(.degrees(isHit ? enemyHitTilt : (enemyOffset == 0 ? 0 : 5)))
                     .shadow(
-                        color: isHit ? Color.red.opacity(0.95) : .black.opacity(0.72),
-                        radius: isHit ? 22 : 12,
+                        color: isHit ? Color(red: 0.98, green: 0.12, blue: 0.08).opacity(0.95) : .black.opacity(0.72),
+                        radius: isHit ? 17 : 12,
                         y: 6
                     )
+                    .animation(.easeOut(duration: 0.08), value: isHit)
                     .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.57)
                     .accessibilityLabel(battle.kind.name)
 
                 if let damageLabel {
                     Text(damageLabel)
-                        .font(.system(size: 26, weight: .black, design: .rounded))
+                        .font(DungeonTypography.maruMonica(size: 26))
                         .foregroundStyle(Color(red: 1.0, green: 0.83, blue: 0.24))
-                        .shadow(color: .red, radius: 8)
+                        .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 42)
                         .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.36)
@@ -74,6 +84,9 @@ struct EnemyBattleView: View {
             guard newHP < oldHP else { return }
             playHitReaction(damage: oldHP - newHP)
         }
+        .onChange(of: playerAttackAnimationID) { _, _ in
+            playAnticipatedHitReaction()
+        }
         .onChange(of: playerHP) { oldHP, newHP in
             guard newHP < oldHP else { return }
             playCounterReaction()
@@ -90,13 +103,11 @@ struct EnemyBattleView: View {
             damageLabel = "−\(damage)"
             damageLabelOffset = 12
             isHit = true
-            withAnimation(.spring(response: 0.09, dampingFraction: 0.38)) {
-                enemyOffset = -14
+            withAnimation(.easeOut(duration: 0.12)) {
                 damageLabelOffset = -18
             }
-            try? await Task.sleep(nanoseconds: 190_000_000)
+            await playImpactMotion(recoil: 18)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.15)) { enemyOffset = 0 }
             isHit = false
             try? await Task.sleep(nanoseconds: 360_000_000)
             guard !Task.isCancelled else { return }
@@ -105,11 +116,54 @@ struct EnemyBattleView: View {
         }
     }
 
+    /// 攻撃ボタンの演出に合わせ、実際のHP更新前にも敵の被弾差分を短く見せる。
+    private func playAnticipatedHitReaction() {
+        hitTask?.cancel()
+        hitTask = Task { @MainActor in
+            isHit = true
+            await playImpactMotion(recoil: 10)
+            guard !Task.isCancelled else { return }
+            isHit = false
+            hitTask = nil
+        }
+    }
+
+    /// 赤い閃光と短い左右の反動で、敵の被弾をレトロなヒット演出にする。
+    @MainActor
+    private func playImpactMotion(recoil: CGFloat) async {
+        withAnimation(.easeOut(duration: 0.055)) {
+            enemyOffset = -recoil
+            enemyHitTilt = -5
+        }
+        try? await Task.sleep(nanoseconds: 55_000_000)
+        guard !Task.isCancelled else { return }
+
+        withAnimation(.linear(duration: 0.05)) {
+            enemyOffset = recoil * 0.65
+            enemyHitTilt = 4
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        guard !Task.isCancelled else { return }
+
+        withAnimation(.linear(duration: 0.05)) {
+            enemyOffset = -recoil * 0.3
+            enemyHitTilt = -2
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        guard !Task.isCancelled else { return }
+
+        withAnimation(.spring(response: 0.12, dampingFraction: 0.62)) {
+            enemyOffset = 0
+            enemyHitTilt = 0
+        }
+        try? await Task.sleep(nanoseconds: 120_000_000)
+    }
+
     private func playCounterReaction() {
         counterTask?.cancel()
         counterTask = Task { @MainActor in
             // ダメージ表示と赤い被弾演出が終わってから、敵の反撃動作を続ける。
-            try? await Task.sleep(nanoseconds: 560_000_000)
+            try? await Task.sleep(nanoseconds: 650_000_000)
             guard !Task.isCancelled else { return }
             isCountering = true
             withAnimation(.easeOut(duration: 0.12)) { enemyOffset = 18 }
@@ -152,18 +206,22 @@ struct EnemyEncounterSpeechOverlay: View {
 
 struct EnemyDefeatSpeechOverlay: View {
     let speech: EnemyDefeatSpeech
+    @State private var hasFallen = false
 
     var body: some View {
         VStack(spacing: -2) {
             EnemySpeechBubbleView(text: speech.message)
                 .padding(.horizontal, 8)
 
-            Image(speech.kind.imageName)
+            Image(hasFallen ? speech.kind.defeatedImageName : speech.kind.imageName)
                 .interpolation(.none)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 72, height: 72)
-                .rotationEffect(.degrees(90))
+                .rotationEffect(.degrees(hasFallen && speech.kind == .dragon ? 90 : 0))
+                .offset(x: hasFallen ? 22 : 0, y: hasFallen ? 20 : 0)
+                .scaleEffect(hasFallen ? 0.78 : 1)
+                .opacity(hasFallen ? 0.72 : 1)
                 .shadow(color: .black.opacity(0.8), radius: 5, y: 3)
                 .accessibilityHidden(true)
         }
@@ -171,6 +229,11 @@ struct EnemyDefeatSpeechOverlay: View {
         .padding(.top, 8)
         .transition(.scale.combined(with: .opacity))
         .allowsHitTesting(false)
+        .onAppear {
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.16)) {
+                hasFallen = true
+            }
+        }
     }
 }
 
@@ -179,11 +242,12 @@ private struct EnemySpeechBubbleView: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 13, weight: .bold, design: .monospaced))
+            .font(DungeonTypography.maruMonica(size: 14))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
             .lineLimit(3)
-            .minimumScaleFactor(0.75)
+            .minimumScaleFactor(0.82)
+            .lineSpacing(2)
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(Color.black.opacity(0.94), in: RoundedRectangle(cornerRadius: 8))

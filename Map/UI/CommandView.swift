@@ -66,6 +66,7 @@ struct CommandView: View {
     let onBattleFlee: () -> Void
     /// 計時対象ステージの開始時刻。戦闘中は表示を隠すが計測は継続する。
     let timerStartedAt: TimeInterval?
+    let timerReductionSeconds: Int
 
     var body: some View {
         VStack(spacing: 8) {
@@ -79,7 +80,7 @@ struct CommandView: View {
                 if isBattling {
                     Button(action: onBattleAttack) {
                         Text("こうげき")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(DungeonTypography.maruMonica(size: 13))
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(DungeonPressButtonStyle())
@@ -87,14 +88,14 @@ struct CommandView: View {
 
                     Button(action: onBattleFlee) {
                         Text("にげる")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(DungeonTypography.maruMonica(size: 13))
                             .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(DungeonPressButtonStyle())
                     .disabled(isBattleActionDisabled)
                 } else {
                     if let timerStartedAt {
-                        DungeonRunTimer(startedAt: timerStartedAt)
+                        DungeonRunTimer(startedAt: timerStartedAt, reductionSeconds: timerReductionSeconds)
                     } else {
                         Spacer(minLength: 0)
                     }
@@ -103,7 +104,7 @@ struct CommandView: View {
 
                 Button(action: onGiveUp) {
                     Text("ギブアップ")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(DungeonTypography.maruMonica(size: 14))
                         .frame(width: 112, height: 44)
                 }
                 .buttonStyle(DungeonPressButtonStyle())
@@ -122,18 +123,18 @@ struct CommandView: View {
 
             HStack(spacing: 10) {
                 Text("フリック")
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .font(DungeonTypography.maruMonica(size: 13))
                     .foregroundColor(Color(red: 0.89, green: 0.78, blue: 0.49))
 
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(DungeonTypography.maruMonica(size: 24))
                     .foregroundColor(Color(red: 0.93, green: 0.75, blue: 0.29))
                     .frame(width: 32, height: 32)
                     .rotationEffect(.degrees(activeFlickDirection?.rotationDegrees ?? 0))
                     .animation(.easeOut(duration: 0.12), value: activeFlickDirection)
 
                 Text("上：前進　下：反対を向く\n左右：向きを変える")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(DungeonTypography.maruMonica(size: 12))
                     .foregroundColor(.white.opacity(0.82))
             }
         }
@@ -173,17 +174,18 @@ struct CommandView: View {
 /// 探索中にコマンド領域の左側へ経過時間を表示する。
 private struct DungeonRunTimer: View {
     let startedAt: TimeInterval
+    let reductionSeconds: Int
 
     var body: some View {
         TimelineView(.periodic(from: Date(), by: 0.1)) { _ in
             let elapsedText = DungeonTimeFormatter.string(
-                from: ProcessInfo.processInfo.systemUptime - startedAt
+                from: ProcessInfo.processInfo.systemUptime - startedAt - TimeInterval(reductionSeconds)
             )
             HStack(spacing: 5) {
                 Image(systemName: "stopwatch")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(DungeonTypography.maruMonica(size: 12))
                 Text(elapsedText)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(DungeonTypography.maruMonica(size: 13))
                 .monospacedDigit()
             }
             .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.45))

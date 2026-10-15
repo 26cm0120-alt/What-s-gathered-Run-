@@ -28,11 +28,11 @@ struct StartView: View {
                     VStack(spacing: 0) {
                         VStack(spacing: -4) {
                             Text("What's gathered?")
-                                .font(.system(size: compact ? 26 : 30, weight: .bold, design: .serif))
+                                .font(DungeonTypography.maruMonica(size: compact ? 26 : 30))
                                 .minimumScaleFactor(0.82)
                                 .lineLimit(1)
                             Text("Run!")
-                                .font(.system(size: compact ? 46 : 54, weight: .heavy, design: .serif))
+                                .font(DungeonTypography.maruMonica(size: compact ? 46 : 54))
                         }
                         .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
                         AnimatedTitleDragonTitleRow(compact: compact)
@@ -45,11 +45,11 @@ struct StartView: View {
 
                     VStack(spacing: compact ? 3 : 6) {
                         Text("ファミコン時代の Wizardry・女神転生を思わせる、\nグリッド型の3Dダンジョン探索ゲーム")
-                            .font(.system(size: compact ? 12 : 14, weight: .medium, design: .serif))
+                            .font(DungeonTypography.maruMonica(size: compact ? 13 : 15))
                             .foregroundStyle(Color.white.opacity(0.78))
 
-                        Text("鍵を見つけ、石造りの迷宮を抜けて\nゴールを目指そう")
-                            .font(.system(size: compact ? 14 : 16, weight: .semibold, design: .serif))
+                        Text("鍵を見つけてゴールを目指そう\n最短クリアを目指しタイムを競おう！")
+                            .font(DungeonTypography.maruMonica(size: compact ? 15 : 17))
                             .foregroundStyle(Color.white.opacity(0.96))
                     }
                     .multilineTextAlignment(.center)
@@ -67,7 +67,7 @@ struct StartView: View {
                     AnimatedTitleMonsterView(compact: compact)
 
                     Text("探索モードを選ぶ")
-                        .font(.system(size: compact ? 17 : 19, weight: .bold, design: .serif))
+                        .font(DungeonTypography.maruMonica(size: compact ? 17 : 19))
                         .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
                         .frame(maxWidth: 360, alignment: .leading)
                         .padding(.top, compact ? 0 : 2)
@@ -109,10 +109,9 @@ struct StartView: View {
                     }
                     .frame(maxWidth: 360)
 
-                    Text("上フリックで前進、左右で旋回、下で反転。鍵を手に入れてゴールへ。")
-                        .font(.system(size: compact ? 11 : 13, weight: .medium, design: .serif))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
+                    Text("上フリックで前進、左右で旋回、下で反転。\n鍵を手に入れてゴールへ。")
+                        .font(DungeonTypography.maruMonica(size: compact ? 12 : 14))
+                        .lineLimit(2)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.white.opacity(0.76))
                         .frame(maxWidth: 360)
@@ -153,26 +152,26 @@ struct StartView: View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Image(systemName: symbol)
-                    .font(.system(size: compact ? 16 : 19, weight: .semibold))
+                    .font(DungeonTypography.maruMonica(size: compact ? 16 : 19))
                     .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
                     .frame(width: compact ? 32 : 38, height: compact ? 32 : 38)
                     .background(Color.white.opacity(0.06), in: Circle())
 
                 VStack(alignment: .leading, spacing: compact ? 1 : 4) {
                     Text(title)
-                        .font(.system(size: compact ? 18 : 20, weight: .bold, design: .serif))
+                        .font(DungeonTypography.maruMonica(size: compact ? 18 : 20))
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .foregroundStyle(Color.white.opacity(0.95))
                     Text(subtitle)
-                        .font(.system(size: compact ? 12 : 14, weight: .medium, design: .serif))
+                        .font(DungeonTypography.maruMonica(size: compact ? 12 : 14))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
                         .foregroundStyle(Color.white.opacity(0.84))
                 }
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: compact ? 14 : 16, weight: .bold))
+                    .font(DungeonTypography.maruMonica(size: compact ? 14 : 16))
                     .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
             }
             .padding(.horizontal, compact ? 10 : 15)

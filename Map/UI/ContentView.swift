@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// アプリの最初の画面。画面の状態(AppFlow)に従って、
-/// スタート画面・プレイ画面・クリア表示を切り替える
+/// スタート画面・プレイ画面・クリア表示・ゲームオーバー表示を切り替える
 struct ContentView: View {
     @StateObject private var flow = AppFlow()
 
@@ -20,8 +20,8 @@ struct ContentView: View {
                     onReplayRandomStage: flow.replayRandomGame
                 )
 
-            case .playing, .cleared:
-                // ダンジョンのプレイ画面。しりとり勝利後は既存のクリア表示を重ねる。
+            case .playing, .cleared, .gameOver:
+                // ダンジョンのプレイ画面に、クリアまたはゲームオーバー表示を重ねる。
                 if let game = flow.game {
                     PlayView(
                         game: game,
@@ -32,28 +32,41 @@ struct ContentView: View {
                             if flow.screen == .cleared {
                                 ClearView(
                                     currentRunTime: flow.currentRunTime,
-                                    isFirstClearRun: flow.isFirstClearRun,
                                     bestClearTime: flow.bestClearTime,
+                                    nextStageTitle: flow.nextStageTitle,
+                                    leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
+                                    leaderboardEntries: flow.leaderboardEntries,
+                                    onSaveName: flow.saveLeaderboardEntry,
+                                    onNextStage: flow.startNextStage,
                                     onReplay: flow.supportsReplayAndTiming
                                         ? { flow.replayCurrentStage() }
                                         : nil,
                                     onReturn: flow.returnToStart
+                                )
+                            } else if flow.screen == .gameOver {
+                                GameOverView(
+                                    onReturn: flow.returnToStart,
+                                    reasonMessage: flow.gameOverReasonMessage,
+                                    detailMessage: flow.gameOverDetailMessage
                                 )
                             }
                         }
                 }
 
             case .shiritoriPrologue:
-                ShiritoriStartView(onGameStart: flow.startShiritoriGame)
+                ShiritoriStartView(
+                    isRandomStage: flow.game?.stage.seed != nil,
+                    onGameStart: flow.startShiritoriGame
+                )
 
             case .shiritoriGame:
-                ShiritoriGameView { playerWon in
+                ShiritoriGameView(initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds) { playerWon in
                     flow.finishShiritori(won: playerWon)
                 }
 
             case .trialShiritoriGame:
                 // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
-                ShiritoriGameView(cards: CardData2.cards, stage: .trial) { playerWon in
+                ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds) { playerWon in
                     flow.finishShiritori(won: playerWon)
                 }
             }

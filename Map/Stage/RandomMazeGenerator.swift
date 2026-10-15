@@ -80,6 +80,10 @@ enum RandomMazeGenerator {
         let firstEnemy = preKeyEnemyCandidates[random.nextInt(upperBound: preKeyEnemyCandidates.count)]
         let secondEnemy = postKeyEnemyCandidates[random.nextInt(upperBound: postKeyEnemyCandidates.count)]
         let enemies = [firstEnemy, secondEnemy]
+        let enemyKinds: [GridPos: EnemyKind] = [
+            firstEnemy: .gargoyle,
+            secondEnemy: EnemyKind.encounter(seed: seed ^ 0xA5A5A5A5, position: secondEnemy)
+        ]
 
         let routeToGoal = Set(path)
         let trapCandidates = cells.indices.flatMap { y in
@@ -106,7 +110,8 @@ enum RandomMazeGenerator {
         return MapData(
             cells: mapCells,
             startPosition: start,
-            initialDirection: Direction(rawValue: random.nextInt(upperBound: 4)) ?? .north
+            initialDirection: Direction(rawValue: random.nextInt(upperBound: 4)) ?? .north,
+            enemyKinds: enemyKinds
         )
     }
 
