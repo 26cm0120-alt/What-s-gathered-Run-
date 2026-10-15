@@ -12,9 +12,6 @@ import UIKit
 /// 効果音とBGMの再生を一元管理するクラス
 final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
 
-    /// しりとり画面のBGM音量。効果音には適用しない。
-    private let backgroundMusicVolume: Float = 0.2
-
     /// アプリ全体で共通して使用する効果音管理インスタンス
     static let shared = SoundEffectManager()
 
@@ -83,7 +80,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
     /// PLAYER敗北メッセージの表示完了後に、敗北用BGMを1回だけ再生する
     func playDefeatBGMOnce() {
         // 共通再生処理はループ設定を行わないため、音源を最後まで1回だけ再生する
-        play(assetName: "shiritori_defeat_death_bgm_3sec", volume: backgroundMusicVolume)
+        play(assetName: "shiritori_defeat_death_bgm_3sec")
     }
 
     // MARK: - プロローグBGM
@@ -104,7 +101,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         do {
             let player = try AVAudioPlayer(data: asset.data)
 
-            player.volume = backgroundMusicVolume
+            // 音量はプレイヤーの既定値（1.0）を使用する。
 
             // プロローグBGMはループさせない
             player.numberOfLoops = 0
@@ -245,7 +242,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         do {
             let player = try AVAudioPlayer(data: asset.data)
             print("[ShiritoriBGM-DIAG] AVAudioPlayer created: \(assetName), duration=\(player.duration)")
-            player.volume = backgroundMusicVolume
+            // 音量はプレイヤーの既定値（1.0）を使用する。
 
             // 切り替え条件成立後のBGM2は、音源終了時に戻らず無限ループさせる
             if currentBGMNumber == 2 && isBGM2LockedPermanently {
