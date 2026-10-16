@@ -17,9 +17,10 @@ extension TileEvent {
 
 /// マスの種類と処理の対応表
 enum TileEvents {
-    static func event(for cell: MapCell) -> (any TileEvent)? {
+    static func event(for cell: MapCell, map: MapData, position: GridPos) -> (any TileEvent)? {
         switch cell {
-        case .trap: return TrapEvent()
+        case .trap:
+            return TrapEvent(kind: map.trapKinds[position] ?? .turnRight, map: map)
         case .sword: return SwordEvent()
         case .key:  return KeyEvent()
         case .enemy: return nil // 敵種はseedと座標からGameManagerが決める

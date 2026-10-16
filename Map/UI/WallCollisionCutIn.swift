@@ -67,11 +67,11 @@ struct PlayerEventCutIn: View {
                     .foregroundStyle(style.accent)
 
                 Text(message)
-                    .font(DungeonTypography.maruMonica(size: 32))
+                    .font(DungeonTypography.maruMonica(size: message.count > 11 ? 20 : 32))
                     .foregroundStyle(.white)
                     .shadow(color: style.accent.opacity(0.8), radius: 8)
                     .minimumScaleFactor(0.75)
-                    .lineLimit(1)
+                    .lineLimit(2)
             }
 
             Spacer(minLength: 0)

@@ -1,11 +1,8 @@
 import AVFoundation
 import SwiftUI
 
-/// Kマスの宝箱を表示し、初回取得時は鍵の演出を再生する
+/// 初回の鍵取得時に、宝箱と鍵の演出を再生する
 struct KeyAcquisitionView: View {
-    let hasKey: Bool
-    let isAcquiringKey: Bool
-    let direction: Direction
     let onFinished: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -17,79 +14,51 @@ struct KeyAcquisitionView: View {
     @State private var itemFoundAudioPlayer: AVAudioPlayer?
     @State private var audioErrorDelegates: [AudioPlaybackErrorDelegate] = []
 
-    private var restingChestImageName: String {
-        let stateName = hasKey ? "ChestOpen" : "ChestClosed"
-        let directionName: String
-        switch direction {
-        case .north: directionName = "Front"
-        case .south: directionName = "Back"
-        case .west: directionName = "Left"
-        case .east: directionName = "Right"
-        }
-        return stateName + directionName
-    }
-
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                if isAcquiringKey {
-                    // 初回は閉じた宝箱から始め、鍵の演出中だけ背景を暗くする
-                    Color.black.opacity(0.62)
+                // 初回は閉じた宝箱から始め、鍵の演出中だけ背景を暗くする
+                Color.black.opacity(0.62)
 
-                    ZStack {
-                        Image("CloseBox")
-                            .resizable()
-                            .scaledToFit()
-                            .opacity(chestIsOpen ? 0 : 1)
-
-                        Image("OpenBox")
-                            .resizable()
-                            .scaledToFit()
-                            .opacity(chestIsOpen ? 1 : 0)
-                    }
-                    .frame(
-                        width: geometry.size.width * 0.48,
-                        height: geometry.size.height * 0.42
-                    )
-                    .animation(.easeInOut(duration: 0.22), value: chestIsOpen)
-                    .position(
-                        x: geometry.size.width / 2,
-                        y: geometry.size.height * 0.60
-                    )
-
-                    Image("key")
+                ZStack {
+                    Image("CloseBox")
                         .resizable()
                         .scaledToFit()
-                        .frame(
-                            width: geometry.size.width * 0.20,
-                            height: geometry.size.height * 0.22
-                        )
-                        .scaleEffect(keyVisible ? 1 : 0.82)
-                        .rotationEffect(.degrees(keyRotation))
-                        .opacity(keyVisible ? 1 : 0)
-                        .position(
-                            x: geometry.size.width * 0.52,
-                            y: geometry.size.height * 0.57 + keyRise
-                        )
-                } else {
-                    Image(restingChestImageName)
+                        .opacity(chestIsOpen ? 0 : 1)
+
+                    Image("OpenBox")
                         .resizable()
                         .scaledToFit()
-                        .frame(
-                            width: geometry.size.width * 0.48,
-                            height: geometry.size.height * 0.42
-                        )
-                        .position(
-                            x: geometry.size.width / 2,
-                            y: geometry.size.height * 0.60
-                        )
+                        .opacity(chestIsOpen ? 1 : 0)
                 }
+                .frame(
+                    width: geometry.size.width * 0.48,
+                    height: geometry.size.height * 0.42
+                )
+                .animation(.easeInOut(duration: 0.22), value: chestIsOpen)
+                .position(
+                    x: geometry.size.width / 2,
+                    y: geometry.size.height * 0.60
+                )
+
+                Image("key")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(
+                        width: geometry.size.width * 0.20,
+                        height: geometry.size.height * 0.22
+                    )
+                    .scaleEffect(keyVisible ? 1 : 0.82)
+                    .rotationEffect(.degrees(keyRotation))
+                    .opacity(keyVisible ? 1 : 0)
+                    .position(
+                        x: geometry.size.width * 0.52,
+                        y: geometry.size.height * 0.57 + keyRise
+                    )
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .clipShape(RoundedRectangle(cornerRadius: 10))
-            .task(id: isAcquiringKey) {
-                guard isAcquiringKey else { return }
-
+            .task {
                 // 初回の鍵取得時だけ、メッセージと同時に宝箱を開ける音を再生する
                 chestOpenAudioPlayer?.stop()
                 chestOpenAudioPlayer = playSound(named: "宝箱を開ける")
@@ -134,7 +103,7 @@ struct KeyAcquisitionView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isAcquiringKey ? "宝箱から鍵を手に入れた" : (hasKey ? "空の宝箱" : "鍵の入った閉じた宝箱"))
+        .accessibilityLabel("宝箱から鍵を手に入れた")
         .allowsHitTesting(false)
     }
 

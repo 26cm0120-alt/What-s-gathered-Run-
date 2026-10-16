@@ -75,7 +75,6 @@ final class AppFlow: ObservableObject {
     @Published private(set) var leaderboardEntries: [LeaderboardEntry] = []
 
     private var currentRecordKey: String?
-    private var currentModeClearKey: String?
     private var currentLeaderboardMode: LeaderboardMode?
 
     private var titleBackgroundAudioPlayer: AVAudioPlayer?
@@ -110,12 +109,12 @@ final class AppFlow: ObservableObject {
         shiritoriEnemyFallAudioPlayer = nil
         shiritoriEnemyFallCompletionDelegate = nil
         isPlayingDoorOpenSequence = false
-        let modeClearKey = modeClearKey(for: stage)
-        let hasClearedMode = modeClearKey.map(hasPreviouslyClearedMode) ?? false
-        let newGame = GameManager(stage: stage, wallCollisionDamageEnabled: hasClearedMode)
+        let newGame = GameManager(
+            stage: stage,
+            wallCollisionDamageEnabled: !stage.isStepByStepTutorial
+        )
         lastRandomSeed = stage.seed
         currentRecordKey = clearTimeRecordKey(for: stage)
-        currentModeClearKey = modeClearKey
         supportsReplayAndTiming = currentRecordKey != nil
         shiritoriTimeBonusSeconds = 0
         currentLeaderboardMode = leaderboardMode(for: stage)
@@ -197,7 +196,6 @@ final class AppFlow: ObservableObject {
         case .trialShiritoriGame:
             // 試練ルートも勝利時は既存のクリア画面・クリア音を表示する。
             if won {
-                markCurrentModeAsCleared()
                 saveBestClearTimeIfNeeded()
                 playShiritoriEnemyFallThenShowClear()
             } else {
@@ -207,7 +205,6 @@ final class AppFlow: ObservableObject {
             }
         case .shiritoriGame:
             if won {
-                markCurrentModeAsCleared()
                 saveBestClearTimeIfNeeded()
                 playShiritoriEnemyFallThenShowClear()
             } else {
@@ -237,7 +234,6 @@ final class AppFlow: ObservableObject {
         currentRunTime = nil
         bestClearTime = nil
         currentRecordKey = nil
-        currentModeClearKey = nil
         supportsReplayAndTiming = false
         shiritoriTimeBonusSeconds = 0
         leaderboardEntries = []
@@ -440,47 +436,6 @@ final class AppFlow: ObservableObject {
             return time
         }
         return ([stored].compactMap { $0 } + legacy).min()
-    }
-
-    /// 初回の成功クリア後、同じモードの次回以降を計時・壁ダメージの対象にする。
-    private func markCurrentModeAsCleared() {
-        guard let currentModeClearKey else { return }
-        UserDefaults.standard.set(true, forKey: currentModeClearKey)
-    }
-
-    /// 以前のバージョンで保存済みのベストタイムがあれば、クリア済みとして引き継ぐ。
-    private func hasPreviouslyClearedMode(_ key: String) -> Bool {
-        let defaults = UserDefaults.standard
-        if defaults.bool(forKey: key) { return true }
-
-        let hasLegacyRecord: Bool
-        if key == "dungeon.hasCleared.random" {
-            hasLegacyRecord = defaults.dictionaryRepresentation().keys.contains {
-                $0.hasPrefix("dungeon.bestClearTime.random.")
-            }
-        } else {
-            hasLegacyRecord = defaults.object(forKey: "dungeon.bestClearTime.trial") != nil
-        }
-
-        if hasLegacyRecord {
-            defaults.set(true, forKey: key)
-        }
-        return hasLegacyRecord
-    }
-
-    /// 試練とランダムを別々に初回クリア管理する。チュートリアルは対象外。
-    private func modeClearKey(for stage: Stage) -> String? {
-        if stage.seed != nil {
-            return "dungeon.hasCleared.random"
-        }
-
-        guard !stage.isStepByStepTutorial else { return nil }
-        switch stage.shiritoriStageKind {
-        case .trial:
-            return "dungeon.hasCleared.trial"
-        case .standard:
-            return nil
-        }
     }
 
     /// 試練とランダムの最短タイムは各モード共通で保存する。

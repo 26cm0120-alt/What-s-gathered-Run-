@@ -18,13 +18,7 @@ struct PlayerStatusView: View {
 
             // PLAYER用の表示領域
             Text("PLAYER")
-                .font(
-                    DungeonTypography.system(
-                        size: 12,
-                        weight: .bold,
-                        design: .monospaced
-                    )
-                )
+                .font(DungeonTypography.maruMonica(size: 12))
                 .foregroundStyle(.white)
                 .frame(height: 36)
 
@@ -36,13 +30,7 @@ struct PlayerStatusView: View {
 
                 Text("\(playerTime)")
             }
-            .font(
-                DungeonTypography.system(
-                    size: 16,
-                    weight: .bold,
-                    design: .monospaced
-                )
-            )
+            .font(DungeonTypography.maruMonica(size: 16))
             .foregroundStyle(.white)
         }
     }
