@@ -95,6 +95,10 @@ enum RandomMazeGenerator {
         }
         precondition(!trapCandidates.isEmpty, "ゴールへの経路外にトラップを置く通路がありません")
         let trap = trapCandidates[random.nextInt(upperBound: trapCandidates.count)]
+        let trapGroup = TrapGroup.allCases[random.nextInt(upperBound: TrapGroup.allCases.count)]
+        let trapKind = selectTrap(in: trapGroup) {
+            random.nextInt(upperBound: 100) + 1
+        } ?? .unexploded
 
         // TはSからGへの最短経路外に置く。イベント記号の置換で通路の連結性は変わらない。
         cells[start.y][start.x] = "S"
@@ -111,7 +115,8 @@ enum RandomMazeGenerator {
             cells: mapCells,
             startPosition: start,
             initialDirection: Direction(rawValue: random.nextInt(upperBound: 4)) ?? .north,
-            enemyKinds: enemyKinds
+            enemyKinds: enemyKinds,
+            trapKinds: [trap: trapKind]
         )
     }
 

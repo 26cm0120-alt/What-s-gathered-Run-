@@ -50,13 +50,7 @@ struct ShiritoriStartView: View {
 
             // メッセージを画面中央に表示する
             Text(displayedMessage)
-                .font(
-                    DungeonTypography.system(
-                        size: 20,
-                        weight: .regular,
-                        design: .monospaced
-                    )
-                )
+                .font(DungeonTypography.maruMonica(size: 20))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .frame(

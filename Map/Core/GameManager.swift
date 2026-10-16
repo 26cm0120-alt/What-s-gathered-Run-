@@ -35,7 +35,7 @@ final class GameManager: ObservableObject {
     /// 戦闘の開始・終了に合わせたBGM切替通知
     var onBattleStateChanged: ((EnemyKind?) -> Void)?
 
-    init(stage: Stage, wallCollisionDamageEnabled: Bool = false) {
+    init(stage: Stage, wallCollisionDamageEnabled: Bool = true) {
         self.stage = stage
         self.wallCollisionDamageEnabled = wallCollisionDamageEnabled
         self.state = GameState(
@@ -96,6 +96,19 @@ final class GameManager: ObservableObject {
     /// 指定した方向へ1マス進み、壁・イベント・探索済み状態をまとめて処理する。
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
         guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
+
+        if state.doubleFlickTrapActive {
+            var newState = state
+            if !newState.hasPendingDoubleFlick {
+                newState.hasPendingDoubleFlick = true
+                newState.message = "前進トラップ！\nもう一度フリックすると進める。"
+                state = newState
+                return
+            }
+            newState.hasPendingDoubleFlick = false
+            state = newState
+        }
+
         let next = state.player.position.moved(direction)
         let cell = map.cell(at: next)
         if cell.isWall {
@@ -139,7 +152,7 @@ final class GameManager: ObservableObject {
         } else if cell == .enemy {
             event = nil
         } else {
-            event = TileEvents.event(for: cell)
+            event = TileEvents.event(for: cell, map: map, position: next)
         }
         if let reason = event?.blockReason(state: state) {
             var newState = state
@@ -152,11 +165,20 @@ final class GameManager: ObservableObject {
         newState.player.position = next
         newState.explored.insert(next)
         newState.message = ""
+        newState.trapActivationMessage = nil
         newState.recordTutorialAction(action)
         if cell != .key && cell != .goal && cell != .sword {
             soundEffects.play(named: "移動音")
         }
         event?.onEnter(state: &newState, from: state.player.position)
+        if newState.hpDrainTrapActive && !newState.isGameOver {
+            newState.playerHP = max(0, newState.playerHP - 1)
+            if newState.playerHP == 0 {
+                newState.isGameOver = true
+                newState.isCleared = false
+                newState.message = "毒の罠でHPが0になった……"
+            }
+        }
         state = newState
         if let battle = newState.enemyBattle {
             showEncounterEnemySpeech(battle.kind)
@@ -168,6 +190,11 @@ final class GameManager: ObservableObject {
         }
         if newState.enemyBattle != nil {
             surpriseReactionID += 1
+        }
+
+        if newState.isGameOver {
+            onGameOver?()
+            return
         }
 
         // クリア状態になったら、画面を切り替えるために知らせる
@@ -226,6 +253,9 @@ final class GameManager: ObservableObject {
     /// 逃走した場合は、敵マスへ入る直前の位置に戻る。敵はその場に残る。
     func fleeBattle() {
         guard let battle = state.enemyBattle else { return }
+        encounterEnemySpeechTask?.cancel()
+        encounterEnemySpeechTask = nil
+        encounterEnemySpeech = nil
         var newState = state
         newState.player.position = battle.retreatPosition
         newState.enemyBattle = nil

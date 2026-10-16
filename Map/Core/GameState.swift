@@ -106,6 +106,14 @@ struct GameState {
     var runTimeReductionSeconds = 0
     var enemyBattle: EnemyBattle?
     var defeatedEnemies: Set<GridPos> = []
+    /// 2回の前進フリックで1マス進むトラップが有効か。
+    var doubleFlickTrapActive = false
+    /// 2回前進の1回目を受け付けた状態か。
+    var hasPendingDoubleFlick = false
+    /// 1マス進むごとにHPが減るトラップが有効か。
+    var hpDrainTrapActive = false
+    /// 現在のトラップが表示する説明文。
+    var trapActivationMessage: String?
     var isGameOver = false
     /// この面でクリアするのに、鍵が必要か(仕様書§3.3)。面の定義から設定する
     let requiresKey: Bool

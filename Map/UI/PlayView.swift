@@ -154,11 +154,8 @@ struct PlayView: View {
                 }
             }
             .overlay {
-                if isStandingAtKey {
+                if isStandingAtKey && isShowingKeyAcquisition {
                     KeyAcquisitionView(
-                        hasKey: game.state.hasKey,
-                        isAcquiringKey: isShowingKeyAcquisition,
-                        direction: game.state.player.direction,
                         onFinished: {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 isShowingKeyAcquisition = false
@@ -382,7 +379,7 @@ struct PlayView: View {
             }
         }
         .onChange(of: isStandingAtKey) { _, isAtKey in
-            // 演出中に鍵のあるマスを離れたら、再入場時は空の宝箱を表示する
+            // 鍵のあるマスを離れたら取得演出を終了する
             if !isAtKey {
                 isShowingKeyAcquisition = false
             }
@@ -396,7 +393,12 @@ struct PlayView: View {
         }
         .onChange(of: game.trapActivationID) { _, _ in
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
-            showEventCutIn(title: "TRAP!", message: "滑った、、", style: .trap, startsTrapReaction: true)
+            showEventCutIn(
+                title: "TRAP!",
+                message: game.state.trapActivationMessage ?? "滑った、、",
+                style: .trap,
+                startsTrapReaction: true
+            )
         }
         .onChange(of: game.enemyEncounterID) { _, _ in
             UINotificationFeedbackGenerator().notificationOccurred(.warning)

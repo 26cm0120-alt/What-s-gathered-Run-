@@ -39,23 +39,20 @@ struct MessageWindowView: View {
 
     var body: some View {
         Text(displayedMessage)
-            .font(
-                DungeonTypography.system(
-                    size: 14,
-                    weight: .bold,
-                    design: .monospaced
-                )
-            )
+            .font(DungeonTypography.maruMonica(size: 14))
             .foregroundStyle(.white)
             // 通常メッセージは左揃え、導入の最後のメッセージだけ中央揃えにする
             .multilineTextAlignment(centerText ? .center : .leading)
             .lineSpacing(3)
-            .fixedSize(horizontal: false, vertical: true)
+            .lineLimit(3)
             .frame(
                 maxWidth: .infinity,
                 alignment: centerText ? .center : .topLeading
             )
-            .frame(minHeight: 48)
+            .frame(
+                height: 72,
+                alignment: centerText ? .center : .topLeading
+            )
             .padding(.horizontal, 8)
             .background(Color.black)
             .overlay(
