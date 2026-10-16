@@ -38,34 +38,31 @@ private func normalizedTrapRates(
         return nil
     }
     // 合計100%確認
-    // グループ内の発生率を合計
+    // グループの発生率を合計
     let totalRate = groupRates.reduce(0, { $0 + $1.rate })
     // 合計が100%ならOK
     if totalRate == 100 { return groupRates }
-    // 最大値が見つからなければ補正できないため、nilを返す。
+    // 補正不可
     if let maxRate = groupRates.map({ $0.rate }).max(),
-       // 最大値と同じ率を持つ罠を設定順に探す。
        // 同率が複数あれば、先に記述された罠が調整対象になる。
        let adjustmentIndex = groupRates.firstIndex(where: { $0.rate == maxRate }) {
         // 合計が100%未満なら不足分を加え、100%を超えていれば超過分を引く。
         let adjustedRate = groupRates[adjustmentIndex].rate + (100 - totalRate)
-
         // 補正後の率が0〜100%の範囲を外れたら、補正できないためnilを返す。
         if !(0...100).contains(adjustedRate) {
             return nil
         }
-
-        // 元の発生率設定をコピーする。元の値は書き換えない。
+        // 元の発生率設定をコピー（元の値は書き換えない）
         var normalizedRates = groupRates
 
-        // コピー内で調整対象の罠の率だけを補正後の値に置き換える。
+        // コピー内で調整対象の罠の率だけを補正後の値に置き換え
         normalizedRates[adjustmentIndex] = (
-            // 罠の種類はそのまま残す。
+            // 罠の種類はそのまま残す
             kind: groupRates[adjustmentIndex].kind,
-            // 発生率を補正後の値にする。
+            // 発生率を補正後の値にする
             rate: adjustedRate
         )
-        // 補正済みの発生率一覧を返す。
+        // 補正済みの発生率一覧を返す
         return normalizedRates
     } else {
         // 最大値または調整対象が見つからなければ処理を中断する。
@@ -93,26 +90,27 @@ func selectTrap(
     return nil
 }
 
-/// 罠の機能グループ
+/// 罠
+/// グループ化
 enum TrapGroup {
     case a
     case b
     case c
 }
 
-/// 罠の種類
+/// 種類
 enum TrapKind: CaseIterable {
-    // グループA：状態変化
+    // グループA：進行妨害系
     case turnRight
     case doubleFlick
     case hpDrain
 
-    // グループB：ワープ
+    // グループB：ワープ系
     case warpToStart
     case randomWarp
     case warpBeforeKey
 
-    // グループC：運命
+    // グループC：運命系
     case forceGameOver
     case unexploded
 
@@ -136,7 +134,7 @@ struct TrapEvent: TileEvent {
         self.map = map
     }
 
-    /// グループごとの振り分け
+    /// グループ振り分け
     func onEnter(state: inout GameState, from previousPosition: GridPos) {
         switch kind.group {
         case .a:
@@ -148,7 +146,7 @@ struct TrapEvent: TileEvent {
         }
     }
 
-    // MARK: - グループA：状態変化
+    // グループA：進行妨害
     private func activateGroupA(state: inout GameState) {
         switch kind {
         case .turnRight:
@@ -170,7 +168,7 @@ struct TrapEvent: TileEvent {
         state.trapActivationMessage = message
     }
 
-    /// 進行妨害
+    /// 遅行
     private func activateDoubleFlick(state: inout GameState) {
         state.doubleFlickTrapActive = true
         state.hasPendingDoubleFlick = false
@@ -187,7 +185,7 @@ struct TrapEvent: TileEvent {
         state.trapActivationMessage = message
     }
 
-    // MARK: - グループB：ワープ
+    // - グループB：ワープ
 
     private func activateGroupB(state: inout GameState) {
         switch kind {
@@ -202,46 +200,49 @@ struct TrapEvent: TileEvent {
         }
     }
 
-    /// スタート地点へ位置を移し、そこを探索済みにする。向きは維持する。
+    /// 出戻りワープ
     private func warpToStart(state: inout GameState) {
         movePlayer(to: map.startPosition, state: &state)
-        let message = "ワープの罠！ スタート地点へ戻された"
+        let message = "トラップ! スタート地点へ戻された"
         state.message = message
         state.trapActivationMessage = message
     }
 
-    /// 通常床の中から現在地以外を選び、そこへ位置を移す。
+    // ランダムワープ
     private func randomWarp(state: inout GameState) {
         let ordinaryFloorPositions = map.cells.indices.flatMap { y in
             map.cells[y].indices.compactMap { x in
                 map.cells[y][x] == .floor ? GridPos(x: x, y: y) : nil
             }
         }
+        // 行き先なし
         let destinations = ordinaryFloorPositions.filter { $0 != state.player.position }
         guard let destination = destinations.randomElement() else {
-            let message = "ワープの罠！ 行き先が見つからなかった"
+            let message = "トラップ! 行き先が見つからなかった"
             state.message = message
             state.trapActivationMessage = message
             return
         }
-
+        // 行き先あり
         movePlayer(to: destination, state: &state)
-        let message = "ワープの罠！ 迷宮の別の場所へ飛ばされた"
+        let message = "トラップ! 迷宮の別の場所へ飛ばされた"
         state.message = message
         state.trapActivationMessage = message
     }
 
-    /// 鍵に隣接する通常床へ移り、鍵の方向を向く。
+    // 鍵前ワープ
     private func warpBeforeKey(state: inout GameState) {
+        // 鍵の発見
         func findKeyPosition() -> GridPos? {
             for y in map.cells.indices {
                 for x in map.cells[y].indices where map.cells[y][x] == .key {
+                    // 鍵の方向を向く
                     return GridPos(x: x, y: y)
                 }
             }
             return nil
         }
-
+        // 鍵マスの発見
         func keyFrontPositions(for key: GridPos) -> [(position: GridPos, facingKey: Direction)] {
             let candidates: [(position: GridPos, facingKey: Direction)] = [
                 (GridPos(x: key.x, y: key.y - 1), .south),
@@ -251,14 +252,15 @@ struct TrapEvent: TileEvent {
             ]
             return candidates.filter { map.cell(at: $0.position) == .floor }
         }
-
+        // 鍵前ワープの候補から現在地に近いマスを選択
         func distance(_ first: GridPos, from second: GridPos) -> Int {
             abs(first.x - second.x) + abs(first.y - second.y)
         }
-
+        //
         guard let keyPosition = findKeyPosition(),
+              // 鍵に隣接する床マスの発見
               let destination = keyFrontPositions(for: keyPosition)
-                .min(by: { distance($0.position, from: state.player.position) < distance($1.position, from: state.player.position) }) else {
+                .min(by: { distance($0.position, from: state.player.position) < distance($1.position, from: state.player.position) }) else { // 鍵か候補マスが見つからない場合は、失敗メッセージを設定して処理を終了
             let message = "ワープの罠！ 鍵の前へ移動できなかった"
             state.message = message
             state.trapActivationMessage = message
@@ -272,13 +274,15 @@ struct TrapEvent: TileEvent {
         state.trapActivationMessage = message
     }
 
-    /// ワープ先のマスを探索済みにする。着地先のイベントは連鎖発動しない。
+    /// ワープ処理
     private func movePlayer(to destination: GridPos, state: inout GameState) {
+        // ワープ先
         state.player.position = destination
+        // 探索済み
         state.explored.insert(destination)
     }
 
-    // MARK: - グループC：発動結果
+    // グループC：運命系
     private func activateGroupC(state: inout GameState) {
         switch kind {
         case .forceGameOver:
@@ -290,13 +294,14 @@ struct TrapEvent: TileEvent {
         }
     }
 
-    /// 不発
+    // 不発
     private func unExploded(state: inout GameState) {
         let message = "トラップ！ しかしなにも起こらなかった"
         state.message = message
         state.trapActivationMessage = message
     }
-    /// 強制ゲームオーバー
+    
+    // 強制ゲームオーバー
     private func forceGameOver(state: inout GameState) {
         state.playerHP = 0 //HP0に
         state.isCleared = false

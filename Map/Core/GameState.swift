@@ -100,6 +100,14 @@ struct GameState {
     var hasKey: Bool = false
     var hasSword: Bool = false
     var playerHP = playerMaxHP
+    /// 2回の前進フリックで1マス進む罠が発動中か。
+    var doubleFlickTrapActive = false
+    /// 2回目の前進フリックを待っているか。
+    var hasPendingDoubleFlick = false
+    /// 1マス移動するごとにHPが減る罠が発動中か。
+    var hpDrainTrapActive = false
+    /// 直近に踏んだ罠がカットインへ表示する発動メッセージ。
+    var trapActivationMessage: String?
     /// スケルトンの砂時計によるしりとり持ち時間加算。
     var shiritoriTimeBonusSeconds = 0
     /// 今回の探索タイムから差し引く秒数。

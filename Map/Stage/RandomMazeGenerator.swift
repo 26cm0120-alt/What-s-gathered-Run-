@@ -4,6 +4,18 @@ import Foundation
 enum RandomMazeGenerator {
     private static let mapSize = 17
     private static let directions = [(dx: 0, dy: -1), (dx: 1, dy: 0), (dx: 0, dy: 1), (dx: -1, dy: 0)]
+    private static func mapSymbol(for kind: TrapKind) -> Character {
+        switch kind {
+        case .turnRight: "T"
+        case .doubleFlick: "F"
+        case .hpDrain: "H"
+        case .warpToStart: "U"
+        case .randomWarp: "R"
+        case .warpBeforeKey: "P"
+        case .forceGameOver: "D"
+        case .unexploded: "N"
+        }
+    }
 
     static func generate(seed: UInt64) -> MapData {
         var random = SeededRandomNumberGenerator(seed: seed)
@@ -93,17 +105,31 @@ enum RandomMazeGenerator {
                 return routeToGoal.contains(position) ? nil : position
             }
         }
-        precondition(!trapCandidates.isEmpty, "ゴールへの経路外にトラップを置く通路がありません")
-        let trap = trapCandidates[random.nextInt(upperBound: trapCandidates.count)]
+        precondition(trapCandidates.count >= 3, "ゴールへの経路外に3つのトラップを置く通路がありません")
+        var availableTrapCandidates = trapCandidates
+        var traps: [(position: GridPos, symbol: Character)] = []
+        for _ in 0..<3 {
+            let index = random.nextInt(upperBound: availableTrapCandidates.count)
+            let position = availableTrapCandidates.remove(at: index)
+            guard let kind = selectTrap(
+                in: .a,
+                drawRoll: { Int.random(in: 1...100, using: &random) }
+            ) else {
+                preconditionFailure("Trap.swiftのグループAの発生率設定を確認してください。各値と補正後の率は0〜100にしてください")
+            }
+            traps.append((position, mapSymbol(for: kind)))
+        }
 
-        // TはSからGへの最短経路外に置く。イベント記号の置換で通路の連結性は変わらない。
+        // 罠はSからGへの最短経路外に置く。種類はグループAの発生率から選び、同じ種類の重複を許す。
         cells[start.y][start.x] = "S"
         cells[sword.y][sword.x] = "W"
         cells[key.y][key.x] = "K"
         for enemy in enemies {
             cells[enemy.y][enemy.x] = "E"
         }
-        cells[trap.y][trap.x] = "T"
+        for trap in traps {
+            cells[trap.position.y][trap.position.x] = trap.symbol
+        }
         cells[goal.y][goal.x] = "G"
 
         let mapCells = cells.map { row in row.map { MapCell($0) } }

@@ -96,6 +96,22 @@ final class GameManager: ObservableObject {
     /// 指定した方向へ1マス進み、壁・イベント・探索済み状態をまとめて処理する。
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
         guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
+
+        // 2回フリック罠の発動中は、前進の最初のフリックでは移動しない。
+        if action == .moveForward, state.doubleFlickTrapActive {
+            if !state.hasPendingDoubleFlick {
+                var newState = state
+                newState.hasPendingDoubleFlick = true
+                newState.message = "足止めの罠!\n前進するには、もう一度フリックしてください。"
+                state = newState
+                return
+            }
+
+            var newState = state
+            newState.hasPendingDoubleFlick = false
+            state = newState
+        }
+
         let next = state.player.position.moved(direction)
         let cell = map.cell(at: next)
         if cell.isWall {
@@ -139,7 +155,7 @@ final class GameManager: ObservableObject {
         } else if cell == .enemy {
             event = nil
         } else {
-            event = TileEvents.event(for: cell)
+            event = TileEvents.event(for: cell, map: map)
         }
         if let reason = event?.blockReason(state: state) {
             var newState = state
@@ -148,23 +164,48 @@ final class GameManager: ObservableObject {
             return
         }
 
+        let hpDrainWasActive = state.hpDrainTrapActive
         var newState = state
         newState.player.position = next
         newState.explored.insert(next)
         newState.message = ""
+        newState.trapActivationMessage = nil
         newState.recordTutorialAction(action)
         if cell != .key && cell != .goal && cell != .sword {
             soundEffects.play(named: "移動音")
         }
         event?.onEnter(state: &newState, from: state.player.position)
+        if newState.hpDrainTrapActive {
+            newState.playerHP = max(0, newState.playerHP - 1)
+            if hpDrainWasActive {
+                let hpDrainMessage = "トラップの影響でHPが1減った。"
+                if newState.message.isEmpty {
+                    newState.message = hpDrainMessage
+                } else {
+                    newState.message += "\n\(hpDrainMessage)"
+                }
+            } else {
+                newState.message += "\n1マス進んだためHPが1減った。"
+            }
+            if newState.playerHP == 0 {
+                newState.isCleared = false
+                newState.isGameOver = true
+                newState.enemyBattle = nil
+                newState.message = "トラップの影響でHPが0になり、力尽きた……"
+            }
+        }
         state = newState
         if let battle = newState.enemyBattle {
             showEncounterEnemySpeech(battle.kind)
             onBattleStateChanged?(battle.kind)
             enemyEncounterID += 1
         }
-        if cell == .trap {
+        if cell.isTrap {
             trapActivationID += 1
+        }
+        if newState.isGameOver {
+            onGameOver?()
+            return
         }
         if newState.enemyBattle != nil {
             surpriseReactionID += 1

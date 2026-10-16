@@ -156,7 +156,7 @@ struct CommandView: View {
                     guard let direction = MovementFlickDirection.classify(
                         horizontal: value.translation.width,
                         vertical: value.translation.height,
-                        threshold: 28
+                        threshold: 16
                     ) else { return }
 
                     onFlickEnded(direction)

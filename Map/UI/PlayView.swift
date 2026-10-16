@@ -97,7 +97,7 @@ struct PlayView: View {
                 guard let direction = MovementFlickDirection.classify(
                     horizontal: horizontal,
                     vertical: vertical,
-                    threshold: 28
+                    threshold: 16
                 ) else { return }
 
                 finishFlick(in: direction)
@@ -396,7 +396,9 @@ struct PlayView: View {
         }
         .onChange(of: game.trapActivationID) { _, _ in
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
-            showEventCutIn(title: "TRAP!", message: "滑った、、", style: .trap, startsTrapReaction: true)
+            if let message = game.state.trapActivationMessage {
+                showEventCutIn(title: "TRAP!", message: message, style: .trap, startsTrapReaction: true)
+            }
         }
         .onChange(of: game.enemyEncounterID) { _, _ in
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
