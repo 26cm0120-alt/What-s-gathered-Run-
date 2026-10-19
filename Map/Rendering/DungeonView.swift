@@ -9,6 +9,7 @@ struct DungeonView: View {
     let theme: DungeonTheme?
     let hasKey: Bool
     let isGoalReached: Bool
+    let defeatedEnemyKinds: [GridPos: EnemyKind]
 
     /// 描画する最大の奥行き(マス数)。仕様書§12.5
     let maxDepth = 5
@@ -100,6 +101,33 @@ struct DungeonView: View {
                 let upper = interpolate(corners[0], corners[1], u)
                 let lower = interpolate(corners[3], corners[2], u)
                 return interpolate(upper, lower, v)
+            }
+
+            /// 撃破した敵を、そのマスの床に倒れた姿で残す。
+            func drawDefeatedEnemy(_ kind: EnemyKind, on corners: [CGPoint]) {
+                let defeatedImage = ctx.resolve(Image(kind.defeatedImageName))
+                let imageSize = defeatedImage.size
+                guard imageSize.width > 0, imageSize.height > 0 else { return }
+
+                let farWidth = distance(corners[0], corners[1])
+                let nearWidth = distance(corners[3], corners[2])
+                let tileDepth = distance(
+                    interpolate(corners[0], corners[1], 0.5),
+                    interpolate(corners[3], corners[2], 0.5)
+                )
+                let aspectRatio = Double(imageSize.width / imageSize.height)
+                let imageWidth = min(min(farWidth, nearWidth) * 0.72, tileDepth * aspectRatio * 0.72)
+                let imageHeight = imageWidth / aspectRatio
+                let center = surfacePoint(0.5, 0.52, corners: corners)
+                ctx.draw(
+                    defeatedImage,
+                    in: CGRect(
+                        x: center.x - CGFloat(imageWidth / 2),
+                        y: center.y - CGFloat(imageHeight / 2),
+                        width: CGFloat(imageWidth),
+                        height: CGFloat(imageHeight)
+                    )
+                )
             }
 
             /// 透視投影した面を、目地と明暗差のある石ブロックで塗る。
@@ -278,10 +306,15 @@ struct DungeonView: View {
                         project(xl, 0.5, z0), project(xr, 0.5, z0),
                         project(xr, 0.5, z1), project(xl, 0.5, z1)
                     ], depth: d, seed: i + d * 3, kind: 2)
-                    stoneSurface([
+                    let floorCorners = [
                         project(xl, -0.5, z1), project(xr, -0.5, z1),
                         project(xr, -0.5, z0), project(xl, -0.5, z0)
-                    ], depth: d, seed: i + d * 5, kind: 1)
+                    ]
+                    stoneSurface(floorCorners, depth: d, seed: i + d * 5, kind: 1)
+
+                    if let defeatedKind = defeatedEnemyKinds[positionRelative(d, i)] {
+                        drawDefeatedEnemy(defeatedKind, on: floorCorners)
+                    }
 
                     // ドア画像の透過部分から奥が見えないよう、ゴール面に石壁を敷く。
                     if showsGoalDoor {
