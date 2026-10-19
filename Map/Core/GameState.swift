@@ -126,6 +126,8 @@ struct GameState {
     var isCleared: Bool = false
     /// 探索済みのマス(オートマップ用)
     var explored: Set<GridPos>
+    /// 発動後に3D床へ痕跡を残すトラップのマス。
+    var activatedTrapPositions: Set<GridPos> = []
     /// 画面に表示するメッセージ
     var message: String = ""
     /// 段階式チュートリアルの現在位置。本番面では nil

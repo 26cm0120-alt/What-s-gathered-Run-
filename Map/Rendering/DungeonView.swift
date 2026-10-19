@@ -10,6 +10,7 @@ struct DungeonView: View {
     let hasKey: Bool
     let isGoalReached: Bool
     let defeatedEnemyKinds: [GridPos: EnemyKind]
+    let activatedTrapPositions: Set<GridPos>
 
     /// 描画する最大の奥行き(マス数)。仕様書§12.5
     let maxDepth = 5
@@ -128,6 +129,32 @@ struct DungeonView: View {
                         height: CGFloat(imageHeight)
                     )
                 )
+            }
+
+            /// 発動済みトラップの既存ドット絵を、床面の透視投影に沿って残す。
+            func drawTrapMark(_ kind: TrapKind, on corners: [CGPoint]) {
+                let pixels = TrapPixelArt.pixels(for: kind)
+                let palette = TrapPixelArt.palette(for: kind)
+                guard let columns = pixels.first?.count, columns > 0 else { return }
+
+                let inset = 0.16
+                let usable = 1.0 - inset * 2
+                for (row, line) in pixels.enumerated() {
+                    for (column, marker) in line.enumerated() {
+                        guard let color = palette[marker] else { continue }
+                        let u0 = inset + usable * Double(column) / Double(columns)
+                        let u1 = inset + usable * Double(column + 1) / Double(columns)
+                        let v0 = inset + usable * Double(row) / Double(pixels.count)
+                        let v1 = inset + usable * Double(row + 1) / Double(pixels.count)
+                        let pixel = polygon([
+                            surfacePoint(u0, v0, corners: corners),
+                            surfacePoint(u1, v0, corners: corners),
+                            surfacePoint(u1, v1, corners: corners),
+                            surfacePoint(u0, v1, corners: corners)
+                        ])
+                        ctx.fill(pixel, with: .color(color))
+                    }
+                }
             }
 
             /// 透視投影した面を、目地と明暗差のある石ブロックで塗る。
@@ -312,7 +339,13 @@ struct DungeonView: View {
                     ]
                     stoneSurface(floorCorners, depth: d, seed: i + d * 5, kind: 1)
 
-                    if let defeatedKind = defeatedEnemyKinds[positionRelative(d, i)] {
+                    let tilePosition = positionRelative(d, i)
+                    if activatedTrapPositions.contains(tilePosition),
+                       let trapKind = TrapPixelArt.kind(at: tilePosition, in: map) {
+                        drawTrapMark(trapKind, on: floorCorners)
+                    }
+
+                    if let defeatedKind = defeatedEnemyKinds[tilePosition] {
                         drawDefeatedEnemy(defeatedKind, on: floorCorners)
                     }
 

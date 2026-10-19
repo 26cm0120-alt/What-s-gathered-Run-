@@ -6,6 +6,7 @@ struct AutoMapView: View {
     let explored: Set<GridPos>
     let player: Player
     let defeatedEnemies: Set<GridPos>
+    let defeatedEnemyKinds: [GridPos: EnemyKind]
 
     var body: some View {
         Canvas { ctx, size in
@@ -50,9 +51,24 @@ struct AutoMapView: View {
                 } else if map.cell(at: pos) == .sword {
                     let iconRect = r.insetBy(dx: cell * 0.20, dy: cell * 0.10)
                     drawPixelIcon(swordPixels, in: iconRect, context: &ctx, palette: swordPalette)
-                } else if map.cell(at: pos).isTrap {
+                } else if let trapKind = TrapPixelArt.kind(at: pos, in: map) {
                     let iconRect = r.insetBy(dx: cell * 0.14, dy: cell * 0.14)
-                    drawPixelIcon(trapPixels, in: iconRect, context: &ctx, palette: trapPalette)
+                    drawPixelIcon(
+                        TrapPixelArt.pixels(for: trapKind),
+                        in: iconRect,
+                        context: &ctx,
+                        palette: TrapPixelArt.palette(for: trapKind)
+                    )
+                } else if map.cell(at: pos) == .enemy {
+                    let kind = defeatedEnemyKinds[pos]
+                        ?? map.enemyKinds[pos]
+                        ?? EnemyKind.encounter(seed: nil, position: pos)
+                    drawEnemySprite(
+                        kind,
+                        defeated: defeatedEnemies.contains(pos),
+                        in: r.insetBy(dx: cell * 0.10, dy: cell * 0.10),
+                        context: &ctx
+                    )
                 }
 
                 // 確認済みの壁(そのマスの四辺のうち、隣が壁の辺)
@@ -86,7 +102,7 @@ struct AutoMapView: View {
                    pos != player.position,
                    map.cell(at: pos) != .key,
                    !map.cell(at: pos).isTrap,
-                   map.cell(at: pos) != .enemy || !defeatedEnemies.contains(pos) {
+                   map.cell(at: pos) != .enemy {
                     let symbolColor: Color
                     switch map.cell(at: pos) {
                     case .trap, .doubleFlickTrap, .hpDrainTrap, .warpToStartTrap, .randomWarpTrap, .keyFrontWarpTrap, .gameOverTrap, .unexplodedTrap:
@@ -134,11 +150,6 @@ struct AutoMapView: View {
          "OBBBOBBBBO", "OBBBOBBBBO", "OGGGGGGGGO", ".OBBBBBBO.", "..OOOOOO.."]
     }
 
-    private var trapPixels: [String] {
-        ["....II....", "...IIII...", "..I....I..", ".I......I.", "IIIIIIIIII",
-         ".ODDDDDDO.", ".ODRDRDDO.", "..ODDDDO..", "...OOOO...", ".........."]
-    }
-
     private var swordPixels: [String] {
         ["....BB....", "...BB.....", "..BB......", ".BB.......", "BB........",
          ".GGGG.....", "...GG.....", "...HH.....", "..HHHH....", "..HHHH...."]
@@ -156,11 +167,26 @@ struct AutoMapView: View {
          "G": Color(red: 1.0, green: 0.78, blue: 0.24)]
     }
 
-    private var trapPalette: [Character: Color] {
-        ["I": Color(red: 0.83, green: 0.82, blue: 0.72),
-         "O": Color(red: 0.12, green: 0.08, blue: 0.07),
-         "D": Color(red: 0.45, green: 0.19, blue: 0.12),
-         "R": Color(red: 0.96, green: 0.28, blue: 0.16)]
+    private func drawEnemySprite(
+        _ kind: EnemyKind,
+        defeated: Bool,
+        in rect: CGRect,
+        context: inout GraphicsContext
+    ) {
+        let imageName = defeated ? kind.defeatedImageName : kind.imageName
+        let image = context.resolve(Image(imageName).interpolation(.none))
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return }
+
+        let scale = min(rect.width / imageSize.width, rect.height / imageSize.height)
+        let fittedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        let fittedRect = CGRect(
+            x: rect.midX - fittedSize.width / 2,
+            y: rect.midY - fittedSize.height / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+        context.draw(image, in: fittedRect)
     }
 
     private var swordPalette: [Character: Color] {
