@@ -1,6 +1,6 @@
 import Foundation
 
-/// seedから必ず連結した迷宮を作り、敵・鍵・ゴールを配置する。
+/// seedから必ず連結した迷宮を作り、剣・敵・鍵・トラップ・ゴールを配置する。
 enum RandomMazeGenerator {
     private static let mapSize = 17
     private static let directions = [(dx: 0, dy: -1), (dx: 1, dy: 0), (dx: 0, dy: 1), (dx: -1, dy: 0)]
@@ -85,28 +85,60 @@ enum RandomMazeGenerator {
         ]
 
         let routeToGoal = Set(path)
-        let trapCandidates = cells.indices.flatMap { y in
+        var trapCandidates = cells.indices.flatMap { y in
             cells[y].indices.compactMap { x -> GridPos? in
                 guard cells[y][x] == "." else { return nil }
                 let position = GridPos(x: x, y: y)
                 return routeToGoal.contains(position) ? nil : position
             }
         }
-        precondition(!trapCandidates.isEmpty, "ゴールへの経路外にトラップを置く通路がありません")
-        let trap = trapCandidates[random.nextInt(upperBound: trapCandidates.count)]
-        let trapGroup = TrapGroup.allCases[random.nextInt(upperBound: TrapGroup.allCases.count)]
-        let trapKind = selectTrap(in: trapGroup) {
-            random.nextInt(upperBound: 100) + 1
-        } ?? .unexploded
+        // 経路外の候補が足りないseedでは、既存通路へつながる行き止まりを追加して2マス確保する。
+        while trapCandidates.count < 2 {
+            let spurCandidates = cells.indices.flatMap { y in
+                cells[y].indices.compactMap { x -> GridPos? in
+                    guard x > 0, x < mapSize - 1, y > 0, y < mapSize - 1,
+                          cells[y][x] == "#" else { return nil }
+                    let openNeighborCount = directions.filter { direction in
+                        cells[y + direction.dy][x + direction.dx] == "."
+                    }.count
+                    return openNeighborCount == 1 ? GridPos(x: x, y: y) : nil
+                }
+            }
+            guard let spur = spurCandidates.first else { break }
+            cells[spur.y][spur.x] = "."
+            trapCandidates.append(spur)
+        }
+        precondition(trapCandidates.count >= 2, "ゴールへの経路外にトラップを2つ置く通路がありません")
+        var availableTrapCandidates = trapCandidates
+        var trapKinds: [GridPos: TrapKind] = [:]
+        // 効果は重複させず、2種類目は1種類目を除いた設定率を重みに選ぶ。
+        var selectedTrapKinds: Set<TrapKind> = []
+        for _ in 0..<2 {
+            let candidateIndex = random.nextInt(upperBound: availableTrapCandidates.count)
+            let trap = availableTrapCandidates.remove(at: candidateIndex)
+            let fallbackKind = TrapKind.allCases.first {
+                $0.group == .a && !selectedTrapKinds.contains($0)
+            }
+            guard let trapKind = selectTrap(in: .a, excluding: selectedTrapKinds, drawRoll: { upperBound in
+                random.nextInt(upperBound: upperBound) + 1
+            }) ?? fallbackKind else {
+                preconditionFailure("グループAから異なるトラップを2種類選べません")
+            }
+            selectedTrapKinds.insert(trapKind)
+            trapKinds[trap] = trapKind
+        }
+        precondition(selectedTrapKinds.count == 2, "ランダムステージのトラップ種類は重複できません")
 
-        // TはSからGへの最短経路外に置く。イベント記号の置換で通路の連結性は変わらない。
+        // TはSからGへの選択された最短経路外に2つ置く。イベント記号の置換で通路の連結性は変わらない。
         cells[start.y][start.x] = "S"
         cells[sword.y][sword.x] = "W"
         cells[key.y][key.x] = "K"
         for enemy in enemies {
             cells[enemy.y][enemy.x] = "E"
         }
-        cells[trap.y][trap.x] = "T"
+        for trap in trapKinds.keys {
+            cells[trap.y][trap.x] = "T"
+        }
         cells[goal.y][goal.x] = "G"
 
         let mapCells = cells.map { row in row.map { MapCell($0) } }
@@ -115,7 +147,7 @@ enum RandomMazeGenerator {
             startPosition: start,
             initialDirection: Direction(rawValue: random.nextInt(upperBound: 4)) ?? .north,
             enemyKinds: enemyKinds,
-            trapKinds: [trap: trapKind]
+            trapKinds: trapKinds
         )
     }
 
