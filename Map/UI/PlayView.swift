@@ -124,7 +124,8 @@ struct PlayView: View {
                 theme: game.stage.dungeonTheme,
                 hasKey: game.state.hasKey,
                 isGoalReached: game.state.isCleared,
-                defeatedEnemyKinds: game.state.defeatedEnemyKinds
+                defeatedEnemyKinds: game.state.defeatedEnemyKinds,
+                activatedTrapPositions: game.state.activatedTrapPositions
             )
             .overlay {
                 if let battle = game.state.enemyBattle {

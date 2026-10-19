@@ -170,6 +170,9 @@ final class GameManager: ObservableObject {
         var newState = state
         newState.player.position = next
         newState.explored.insert(next)
+        if cell.isTrap {
+            newState.activatedTrapPositions.insert(next)
+        }
         newState.message = ""
         newState.trapActivationMessage = nil
         newState.recordTutorialAction(action)
