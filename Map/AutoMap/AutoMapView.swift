@@ -6,6 +6,7 @@ struct AutoMapView: View {
     let explored: Set<GridPos>
     let player: Player
     let defeatedEnemies: Set<GridPos>
+    let defeatedEnemyKinds: [GridPos: EnemyKind]
 
     var body: some View {
         Canvas { ctx, size in
@@ -50,9 +51,24 @@ struct AutoMapView: View {
                 } else if map.cell(at: pos) == .sword {
                     let iconRect = r.insetBy(dx: cell * 0.20, dy: cell * 0.10)
                     drawPixelIcon(swordPixels, in: iconRect, context: &ctx, palette: swordPalette)
-                } else if map.cell(at: pos).isTrap {
+                } else if let trapKind = trapKind(at: pos) {
                     let iconRect = r.insetBy(dx: cell * 0.14, dy: cell * 0.14)
-                    drawPixelIcon(trapPixels, in: iconRect, context: &ctx, palette: trapPalette)
+                    drawPixelIcon(
+                        trapPixels(for: trapKind),
+                        in: iconRect,
+                        context: &ctx,
+                        palette: trapPalette(for: trapKind)
+                    )
+                } else if map.cell(at: pos) == .enemy {
+                    let kind = defeatedEnemyKinds[pos]
+                        ?? map.enemyKinds[pos]
+                        ?? EnemyKind.encounter(seed: nil, position: pos)
+                    drawEnemySprite(
+                        kind,
+                        defeated: defeatedEnemies.contains(pos),
+                        in: r.insetBy(dx: cell * 0.10, dy: cell * 0.10),
+                        context: &ctx
+                    )
                 }
 
                 // 確認済みの壁(そのマスの四辺のうち、隣が壁の辺)
@@ -86,7 +102,7 @@ struct AutoMapView: View {
                    pos != player.position,
                    map.cell(at: pos) != .key,
                    !map.cell(at: pos).isTrap,
-                   map.cell(at: pos) != .enemy || !defeatedEnemies.contains(pos) {
+                   map.cell(at: pos) != .enemy {
                     let symbolColor: Color
                     switch map.cell(at: pos) {
                     case .trap, .doubleFlickTrap, .hpDrainTrap, .warpToStartTrap, .randomWarpTrap, .keyFrontWarpTrap, .gameOverTrap, .unexplodedTrap:
@@ -134,11 +150,6 @@ struct AutoMapView: View {
          "OBBBOBBBBO", "OBBBOBBBBO", "OGGGGGGGGO", ".OBBBBBBO.", "..OOOOOO.."]
     }
 
-    private var trapPixels: [String] {
-        ["....II....", "...IIII...", "..I....I..", ".I......I.", "IIIIIIIIII",
-         ".ODDDDDDO.", ".ODRDRDDO.", "..ODDDDO..", "...OOOO...", ".........."]
-    }
-
     private var swordPixels: [String] {
         ["....BB....", "...BB.....", "..BB......", ".BB.......", "BB........",
          ".GGGG.....", "...GG.....", "...HH.....", "..HHHH....", "..HHHH...."]
@@ -156,11 +167,105 @@ struct AutoMapView: View {
          "G": Color(red: 1.0, green: 0.78, blue: 0.24)]
     }
 
-    private var trapPalette: [Character: Color] {
-        ["I": Color(red: 0.83, green: 0.82, blue: 0.72),
-         "O": Color(red: 0.12, green: 0.08, blue: 0.07),
-         "D": Color(red: 0.45, green: 0.19, blue: 0.12),
-         "R": Color(red: 0.96, green: 0.28, blue: 0.16)]
+    private func trapKind(at position: GridPos) -> TrapKind? {
+        switch map.cell(at: position) {
+        case .trap:
+            return map.trapKinds[position] ?? .turnRight
+        case .doubleFlickTrap:
+            return .doubleFlick
+        case .hpDrainTrap:
+            return .hpDrain
+        case .warpToStartTrap:
+            return .warpToStart
+        case .randomWarpTrap:
+            return .randomWarp
+        case .keyFrontWarpTrap:
+            return .warpBeforeKey
+        case .gameOverTrap:
+            return .forceGameOver
+        case .unexplodedTrap:
+            return .unexploded
+        default:
+            return nil
+        }
+    }
+
+    /// 現在Gitに実装されているトラップだけを、種類ごとのドット絵にする。
+    private func trapPixels(for kind: TrapKind) -> [String] {
+        let frame = [
+            "....II....", "...IIII...", "..I....I..", ".I......I.", "IIIIIIIIII",
+            ".ODDDDDDO.", ".ODDDDDDO.", "..ODDDDO..", "...OOOO...", ".........."
+        ]
+        let glyph: [String]
+        switch kind {
+        case .turnRight:
+            glyph = ["...M..", "....M.", "MMMMMM", "....M.", "...M.."]
+        case .doubleFlick:
+            glyph = ["M.M...", ".M.M..", "MMMMMM", ".M.M..", "M.M..."]
+        case .hpDrain:
+            glyph = ["..MM..", ".MMMM.", "MMMMMM", ".MMMM.", "..MM.."]
+        case .warpToStart:
+            glyph = ["..MM..", ".M..M.", "M....M", "MMMMMM", "M....M"]
+        case .randomWarp:
+            glyph = ["M...M.", ".M.M..", "..M...", "MMMMMM", "..M..."]
+        case .warpBeforeKey:
+            glyph = [".MMM..", "..M...", "MMMM..", "..M.M.", "MMMM.."]
+        case .forceGameOver:
+            glyph = ["M....M", ".M..M.", "..MM..", "..MM..", ".M..M."]
+        case .unexploded:
+            glyph = ["..MMM.", ".M...M", ".M.M.M", "..M...", "..MMM."]
+        }
+
+        var pixels = frame.map { Array($0) }
+        for (row, glyphLine) in glyph.enumerated() {
+            for (column, marker) in glyphLine.enumerated() where marker == "M" {
+                pixels[row + 4][column + 2] = marker
+            }
+        }
+        return pixels.map { String($0) }
+    }
+
+    private func trapPalette(for kind: TrapKind) -> [Character: Color] {
+        let markerColor: Color
+        switch kind {
+        case .turnRight: markerColor = Color(red: 0.34, green: 0.88, blue: 1.0)
+        case .doubleFlick: markerColor = Color(red: 1.0, green: 0.78, blue: 0.25)
+        case .hpDrain: markerColor = Color(red: 0.45, green: 1.0, blue: 0.46)
+        case .warpToStart: markerColor = Color(red: 0.8, green: 0.62, blue: 1.0)
+        case .randomWarp: markerColor = Color(red: 0.45, green: 0.75, blue: 1.0)
+        case .warpBeforeKey: markerColor = Color(red: 1.0, green: 0.86, blue: 0.38)
+        case .forceGameOver: markerColor = Color(red: 1.0, green: 0.25, blue: 0.22)
+        case .unexploded: markerColor = Color(red: 0.92, green: 0.9, blue: 0.72)
+        }
+        return [
+            "I": Color(red: 0.83, green: 0.82, blue: 0.72),
+            "O": Color(red: 0.12, green: 0.08, blue: 0.07),
+            "D": Color(red: 0.45, green: 0.19, blue: 0.12),
+            "R": Color(red: 0.96, green: 0.28, blue: 0.16),
+            "M": markerColor
+        ]
+    }
+
+    private func drawEnemySprite(
+        _ kind: EnemyKind,
+        defeated: Bool,
+        in rect: CGRect,
+        context: inout GraphicsContext
+    ) {
+        let imageName = defeated ? kind.defeatedImageName : kind.imageName
+        let image = context.resolve(Image(imageName).interpolation(.none))
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return }
+
+        let scale = min(rect.width / imageSize.width, rect.height / imageSize.height)
+        let fittedSize = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        let fittedRect = CGRect(
+            x: rect.midX - fittedSize.width / 2,
+            y: rect.midY - fittedSize.height / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+        context.draw(image, in: fittedRect)
     }
 
     private var swordPalette: [Character: Color] {
