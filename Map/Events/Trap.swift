@@ -70,12 +70,12 @@ private func normalizedTrapRates(
     }
 }
 
-/// 抽選用の乱数を省略すると通常の乱数を使う。乱数を渡せばseedに応じて再現できる。
+// 抽選用の乱数を省略すると通常の乱数を使う。乱数を渡せばseedに応じて再現できる。
 func selectTrap(
     in group: TrapGroup,
     drawRoll: () -> Int = { Int.random(in: 1...100) }
 ) -> TrapKind? {
-    // 発生率の検証と補正を専用関数で行う。
+    // 発生率の検証と補正を専用関数で
     guard let normalizedRates = normalizedTrapRates(in: group) else { return nil }
 
     let roll = drawRoll()
@@ -103,12 +103,10 @@ enum TrapKind: CaseIterable, Hashable {
     case turnRight
     case doubleFlick
     case hpDrain
-
     // グループB：ワープ系
     case warpToStart
     case randomWarp
     case warpBeforeKey
-
     // グループC：運命系
     case forceGameOver
     case unexploded
@@ -120,10 +118,9 @@ enum TrapKind: CaseIterable, Hashable {
         case .forceGameOver, .unexploded: .c
         }
     }
-
 }
 
-
+// 罠マスでのトラップを実行
 struct TrapEvent: TileEvent {
     let kind: TrapKind
     let map: MapData
@@ -145,7 +142,7 @@ struct TrapEvent: TileEvent {
         }
     }
 
-    // グループA：進行妨害
+    // 進行妨害系
     private func activateGroupA(state: inout GameState) {
         switch kind {
         case .turnRight:
@@ -184,8 +181,7 @@ struct TrapEvent: TileEvent {
         state.trapActivationMessage = message
     }
 
-    // - グループB：ワープ
-
+    // ワープ系
     private func activateGroupB(state: inout GameState) {
         switch kind {
         case .warpToStart:
@@ -199,7 +195,7 @@ struct TrapEvent: TileEvent {
         }
     }
 
-    /// 出戻りワープ
+    // 出戻りワープ
     private func warpToStart(state: inout GameState) {
         movePlayer(to: map.startPosition, state: &state)
         let message = "トラップ! スタート地点へ戻された"
@@ -231,7 +227,7 @@ struct TrapEvent: TileEvent {
 
     // 鍵前ワープ
     private func warpBeforeKey(state: inout GameState) {
-        // 鍵の発見
+        // マップ内の鍵の座標を探す機能
         func findKeyPosition() -> GridPos? {
             for y in map.cells.indices {
                 for x in map.cells[y].indices where map.cells[y][x] == .key {
@@ -241,7 +237,8 @@ struct TrapEvent: TileEvent {
             }
             return nil
         }
-        // 鍵マスの発見
+
+        // 移動可能な床マスと鍵を向く方向
         func keyFrontPositions(for key: GridPos) -> [(position: GridPos, facingKey: Direction)] {
             let candidates: [(position: GridPos, facingKey: Direction)] = [
                 (GridPos(x: key.x, y: key.y - 1), .south),
@@ -251,24 +248,46 @@ struct TrapEvent: TileEvent {
             ]
             return candidates.filter { map.cell(at: $0.position) == .floor }
         }
+
         // 鍵前ワープの候補から現在地に近いマスを選択
         func distance(_ first: GridPos, from second: GridPos) -> Int {
             abs(first.x - second.x) + abs(first.y - second.y)
         }
-        //
-        guard let keyPosition = findKeyPosition(),
-              // 鍵に隣接する床マスの発見
-              let destination = keyFrontPositions(for: keyPosition)
-                .min(by: { distance($0.position, from: state.player.position) < distance($1.position, from: state.player.position) }) else { // 鍵か候補マスが見つからない場合は、失敗メッセージを設定して処理を終了
-            let message = "ワープの罠！ 鍵の前へ移動できなかった"
-            state.message = message
-            state.trapActivationMessage = message
+
+        // 鍵の位置を取得
+        guard let keyPosition = findKeyPosition() else {
+            failWarpBeforeKey(state: &state)
             return
         }
 
+        // 鍵に隣接する床マスの発見
+        let floorCandidates = keyFrontPositions(for: keyPosition)
+
+        guard let destination = floorCandidates.min(by: {
+            distance($0.position, from: state.player.position)
+                < distance($1.position, from: state.player.position)
+        }) else {
+            failWarpBeforeKey(state: &state)
+            return
+        }
+
+        completeWarpBeforeKey(to: destination, state: &state)
+    }
+
+    private func completeWarpBeforeKey(
+        to destination: (position: GridPos, facingKey: Direction),
+        state: inout GameState
+    ) {
         movePlayer(to: destination.position, state: &state)
         state.player.direction = destination.facingKey
         let message = "ワープの罠！ 鍵の前へ飛ばされた"
+        state.message = message
+        state.trapActivationMessage = message
+    }
+
+    // 鍵か候補マスが見つからない場合は、失敗メッセージを設定して処理を終了
+    private func failWarpBeforeKey(state: inout GameState) {
+        let message = "ワープの罠！ 鍵の前へ移動できなかった"
         state.message = message
         state.trapActivationMessage = message
     }
