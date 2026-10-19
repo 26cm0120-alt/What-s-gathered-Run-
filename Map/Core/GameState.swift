@@ -100,20 +100,20 @@ struct GameState {
     var hasKey: Bool = false
     var hasSword: Bool = false
     var playerHP = playerMaxHP
+    /// 2回の前進フリックで1マス進む罠が発動中か。
+    var doubleFlickTrapActive = false
+    /// 2回目の前進フリックを待っているか。
+    var hasPendingDoubleFlick = false
+    /// 1マス移動するごとにHPが減る罠が発動中か。
+    var hpDrainTrapActive = false
+    /// 直近に踏んだ罠がカットインへ表示する発動メッセージ。
+    var trapActivationMessage: String?
     /// スケルトンの砂時計によるしりとり持ち時間加算。
     var shiritoriTimeBonusSeconds = 0
     /// 今回の探索タイムから差し引く秒数。
     var runTimeReductionSeconds = 0
     var enemyBattle: EnemyBattle?
     var defeatedEnemies: Set<GridPos> = []
-    /// 2回の前進フリックで1マス進むトラップが有効か。
-    var doubleFlickTrapActive = false
-    /// 2回前進の1回目を受け付けた状態か。
-    var hasPendingDoubleFlick = false
-    /// 1マス進むごとにHPが減るトラップが有効か。
-    var hpDrainTrapActive = false
-    /// 現在のトラップが表示する説明文。
-    var trapActivationMessage: String?
     var isGameOver = false
     /// この面でクリアするのに、鍵が必要か(仕様書§3.3)。面の定義から設定する
     let requiresKey: Bool

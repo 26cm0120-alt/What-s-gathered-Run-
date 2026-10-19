@@ -4,7 +4,6 @@ import Foundation
 enum RandomMazeGenerator {
     private static let mapSize = 17
     private static let directions = [(dx: 0, dy: -1), (dx: 1, dy: 0), (dx: 0, dy: 1), (dx: -1, dy: 0)]
-
     static func generate(seed: UInt64) -> MapData {
         var random = SeededRandomNumberGenerator(seed: seed)
         var cells = Array(repeating: Array(repeating: Character("#"), count: mapSize), count: mapSize)

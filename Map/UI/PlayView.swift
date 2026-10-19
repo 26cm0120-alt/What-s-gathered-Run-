@@ -97,7 +97,7 @@ struct PlayView: View {
                 guard let direction = MovementFlickDirection.classify(
                     horizontal: horizontal,
                     vertical: vertical,
-                    threshold: 28
+                    threshold: 16
                 ) else { return }
 
                 finishFlick(in: direction)

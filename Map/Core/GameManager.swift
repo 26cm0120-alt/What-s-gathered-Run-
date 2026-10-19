@@ -97,14 +97,17 @@ final class GameManager: ObservableObject {
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
         guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
 
-        if state.doubleFlickTrapActive {
-            var newState = state
-            if !newState.hasPendingDoubleFlick {
+        // 2回フリック罠の発動中は、前進の最初のフリックでは移動しない。
+        if action == .moveForward, state.doubleFlickTrapActive {
+            if !state.hasPendingDoubleFlick {
+                var newState = state
                 newState.hasPendingDoubleFlick = true
-                newState.message = "前進トラップ！\nもう一度フリックすると進める。"
+                newState.message = "足止めの罠!\n前進するには、もう一度フリックしてください。"
                 state = newState
                 return
             }
+
+            var newState = state
             newState.hasPendingDoubleFlick = false
             state = newState
         }
@@ -161,6 +164,7 @@ final class GameManager: ObservableObject {
             return
         }
 
+        let hpDrainWasActive = state.hpDrainTrapActive
         var newState = state
         newState.player.position = next
         newState.explored.insert(next)
@@ -173,10 +177,21 @@ final class GameManager: ObservableObject {
         event?.onEnter(state: &newState, from: state.player.position)
         if newState.hpDrainTrapActive && !newState.isGameOver {
             newState.playerHP = max(0, newState.playerHP - 1)
+            if hpDrainWasActive {
+                let hpDrainMessage = "トラップの影響でHPが1減った。"
+                if newState.message.isEmpty {
+                    newState.message = hpDrainMessage
+                } else {
+                    newState.message += "\n\(hpDrainMessage)"
+                }
+            } else {
+                newState.message += "\n1マス進んだためHPが1減った。"
+            }
             if newState.playerHP == 0 {
-                newState.isGameOver = true
                 newState.isCleared = false
-                newState.message = "毒の罠でHPが0になった……"
+                newState.isGameOver = true
+                newState.enemyBattle = nil
+                newState.message = "トラップの影響でHPが0になり、力尽きた……"
             }
         }
         state = newState
@@ -185,16 +200,15 @@ final class GameManager: ObservableObject {
             onBattleStateChanged?(battle.kind)
             enemyEncounterID += 1
         }
-        if cell == .trap {
+        if cell.isTrap {
             trapActivationID += 1
         }
-        if newState.enemyBattle != nil {
-            surpriseReactionID += 1
-        }
-
         if newState.isGameOver {
             onGameOver?()
             return
+        }
+        if newState.enemyBattle != nil {
+            surpriseReactionID += 1
         }
 
         // クリア状態になったら、画面を切り替えるために知らせる
