@@ -143,7 +143,7 @@ struct GameOverView: View {
             Circle()
                 .stroke(Color(red: 0.94, green: 0.34, blue: 0.40).opacity(0.86), lineWidth: 2)
                 .frame(width: 92, height: 92)
-            Image("DungeonPlayer")
+            Image("PlayerIdle")
                 .resizable()
                 .interpolation(.none)
                 .scaledToFit()
