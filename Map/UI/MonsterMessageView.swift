@@ -11,6 +11,8 @@ struct MonsterMessageView: View {
     let trapAnimationTilt: Double
     let wallCollisionID: Int
     let playerAttackAnimationID: Int
+    let playerDamageAnimationID: Int
+    let playerDamageAmount: Int
     let battle: EnemyBattle?
     let playerHP: Int
     let isTutorial: Bool
@@ -23,6 +25,12 @@ struct MonsterMessageView: View {
     @State private var isSurprised = false
     @State private var isCrying = false
     @State private var attackOffset: CGFloat = 0
+    @State private var damageShakeOffset: CGFloat = 0
+    @State private var damageTilt: Double = 0
+    @State private var damageFlashOpacity = 0.0
+    @State private var damageNumberAmount = 0
+    @State private var damageNumberOffset: CGFloat = 0
+    @State private var damageNumberOpacity = 0.0
 
     private var imageName: String {
         if battle != nil {
@@ -68,11 +76,30 @@ struct MonsterMessageView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 70, height: 76)
-                    .offset(x: isTrapReactionActive ? trapAnimationOffset : collisionShakeOffset + attackOffset)
+                    .offset(x: isTrapReactionActive ? trapAnimationOffset : collisionShakeOffset + attackOffset + damageShakeOffset)
                     .scaleEffect(battle != nil ? (attackOffset == 0 ? (isBreathing ? 1.04 : 1) : 1.12) : 1)
-                    .rotationEffect(.degrees(isTrapReactionActive ? trapAnimationTilt : collisionTilt))
+                    .rotationEffect(.degrees(isTrapReactionActive ? trapAnimationTilt : collisionTilt + damageTilt))
+                    .overlay {
+                        Image(imageName)
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundStyle(.red)
+                            .opacity(damageFlashOpacity)
+                            .blendMode(.screen)
+                            .accessibilityHidden(true)
+                    }
                     .accessibilityHidden(true)
                     .animation(.easeInOut(duration: 0.08), value: imageName)
+
+                Text("-\(damageNumberAmount)")
+                    .font(DungeonTypography.maruMonica(size: 19))
+                    .foregroundStyle(Color(red: 1.0, green: 0.30, blue: 0.25))
+                    .shadow(color: .black, radius: 2, y: 1)
+                    .opacity(damageNumberOpacity)
+                    .offset(x: -21, y: damageNumberOffset)
+                    .accessibilityLabel("HPが\(damageNumberAmount)減少")
+                    .accessibilityHidden(damageNumberOpacity == 0)
 
                 if isTrapReactionActive {
                     Text("！？")
@@ -136,6 +163,9 @@ struct MonsterMessageView: View {
         }
         .onChange(of: playerAttackAnimationID) { _, _ in
             playBattleAttackAnimation()
+        }
+        .onChange(of: playerDamageAnimationID) { _, _ in
+            playPlayerDamageAnimation()
         }
         .onChange(of: wallCollisionID) { _, _ in
             playWallCollisionReaction()
@@ -244,6 +274,44 @@ struct MonsterMessageView: View {
             try? await Task.sleep(nanoseconds: 345_000_000)
             guard !Task.isCancelled else { return }
             withAnimation(.spring(response: 0.17, dampingFraction: 0.58)) { attackOffset = 0 }
+            reactionTask = nil
+        }
+    }
+
+    private func playPlayerDamageAnimation() {
+        guard battle != nil else { return }
+        reactionTask?.cancel()
+        isCrying = false
+        isSurprised = false
+        damageNumberAmount = playerDamageAmount
+        damageNumberOffset = 8
+        reactionTask = Task { @MainActor in
+            withAnimation(.easeOut(duration: 0.08)) {
+                damageFlashOpacity = 0.9
+                damageShakeOffset = -11
+                damageTilt = -13
+                damageNumberOpacity = 1
+            }
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled else { return }
+
+            for (offset, tilt) in [(CGFloat(10), 12.0), (CGFloat(-6), -8.0), (CGFloat(0), 0.0)] {
+                withAnimation(.spring(response: 0.09, dampingFraction: 0.48)) {
+                    damageShakeOffset = offset
+                    damageTilt = tilt
+                    damageFlashOpacity = offset == 0 ? 0 : 0.78
+                    damageNumberOffset -= 10
+                }
+                try? await Task.sleep(nanoseconds: 105_000_000)
+                guard !Task.isCancelled else { return }
+            }
+
+            withAnimation(.easeOut(duration: 0.2)) {
+                damageFlashOpacity = 0
+                damageShakeOffset = 0
+                damageTilt = 0
+                damageNumberOpacity = 0
+            }
             reactionTask = nil
         }
     }

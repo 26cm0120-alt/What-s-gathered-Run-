@@ -56,6 +56,7 @@ struct EnemyBattle: Equatable {
 struct EnemyEncounterSpeech: Equatable {
     let id: Int
     let kind: EnemyKind
+    let position: GridPos
     let message: String
 }
 
@@ -114,6 +115,8 @@ struct GameState {
     var runTimeReductionSeconds = 0
     var enemyBattle: EnemyBattle?
     var defeatedEnemies: Set<GridPos> = []
+    /// 撃破したマスと敵の種類。3D表示には敵ごとの倒れた画像を残す。
+    var defeatedEnemyKinds: [GridPos: EnemyKind] = [:]
     var isGameOver = false
     /// この面でクリアするのに、鍵が必要か(仕様書§3.3)。面の定義から設定する
     let requiresKey: Bool

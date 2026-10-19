@@ -206,34 +206,16 @@ struct EnemyEncounterSpeechOverlay: View {
 
 struct EnemyDefeatSpeechOverlay: View {
     let speech: EnemyDefeatSpeech
-    @State private var hasFallen = false
 
     var body: some View {
-        VStack(spacing: -2) {
+        VStack(spacing: 4) {
             EnemySpeechBubbleView(text: speech.message)
                 .padding(.horizontal, 8)
-
-            Image(hasFallen ? speech.kind.defeatedImageName : speech.kind.imageName)
-                .interpolation(.none)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 72, height: 72)
-                .rotationEffect(.degrees(hasFallen && speech.kind == .dragon ? 90 : 0))
-                .offset(x: hasFallen ? 22 : 0, y: hasFallen ? 20 : 0)
-                .scaleEffect(hasFallen ? 0.78 : 1)
-                .opacity(hasFallen ? 0.72 : 1)
-                .shadow(color: .black.opacity(0.8), radius: 5, y: 3)
-                .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .padding(.top, 8)
         .transition(.scale.combined(with: .opacity))
         .allowsHitTesting(false)
-        .onAppear {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.16)) {
-                hasFallen = true
-            }
-        }
     }
 }
 

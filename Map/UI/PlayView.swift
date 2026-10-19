@@ -123,7 +123,8 @@ struct PlayView: View {
                 player: game.state.player,
                 theme: game.stage.dungeonTheme,
                 hasKey: game.state.hasKey,
-                isGoalReached: game.state.isCleared
+                isGoalReached: game.state.isCleared,
+                defeatedEnemyKinds: game.state.defeatedEnemyKinds
             )
             .overlay {
                 if let battle = game.state.enemyBattle {
@@ -141,6 +142,7 @@ struct PlayView: View {
                     EnemyEncounterSpeechOverlay(
                         speech: speech,
                         showEnemySprite: game.state.enemyBattle == nil
+                            && !game.state.defeatedEnemies.contains(speech.position)
                     )
                     .id(speech.id)
                     .zIndex(4)
@@ -248,6 +250,8 @@ struct PlayView: View {
                 trapAnimationTilt: trapAnimationTilt,
                 wallCollisionID: game.wallCollisionID,
                 playerAttackAnimationID: playerAttackAnimationID,
+                playerDamageAnimationID: game.playerDamageAnimationID,
+                playerDamageAmount: game.playerDamageAmount,
                 battle: game.state.enemyBattle,
                 playerHP: game.state.playerHP,
                 isTutorial: game.stage.isStepByStepTutorial

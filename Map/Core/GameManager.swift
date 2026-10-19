@@ -11,6 +11,8 @@ final class GameManager: ObservableObject {
     @Published private(set) var surpriseReactionID = 0
     @Published private(set) var trapActivationID = 0
     @Published private(set) var enemyEncounterID = 0
+    @Published private(set) var playerDamageAnimationID = 0
+    @Published private(set) var playerDamageAmount = 0
     @Published private(set) var encounterEnemySpeech: EnemyEncounterSpeech?
     @Published private(set) var defeatedEnemySpeech: EnemyDefeatSpeech?
     @Published private(set) var pendingSkeletonDrop: SkeletonDropItem?
@@ -196,7 +198,7 @@ final class GameManager: ObservableObject {
         }
         state = newState
         if let battle = newState.enemyBattle {
-            showEncounterEnemySpeech(battle.kind)
+            showEncounterEnemySpeech(battle.kind, at: battle.enemyPosition)
             onBattleStateChanged?(battle.kind)
             enemyEncounterID += 1
         }
@@ -230,6 +232,7 @@ final class GameManager: ObservableObject {
 
         if battle.enemyHP == 0 {
             newState.defeatedEnemies.insert(battle.enemyPosition)
+            newState.defeatedEnemyKinds[battle.enemyPosition] = battle.kind
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
             state = newState
@@ -244,6 +247,8 @@ final class GameManager: ObservableObject {
 
         let enemyDamage = battle.kind.attackDamage
         newState.playerHP = max(0, newState.playerHP - enemyDamage)
+        playerDamageAmount = enemyDamage
+        playerDamageAnimationID += 1
         if newState.playerHP == 0 {
             battle.message = "力尽きた……"
             newState.enemyBattle = battle
@@ -308,7 +313,7 @@ final class GameManager: ObservableObject {
         presentDefeatedEnemySpeech(kind)
     }
 
-    private func showEncounterEnemySpeech(_ kind: EnemyKind) {
+    private func showEncounterEnemySpeech(_ kind: EnemyKind, at position: GridPos) {
         encounterEnemySpeechTask?.cancel()
         defeatedEnemySpeechTask?.cancel()
         defeatedEnemySpeechTask = nil
@@ -318,6 +323,7 @@ final class GameManager: ObservableObject {
         let presentation = EnemyEncounterSpeech(
             id: encounterEnemySpeechID,
             kind: kind,
+            position: position,
             message: kind.encounterDialogue(isTrialStage: stage.shiritoriStageKind == .trial)
         )
         encounterEnemySpeech = presentation
