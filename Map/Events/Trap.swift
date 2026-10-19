@@ -71,17 +71,21 @@ private func normalizedTrapRates(
 }
 
 // 抽選用の乱数を省略すると通常の乱数を使う。乱数を渡せばseedに応じて再現できる。
+@MainActor
 func selectTrap(
     in group: TrapGroup,
-    drawRoll: () -> Int = { Int.random(in: 1...100) }
+    excluding excludedKinds: Set<TrapKind>,
+    drawRoll: (_ upperBound: Int) -> Int = { Int.random(in: 1...$0) }
 ) -> TrapKind? {
-    // 発生率の検証と補正を専用関数で
     guard let normalizedRates = normalizedTrapRates(in: group) else { return nil }
+    let availableRates = normalizedRates.filter { !excludedKinds.contains($0.kind) }
+    let totalRate = availableRates.reduce(0) { $0 + $1.rate }
+    guard totalRate > 0 else { return nil }
 
-    let roll = drawRoll()
-    guard (1...100).contains(roll) else { return nil }
+    let roll = drawRoll(totalRate)
+    guard (1...totalRate).contains(roll) else { return nil }
     var cumulativeRate = 0
-    for entry in normalizedRates {
+    for entry in availableRates {
         cumulativeRate += entry.rate
         if roll <= cumulativeRate {
             return entry.kind
