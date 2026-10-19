@@ -97,6 +97,14 @@ final class AppFlow: ObservableObject {
     /// 面を選んで、プレイを開始する。
     /// 毎回、新しいゲームを作るので、前回のプレイの状態は引き継がない(仕様書§13.2)
     func startGame(stage: Stage) {
+        let selectedStage = stage.shiritoriStageKind == .trial
+            ? Stages.trialWithRandomTrap()
+            : stage
+        startGameUsingResolvedStage(selectedStage)
+    }
+
+    /// 選択済みの面をそのまま開始する。再挑戦では抽選済みの罠種を維持する。
+    private func startGameUsingResolvedStage(_ stage: Stage) {
         gameOverReasonMessage = "HPが0になった"
         gameOverDetailMessage = "迷宮の探索はここで終了です"
         stopTitleBackgroundMusic()
@@ -165,7 +173,7 @@ final class AppFlow: ObservableObject {
     /// クリアした面を最初から再開する。ランダム面は同じseedを使う。
     func replayCurrentStage() {
         guard let stage = game?.stage, supportsReplayAndTiming else { return }
-        startGame(stage: stage)
+        startGameUsingResolvedStage(stage)
     }
 
     /// クリア後の進行先へ移る。チュートリアルの次は試練、それ以降は新しいランダム面にする。

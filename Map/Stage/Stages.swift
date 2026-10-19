@@ -122,9 +122,9 @@ enum Stages {
             "##.#####",  // 4
             "##.#####",  // 5
             "S....E..",  // 6: 東の通路にスライム（列N）
-            "##F...##",  // 7: 2回フリック罠
+            "##....##",  // 7
             "##...T##",  // 8: トラップ（列N）
-            "##.H..##",  // 9: 移動時HP減少罠
+            "##....##",  // 9
             "##.##.##",  // 10
             "##.#K.##",  // 11
             "G.E#####",  // 12: ゴール前の通路にスケルトン（列K）
@@ -136,6 +136,24 @@ enum Stages {
         isStepByStepTutorial: false,
         shiritoriStageKind: .trial
     )
+
+    /// 試練の迷宮の開始時に、(5, 6)の1つの罠へグループAから効果を割り当てる。
+    static func trialWithRandomTrap() -> Stage {
+        let availableKinds = TrapKind.allCases.filter { $0.group == .a }
+        let trapKind = availableKinds.randomElement() ?? .turnRight
+        var map = trial.map
+        map.trapKinds[GridPos(x: 5, y: 6)] = trapKind
+        return Stage(
+            title: trial.title,
+            map: map,
+            requiresKey: trial.requiresKey,
+            isStepByStepTutorial: trial.isStepByStepTutorial,
+            seed: trial.seed,
+            shiritoriStageKind: trial.shiritoriStageKind,
+            dungeonTheme: trial.dungeonTheme,
+            requiresSwordForKey: trial.requiresSwordForKey
+        )
+    }
 
     /// seedから同じランダム迷宮を生成する。seedはプレイ画面に表示する。
     static func random(seed: UInt64) -> Stage {
