@@ -21,12 +21,12 @@ struct KeyAcquisitionView: View {
                 Color.black.opacity(0.62)
 
                 ZStack {
-                    Image("CloseBox")
+                    Image("ChestClosedFront")
                         .resizable()
                         .scaledToFit()
                         .opacity(chestIsOpen ? 0 : 1)
 
-                    Image("OpenBox")
+                    Image("ChestOpenFront")
                         .resizable()
                         .scaledToFit()
                         .opacity(chestIsOpen ? 1 : 0)

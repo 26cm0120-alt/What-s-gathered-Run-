@@ -340,15 +340,15 @@ final class AppFlow: ObservableObject {
             stopStageBackgroundMusic()
             stopEncounterBackgroundMusic()
             let resourceName = enemyKind == .gargoyle ? "ガーゴイル戦闘BGM" : "通常戦闘BGM"
-            guard let player = AudioPlayback.makePlayer(named: resourceName, withExtension: "wav") else {
+            guard let player = AudioPlayback.makePlayer(named: resourceName, withExtension: "m4a") else {
                 playStageBackgroundMusic(for: game.stage)
                 return
             }
             player.volume = AudioPlayback.encounterMusicVolume
             player.numberOfLoops = -1
-            let delegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: "wav")
+            let delegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: "m4a")
             player.delegate = delegate
-            guard AudioPlayback.play(player, named: resourceName, withExtension: "wav") else {
+            guard AudioPlayback.play(player, named: resourceName, withExtension: "m4a") else {
                 playStageBackgroundMusic(for: game.stage)
                 return
             }

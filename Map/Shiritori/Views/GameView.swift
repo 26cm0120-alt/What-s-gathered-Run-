@@ -156,12 +156,12 @@ struct ShiritoriGameView: View {
 
                         HStack(alignment: .center, spacing: 8) {
                             // CPU画像を大きく表示する
-                            Image(characterImage(
+                            Image(sharedCharacterAssetName(for: characterImage(
                                 prefix: isTrialStage ? "character_cpu2" : "character_cpu",
                                 event: gameManager.cpuAnimationEvent,
                                 at: now,
                                 isPlayer: false
-                            ))
+                            )))
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: cpuCharacterSize, height: cpuCharacterSize)
@@ -239,12 +239,12 @@ struct ShiritoriGameView: View {
                             .frame(maxWidth: .infinity)
 
                             // 画面右側に向く配置に合わせ、PLAYER画像を水平方向に反転する
-                            Image(characterImage(
+                            Image(sharedCharacterAssetName(for: characterImage(
                                 prefix: "character_player",
                                 event: gameManager.playerAnimationEvent,
                                 at: now,
                                 isPlayer: true
-                            ))
+                            )))
                                 .resizable()
                                 .scaledToFit()
                                 .scaleEffect(x: -1, y: 1)
@@ -497,6 +497,23 @@ struct ShiritoriGameView: View {
             return "\(prefix)_breath"
         } else {
             return "\(prefix)_wing"
+        }
+    }
+
+    /// ダンジョン側と共通する画像は1つのAsset Catalogから読み込む。
+    private func sharedCharacterAssetName(for sourceName: String) -> String {
+        switch sourceName {
+        case "character_cpu": return "MessageMonsterIdle"
+        case "character_cpu_breath", "character_cpu_jump_01": return "MessageMonsterMove1"
+        case "character_cpu_jump_02": return "MessageMonsterMove2"
+        case "character_cpu_jump_03": return "MessageMonsterMove3"
+        case "character_player": return "PlayerIdle"
+        case "character_player_blink": return "PlayerBlink"
+        case "character_player_breath": return "PlayerBreath"
+        case "character_player_jump_01": return "PlayerMove1"
+        case "character_player_jump_02": return "PlayerMove2"
+        case "character_player_jump_03": return "PlayerMove3"
+        default: return sourceName
         }
     }
 

@@ -165,7 +165,7 @@ struct CardData2 {
             Vocabulary(word: "りぼん", displayWord: "りぼん", type: .surprise),
             Vocabulary(word: "ごほうび", displayWord: "ごほうび", type: .surprise)
         ], isCleared: false),
-        Card(id: UUID(), imageName: "card2_21", vocabularies: [
+        Card(id: UUID(), imageName: "card05", vocabularies: [
             Vocabulary(word: "いりぐち", displayWord: "いりぐち", type: .normal),
             Vocabulary(word: "どあ", displayWord: "どあ", type: .english),
             Vocabulary(word: "でぐち", displayWord: "でぐち", type: .rare),

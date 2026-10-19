@@ -19,7 +19,7 @@ struct EnemyBattleView: View {
     private var enemyImage: String {
         if isCountering { return battle.kind.attackImageName }
         if isHit { return battle.kind.hitImageName }
-        if battle.kind == .dragon && isBreathing { return "MessageMonsterBreath" }
+        if battle.kind == .dragon && isBreathing { return "MessageMonsterMove1" }
         return battle.kind.imageName
     }
 

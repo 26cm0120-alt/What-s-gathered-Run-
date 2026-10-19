@@ -29,7 +29,7 @@ struct AnimatedTitleDragonTitleRow: View {
                     label: "紫のドラゴン",
                     frames: [
                         ("MessageMonsterIdle", 850_000_000),
-                        ("MessageMonsterBreath", 500_000_000),
+                        ("MessageMonsterMove1", 500_000_000),
                         ("MessageMonsterIdle", 350_000_000),
                         ("MessageMonsterMove1", 110_000_000),
                         ("MessageMonsterMove2", 110_000_000),

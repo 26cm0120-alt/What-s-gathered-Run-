@@ -34,7 +34,7 @@ struct MonsterMessageView: View {
 
     private var imageName: String {
         if battle != nil {
-            return "DungeonPlayer"
+            return "PlayerIdle"
         }
         if isTrapReactionActive { return trapAnimationFrame }
         if isSurprised || isCrying { return "PlayerBlink" }
