@@ -335,14 +335,37 @@ struct DungeonView: View {
                         let chestDepth = Double(d) + 1.0
                         let topLeft = project(-0.38, 0.05, chestDepth)
                         let bottomRight = project(0.38, -0.5, chestDepth)
+                        let chestBounds = CGRect(
+                            x: topLeft.x,
+                            y: topLeft.y,
+                            width: bottomRight.x - topLeft.x,
+                            height: bottomRight.y - topLeft.y
+                        )
+                        // 前後左右の画像は縦横比が異なるため、同じ矩形へ引き伸ばさず、
+                        // 画像本来の比率を保ったまま床位置に揃える。
+                        let imageSize = chestImage.size
+                        let chestRect: CGRect
+                        if imageSize.width > 0 && imageSize.height > 0 {
+                            let fitScale = min(
+                                chestBounds.width / imageSize.width,
+                                chestBounds.height / imageSize.height
+                            )
+                            let fittedSize = CGSize(
+                                width: imageSize.width * fitScale,
+                                height: imageSize.height * fitScale
+                            )
+                            chestRect = CGRect(
+                                x: chestBounds.midX - fittedSize.width / 2,
+                                y: chestBounds.maxY - fittedSize.height,
+                                width: fittedSize.width,
+                                height: fittedSize.height
+                            )
+                        } else {
+                            chestRect = chestBounds
+                        }
                         ctx.draw(
                             chestImage,
-                            in: CGRect(
-                                x: topLeft.x,
-                                y: topLeft.y,
-                                width: bottomRight.x - topLeft.x,
-                                height: bottomRight.y - topLeft.y
-                            )
+                            in: chestRect
                         )
                     }
                 }

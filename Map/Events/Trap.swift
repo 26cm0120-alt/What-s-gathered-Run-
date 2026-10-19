@@ -90,17 +90,16 @@ func selectTrap(
     return nil
 }
 
-/// 罠
-/// グループ化
-enum TrapGroup {
+/// 罠の機能グループ
+enum TrapGroup: CaseIterable, Hashable {
     case a
     case b
     case c
 }
 
-/// 種類
-enum TrapKind: CaseIterable {
-    // グループA：進行妨害系
+/// 罠の種類
+enum TrapKind: CaseIterable, Hashable {
+    // グループA：状態変化
     case turnRight
     case doubleFlick
     case hpDrain

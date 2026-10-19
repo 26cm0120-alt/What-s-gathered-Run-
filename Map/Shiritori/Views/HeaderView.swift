@@ -30,13 +30,7 @@ struct HeaderView: View {
                 Text(nextPromptText)
             }
         }
-        .font(
-            DungeonTypography.system(
-                size: 13,
-                weight: .bold,
-                design: .monospaced
-            )
-        )
+        .font(DungeonTypography.maruMonica(size: 13))
         .foregroundStyle(.white)
     }
 

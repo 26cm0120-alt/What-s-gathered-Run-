@@ -17,9 +17,9 @@ extension TileEvent {
 
 /// マスの種類と処理の対応表
 enum TileEvents {
-    static func event(for cell: MapCell, map: MapData) -> (any TileEvent)? {
+    static func event(for cell: MapCell, map: MapData, position: GridPos) -> (any TileEvent)? {
         switch cell {
-        case .trap: return TrapEvent(kind: .turnRight, map: map)
+        case .trap: return TrapEvent(kind: map.trapKinds[position] ?? .turnRight, map: map)
         case .doubleFlickTrap: return TrapEvent(kind: .doubleFlick, map: map)
         case .hpDrainTrap: return TrapEvent(kind: .hpDrain, map: map)
         case .warpToStartTrap: return TrapEvent(kind: .warpToStart, map: map)

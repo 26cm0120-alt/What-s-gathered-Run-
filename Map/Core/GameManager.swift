@@ -35,7 +35,7 @@ final class GameManager: ObservableObject {
     /// 戦闘の開始・終了に合わせたBGM切替通知
     var onBattleStateChanged: ((EnemyKind?) -> Void)?
 
-    init(stage: Stage, wallCollisionDamageEnabled: Bool = false) {
+    init(stage: Stage, wallCollisionDamageEnabled: Bool = true) {
         self.stage = stage
         self.wallCollisionDamageEnabled = wallCollisionDamageEnabled
         self.state = GameState(
@@ -155,7 +155,7 @@ final class GameManager: ObservableObject {
         } else if cell == .enemy {
             event = nil
         } else {
-            event = TileEvents.event(for: cell, map: map)
+            event = TileEvents.event(for: cell, map: map, position: next)
         }
         if let reason = event?.blockReason(state: state) {
             var newState = state
@@ -175,7 +175,7 @@ final class GameManager: ObservableObject {
             soundEffects.play(named: "移動音")
         }
         event?.onEnter(state: &newState, from: state.player.position)
-        if newState.hpDrainTrapActive {
+        if newState.hpDrainTrapActive && !newState.isGameOver {
             newState.playerHP = max(0, newState.playerHP - 1)
             if hpDrainWasActive {
                 let hpDrainMessage = "トラップの影響でHPが1減った。"
@@ -267,6 +267,9 @@ final class GameManager: ObservableObject {
     /// 逃走した場合は、敵マスへ入る直前の位置に戻る。敵はその場に残る。
     func fleeBattle() {
         guard let battle = state.enemyBattle else { return }
+        encounterEnemySpeechTask?.cancel()
+        encounterEnemySpeechTask = nil
+        encounterEnemySpeech = nil
         var newState = state
         newState.player.position = battle.retreatPosition
         newState.enemyBattle = nil

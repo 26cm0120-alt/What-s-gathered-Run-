@@ -177,13 +177,7 @@ struct ShiritoriGameView: View {
                                 .frame(maxWidth: .infinity)
 
                                 Text("CPU")
-                                    .font(
-                                        DungeonTypography.system(
-                                            size: 14,
-                                            weight: .bold,
-                                            design: .monospaced
-                                        )
-                                    )
+                                    .font(DungeonTypography.maruMonica(size: 14))
                                     .foregroundStyle(.white)
                                     .fixedSize()
                             }
