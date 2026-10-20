@@ -155,19 +155,19 @@ struct MonsterMessageView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(red: 0.42, green: 0.39, blue: 0.32), lineWidth: 1)
         }
-        .onChange(of: reactionID) { _, _ in
+        .onChangeCompat(of: reactionID) { _, _ in
             playMovementAnimation()
         }
-        .onChange(of: surpriseReactionID) { _, _ in
+        .onChangeCompat(of: surpriseReactionID) { _, _ in
             playSurpriseAnimation()
         }
-        .onChange(of: playerAttackAnimationID) { _, _ in
+        .onChangeCompat(of: playerAttackAnimationID) { _, _ in
             playBattleAttackAnimation()
         }
-        .onChange(of: playerDamageAnimationID) { _, _ in
+        .onChangeCompat(of: playerDamageAnimationID) { _, _ in
             playPlayerDamageAnimation()
         }
-        .onChange(of: wallCollisionID) { _, _ in
+        .onChangeCompat(of: wallCollisionID) { _, _ in
             playWallCollisionReaction()
         }
         .task {

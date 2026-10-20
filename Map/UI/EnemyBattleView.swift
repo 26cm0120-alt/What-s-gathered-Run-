@@ -80,14 +80,14 @@ struct EnemyBattleView: View {
                 withAnimation(.easeInOut(duration: 0.5)) { isBreathing.toggle() }
             }
         }
-        .onChange(of: battle.enemyHP) { oldHP, newHP in
+        .onChangeCompat(of: battle.enemyHP) { oldHP, newHP in
             guard newHP < oldHP else { return }
             playHitReaction(damage: oldHP - newHP)
         }
-        .onChange(of: playerAttackAnimationID) { _, _ in
+        .onChangeCompat(of: playerAttackAnimationID) { _, _ in
             playAnticipatedHitReaction()
         }
-        .onChange(of: playerHP) { oldHP, newHP in
+        .onChangeCompat(of: playerHP) { oldHP, newHP in
             guard newHP < oldHP else { return }
             playCounterReaction()
         }
