@@ -101,12 +101,16 @@ struct GameState {
     var hasKey: Bool = false
     var hasSword: Bool = false
     var playerHP = playerMaxHP
-    /// 2回の前進フリックで1マス進む罠が発動中か。
+    /// 設定された前進フリック数で1マス進む遅行罠が発動中か。
     var doubleFlickTrapActive = false
-    /// 2回目の前進フリックを待っているか。
-    var hasPendingDoubleFlick = false
-    /// 1マス移動するごとにHPが減る罠が発動中か。
+    /// 遅行の効果が続く残り前進マス数。
+    var doubleFlickTrapMovesRemaining = 0
+    /// 現在の1マス移動に向けて受け付けた前進フリック数。
+    var slowForwardFlickProgress = 0
+    /// 移動ごとにHPが減る毒罠が発動中か。
     var hpDrainTrapActive = false
+    /// 毒の効果が続く残り歩数。
+    var hpDrainTrapStepsRemaining = 0
     /// 直近に踏んだ罠がカットインへ表示する発動メッセージ。
     var trapActivationMessage: String?
     /// スケルトンの砂時計によるしりとり持ち時間加算。
