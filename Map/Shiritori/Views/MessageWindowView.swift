@@ -63,7 +63,7 @@ struct MessageWindowView: View {
                 // 画面表示時にメッセージを一文字ずつ表示する
                 startTypingMessage()
             }
-            .onChange(of: message) { _, _ in
+            .onChangeCompat(of: message) { _, _ in
                 // メッセージが変わったら、現在の表示を停止して最初から表示する
                 startTypingMessage()
             }

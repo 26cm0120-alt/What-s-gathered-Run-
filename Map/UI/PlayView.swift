@@ -369,7 +369,7 @@ struct PlayView: View {
                     .zIndex(2)
             }
         }
-        .onChange(of: game.state.hasKey) { hadKey, hasKey in
+        .onChangeCompat(of: game.state.hasKey) { hadKey, hasKey in
             // hasKey が初めて false から true になったときだけ演出する
             if !hadKey && hasKey {
                 withAnimation(.easeIn(duration: 0.12)) {
@@ -377,7 +377,7 @@ struct PlayView: View {
                 }
             }
         }
-        .onChange(of: game.state.hasSword) { hadSword, hasSword in
+        .onChangeCompat(of: game.state.hasSword) { hadSword, hasSword in
             // 剣を初めて取得した瞬間、ダンジョン表示にアイテムを重ねる。
             if !hadSword && hasSword {
                 withAnimation(.easeIn(duration: 0.12)) {
@@ -385,20 +385,20 @@ struct PlayView: View {
                 }
             }
         }
-        .onChange(of: isStandingAtKey) { _, isAtKey in
+        .onChangeCompat(of: isStandingAtKey) { _, isAtKey in
             // 鍵のあるマスを離れたら取得演出を終了する
             if !isAtKey {
                 isShowingKeyAcquisition = false
             }
         }
-        .onChange(of: playerMotionKey) { _, _ in
+        .onChangeCompat(of: playerMotionKey) { _, _ in
             monsterReactionID += 1
         }
-        .onChange(of: game.wallCollisionID) { _, _ in
+        .onChangeCompat(of: game.wallCollisionID) { _, _ in
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
             playWallCollisionAnimation()
         }
-        .onChange(of: game.trapActivationID) { _, _ in
+        .onChangeCompat(of: game.trapActivationID) { _, _ in
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
             showEventCutIn(
                 title: "TRAP!",
@@ -407,15 +407,15 @@ struct PlayView: View {
                 startsTrapReaction: true
             )
         }
-        .onChange(of: game.enemyEncounterID) { _, _ in
+        .onChangeCompat(of: game.enemyEncounterID) { _, _ in
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
             showEventCutIn(title: "ENCOUNTER", message: "敵が現れた！", style: .encounter)
         }
-        .onChange(of: game.defeatedEnemySpeech) { oldSpeech, newSpeech in
+        .onChangeCompat(of: game.defeatedEnemySpeech) { oldSpeech, newSpeech in
             guard oldSpeech != nil, newSpeech == nil else { return }
             beginPendingDropPickup()
         }
-        .onChange(of: game.state.playerHP) { oldHP, newHP in
+        .onChangeCompat(of: game.state.playerHP) { oldHP, newHP in
             guard newHP < oldHP, game.state.enemyBattle != nil else { return }
             counterSoundTask?.cancel()
             counterSoundTask = Task { @MainActor in
