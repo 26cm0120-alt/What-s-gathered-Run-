@@ -54,33 +54,33 @@ enum EnemyKind: CaseIterable, Equatable {
 
     var encounterDialogue: String {
         switch self {
-        case .slime: return "おまえが ちょうせんしゃか？\nよわそうな やつだな。\\nカードなんか ひつようないぞ"
-        case .skeleton: return "ぐぬぬ・・・おれには カードを\\nつかえる のうみそが ねえんだ！\\nちからずくで おいかえしてやる！"
-        case .gargoyle: return "おろかものめっ！よわいものは\\nさらに よわいものを みつけて\\nたたかいを いどめっ！"
-        case .dragon: return "う ぁ ぁ ぁ ぁ ぁ（書き文字）\\nり・・・龍が廊下を\\n練り歩いてるっ！"
+        case .slime: return "おまえが ちょうせんしゃか？\nよわそうな やつだな。\nカードなんか ひつようないぞ"
+        case .skeleton: return "ぐぬぬ・・・おれには カードを\nつかえる のうみそが ねえんだ！\nちからずくで おいかえしてやる！"
+        case .gargoyle: return "おろかものめっ！よわいものは\nさらに よわいものを みつけて\nたたかいを いどめっ！"
+        case .dragon: return "う ぁ ぁ ぁ ぁ ぁ（書き文字）\nり・・・龍が廊下を\n練り歩いてるっ！"
         }
     }
 
     func encounterDialogue(isTrialStage: Bool) -> String {
         guard self == .skeleton else { return encounterDialogue }
-        return "ぐぬぬ・・・おれには カードを\\nつかえる のうみそが ねえんだ！\\nちからずくで おいかえしてやる！"
+        return "ぐぬぬ・・・おれには カードを\nつかえる のうみそが ねえんだ！\nちからずくで おいかえしてやる！"
     }
 
     var defeatDialogue: String {
         switch self {
-        case .slime: return "やっぱり カードで\\nしょうぶ するんだった・・・"
-        case .skeleton: return "まおうさまの ことだま は\\nへんげんじざい だぜ・・・\\nただ よむだけじゃ かてねぇぜ"
-        case .gargoyle: return "そんなわけ ないッス！おれが\\nまけるわけ ないッス！やっぱし\\nこわいスね、ドラゴンぞくは。"
-        case .dragon: return "弱きものから\\n狩る・・・！\\n次なる標的は・・・！？"
+        case .slime: return "やっぱり カードで\nしょうぶ するんだった・・・"
+        case .skeleton: return "まおうさまの ことだま は\nへんげんじざい だぜ・・・\nただ よむだけじゃ かてねぇぜ"
+        case .gargoyle: return "そんなわけ ないッス！おれが\nまけるわけ ないッス！やっぱし\nこわいスね、ドラゴンぞくは。"
+        case .dragon: return "弱きものから\n狩る・・・！\n次なる標的は・・・！？"
         }
     }
 
     func defeatDialogue(isTrialStage: Bool) -> String {
         guard self == .skeleton else { return defeatDialogue }
         if isTrialStage {
-            return "もんばんの ことだま は\\nひともじぜめ だぜ・・・\\nイヤミなやつだが かてるもんか"
+            return "もんばんの ことだま は\nひともじぜめ だぜ・・・\nイヤミなやつだが かてるもんか"
         }
-        return "まおうさまの ことだま は\\nへんげんじざい だぜ・・・\\nただ よむだけじゃ かてねぇぜ"
+        return "まおうさまの ことだま は\nへんげんじざい だぜ・・・\nただ よむだけじゃ かてねぇぜ"
     }
 
     var maxHP: Int {
