@@ -54,32 +54,33 @@ enum EnemyKind: CaseIterable, Equatable {
 
     var encounterDialogue: String {
         switch self {
-        case .slime: return "なんだか見たことないやつが\n迷い込んできたな・・・\n邪魔だ！"
-        case .skeleton: return "なんだてめえ、\nこの先にいる魔王に\n出会いたかったら、俺を倒すんだな！"
-        case .gargoyle: return "俺はこのダンジョンの中で\n最強だぜ・・・？"
-        case .dragon: return "我が迷宮へ\nようこそ。"
+        case .slime: return "おまえが ちょうせんしゃか？\\nよわそうな やつだな。\\nカードなんか ひつようないぞ"
+        case .skeleton: return "ぐぬぬ・・・おれには カードを\\nつかえる のうみそが ねえんだ！\\nちからずくで おいかえしてやる！"
+        case .gargoyle: return "おろかものめっ！よわいものは\\nさらに よわいものを みつけて\\nたたかいを いどめっ！"
+        case .dragon: return "う ぁ ぁ ぁ ぁ ぁ（書き文字）\\nり・・・龍が廊下を\\n練り歩いてるっ！"
         }
     }
 
     func encounterDialogue(isTrialStage: Bool) -> String {
         guard self == .skeleton else { return encounterDialogue }
-        let target = isTrialStage ? "門番" : "魔王"
-        return "なんだてめえ、この先にいる\(target)に\n出会いたかったら、俺を倒すんだな！"
+        return "ぐぬぬ・・・おれには カードを\\nつかえる のうみそが ねえんだ！\\nちからずくで おいかえしてやる！"
     }
 
     var defeatDialogue: String {
         switch self {
-        case .slime: return "私が一番\n弱かったです、、"
-        case .skeleton: return "ちくしょう！\n魔王を倒したかったら\n語彙力をつけろよ！"
-        case .gargoyle: return "なんだよ！その武器！\nずるい！"
-        case .dragon: return "見事だ…\n…。"
+        case .slime: return "やっぱり カードで\\nしょうぶ するんだった・・・"
+        case .skeleton: return "まおうさまの ことだま は\\nへんげんじざい だぜ・・・\\nただ よむだけじゃ かてねぇぜ"
+        case .gargoyle: return "そんなわけ ないッス！おれが\\nまけるわけ ないッス！やっぱし\\nこわいスね、ドラゴンぞくは。"
+        case .dragon: return "弱きものから\\n狩る・・・！\\n次なる標的は・・・！？"
         }
     }
 
     func defeatDialogue(isTrialStage: Bool) -> String {
         guard self == .skeleton else { return defeatDialogue }
-        let target = isTrialStage ? "門番" : "魔王"
-        return "ちくしょう！\n\(target)を倒したかったら\n語彙力をつけろよ！"
+        if isTrialStage {
+            return "もんばんの ことだま は\\nひともじぜめ だぜ・・・\\nイヤミなやつだが かてるもんか"
+        }
+        return "まおうさまの ことだま は\\nへんげんじざい だぜ・・・\\nただ よむだけじゃ かてねぇぜ"
     }
 
     var maxHP: Int {
