@@ -54,7 +54,7 @@ enum EnemyKind: CaseIterable, Equatable {
 
     var encounterDialogue: String {
         switch self {
-        case .slime: return "おまえが ちょうせんしゃか？\\nよわそうな やつだな。\\nカードなんか ひつようないぞ"
+        case .slime: return "おまえが ちょうせんしゃか？\nよわそうな やつだな。\\nカードなんか ひつようないぞ"
         case .skeleton: return "ぐぬぬ・・・おれには カードを\\nつかえる のうみそが ねえんだ！\\nちからずくで おいかえしてやる！"
         case .gargoyle: return "おろかものめっ！よわいものは\\nさらに よわいものを みつけて\\nたたかいを いどめっ！"
         case .dragon: return "う ぁ ぁ ぁ ぁ ぁ（書き文字）\\nり・・・龍が廊下を\\n練り歩いてるっ！"
