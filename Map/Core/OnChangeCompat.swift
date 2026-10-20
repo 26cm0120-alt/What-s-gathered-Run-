@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// iOS 16で利用できる`.onChange`を使い、変更前と変更後の値を渡す。
+/// iOS 17以降は新しい`.onChange`を使い、iOS 16では互換処理で変更前後の値を渡す。
 private struct OnChangeCompatModifier<Value: Equatable>: ViewModifier {
     let value: Value
     let action: (Value, Value) -> Void
@@ -13,11 +13,18 @@ private struct OnChangeCompatModifier<Value: Equatable>: ViewModifier {
         _previousValue = State(initialValue: value)
     }
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content.onChange(of: value) { newValue in
-            let oldValue = previousValue
-            previousValue = newValue
-            action(oldValue, newValue)
+        if #available(iOS 17.0, *) {
+            content.onChange(of: value) { oldValue, newValue in
+                action(oldValue, newValue)
+            }
+        } else {
+            content.onChange(of: value) { newValue in
+                let oldValue = previousValue
+                previousValue = newValue
+                action(oldValue, newValue)
+            }
         }
     }
 }
