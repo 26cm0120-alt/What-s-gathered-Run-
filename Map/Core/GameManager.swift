@@ -99,19 +99,19 @@ final class GameManager: ObservableObject {
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
         guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
 
-        // 2回フリック罠の発動中は、前進の最初のフリックでは移動しない。
+        // 遅行中は設定された回数の前進フリックがそろうまで、マス移動しない。
         if action == .moveForward, state.doubleFlickTrapActive {
-            if !state.hasPendingDoubleFlick {
-                var newState = state
-                newState.hasPendingDoubleFlick = true
-                newState.message = "足止めの罠!\n前進するには、もう一度フリックしてください。"
-                state = newState
+            var flickState = state
+            flickState.slowForwardFlickProgress += 1
+            let requiredFlicks = max(1, TrapEvent.slowForwardFlicksPerMove)
+            if flickState.slowForwardFlickProgress < requiredFlicks {
+                let remainingFlicks = requiredFlicks - flickState.slowForwardFlickProgress
+                flickState.message = "足止めの罠!\nあと\(remainingFlicks)回フリックすると1マス進みます。"
+                state = flickState
                 return
             }
-
-            var newState = state
-            newState.hasPendingDoubleFlick = false
-            state = newState
+            flickState.slowForwardFlickProgress = 0
+            state = flickState
         }
 
         let next = state.player.position.moved(direction)
@@ -167,6 +167,7 @@ final class GameManager: ObservableObject {
         }
 
         let hpDrainWasActive = state.hpDrainTrapActive
+        let slowWasActive = action == .moveForward && state.doubleFlickTrapActive
         var newState = state
         newState.player.position = next
         newState.explored.insert(next)
@@ -179,18 +180,30 @@ final class GameManager: ObservableObject {
         if cell != .key && cell != .goal && cell != .sword {
             soundEffects.play(named: "移動音")
         }
+        if slowWasActive {
+            newState.doubleFlickTrapMovesRemaining = max(0, newState.doubleFlickTrapMovesRemaining - 1)
+            if newState.doubleFlickTrapMovesRemaining == 0 {
+                newState.doubleFlickTrapActive = false
+                newState.slowForwardFlickProgress = 0
+            }
+        }
         event?.onEnter(state: &newState, from: state.player.position)
         if newState.hpDrainTrapActive && !newState.isGameOver {
-            newState.playerHP = max(0, newState.playerHP - 1)
+            let poisonDamage = max(0, TrapEvent.poisonDamagePerStep)
+            newState.playerHP = max(0, newState.playerHP - poisonDamage)
             if hpDrainWasActive {
-                let hpDrainMessage = "トラップの影響でHPが1減った。"
+                let hpDrainMessage = "トラップの影響でHPが\(poisonDamage)減った。"
                 if newState.message.isEmpty {
                     newState.message = hpDrainMessage
                 } else {
                     newState.message += "\n\(hpDrainMessage)"
                 }
             } else {
-                newState.message += "\n1マス進んだためHPが1減った。"
+                newState.message += "\n1歩進んだためHPが\(poisonDamage)減った。"
+            }
+            newState.hpDrainTrapStepsRemaining = max(0, newState.hpDrainTrapStepsRemaining - 1)
+            if newState.hpDrainTrapStepsRemaining == 0 {
+                newState.hpDrainTrapActive = false
             }
             if newState.playerHP == 0 {
                 newState.isCleared = false

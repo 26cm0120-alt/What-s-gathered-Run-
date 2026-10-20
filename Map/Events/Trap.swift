@@ -126,6 +126,15 @@ enum TrapKind: CaseIterable, Hashable {
 
 // 罠マスでのトラップを実行
 struct TrapEvent: TileEvent {
+    /// 毒が1歩の移動ごとに減らすHP。
+    static let poisonDamagePerStep = 1
+    /// 毒の持続歩数。罠マスへ入った移動も1歩として数える。
+    static let poisonDurationSteps = 5
+    /// 遅行中、1マス進むために必要な前進フリック数。
+    static let slowForwardFlicksPerMove = 2
+    /// 遅行が続く成功した前進移動の回数。
+    static let slowDurationMoves = 5
+
     let kind: TrapKind
     let map: MapData
 
@@ -171,8 +180,11 @@ struct TrapEvent: TileEvent {
     /// 遅行
     private func activateDoubleFlick(state: inout GameState) {
         state.doubleFlickTrapActive = true
-        state.hasPendingDoubleFlick = false
-        let message = "トラップ! 前進には2回フリックが必要になった"
+        state.doubleFlickTrapMovesRemaining = max(1, Self.slowDurationMoves)
+        state.slowForwardFlickProgress = 0
+        let flicks = max(1, Self.slowForwardFlicksPerMove)
+        let moves = max(1, Self.slowDurationMoves)
+        let message = "トラップ! 前進には\(flicks)回フリックが必要。\(moves)マス進むと解除"
         state.message = message
         state.trapActivationMessage = message
     }
@@ -180,7 +192,10 @@ struct TrapEvent: TileEvent {
     /// 毒
     private func activateHPDrain(state: inout GameState) {
         state.hpDrainTrapActive = true
-        let message = "トラップ! 1マス進むごとにHPが1減る"
+        state.hpDrainTrapStepsRemaining = max(1, Self.poisonDurationSteps)
+        let damage = max(0, Self.poisonDamagePerStep)
+        let steps = max(1, Self.poisonDurationSteps)
+        let message = "トラップ! 1歩ごとにHPが\(damage)減る。\(steps)歩で解除"
         state.message = message
         state.trapActivationMessage = message
     }
