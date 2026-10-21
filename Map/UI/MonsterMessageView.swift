@@ -31,6 +31,11 @@ struct MonsterMessageView: View {
     @State private var damageNumberAmount = 0
     @State private var damageNumberOffset: CGFloat = 0
     @State private var damageNumberOpacity = 0.0
+    /// HP減少前の値を一時保持し、減少分を赤く残して表示する。
+    @State private var playerHPBeforeDecrease: Int?
+    @State private var enemyHPBeforeDecrease: Int?
+    @State private var playerHPDecreaseTask: Task<Void, Never>?
+    @State private var enemyHPDecreaseTask: Task<Void, Never>?
 
     private var imageName: String {
         if battle != nil {
@@ -63,9 +68,21 @@ struct MonsterMessageView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 9) {
-                    hpBar(name: battle == nil ? "HP" : "YOU", current: playerHP, maximum: GameState.playerMaxHP, color: Color(red: 0.28, green: 0.82, blue: 0.48))
+                    hpBar(
+                        name: battle == nil ? "HP" : "YOU",
+                        current: playerHP,
+                        previousHP: playerHPBeforeDecrease,
+                        maximum: GameState.playerMaxHP,
+                        color: Color(red: 0.28, green: 0.82, blue: 0.48)
+                    )
                     if let battle {
-                        hpBar(name: battle.kind.name, current: battle.enemyHP, maximum: battle.kind.maxHP, color: Color(red: 0.95, green: 0.31, blue: 0.24))
+                        hpBar(
+                            name: battle.kind.name,
+                            current: battle.enemyHP,
+                            previousHP: enemyHPBeforeDecrease,
+                            maximum: battle.kind.maxHP,
+                            color: Color(red: 0.95, green: 0.31, blue: 0.24)
+                        )
                     }
                 }
             }
@@ -84,7 +101,7 @@ struct MonsterMessageView: View {
                             .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 1.0))
                             .opacity(damageFlashOpacity)
                             .blendMode(.screen)
                             .accessibilityHidden(true)
@@ -167,6 +184,17 @@ struct MonsterMessageView: View {
         .onChangeCompat(of: playerDamageAnimationID) { _, _ in
             playPlayerDamageAnimation()
         }
+        .onChangeCompat(of: playerHP) { oldHP, newHP in
+            updateHPDecreaseDisplay(oldHP: oldHP, newHP: newHP, isPlayer: true)
+        }
+        .onChangeCompat(of: battle?.enemyHP) { oldHP, newHP in
+            guard let oldHP, let newHP else {
+                enemyHPDecreaseTask?.cancel()
+                enemyHPBeforeDecrease = nil
+                return
+            }
+            updateHPDecreaseDisplay(oldHP: oldHP, newHP: newHP, isPlayer: false)
+        }
         .onChangeCompat(of: wallCollisionID) { _, _ in
             playWallCollisionReaction()
         }
@@ -179,6 +207,8 @@ struct MonsterMessageView: View {
         }
         .onDisappear {
             reactionTask?.cancel()
+            playerHPDecreaseTask?.cancel()
+            enemyHPDecreaseTask?.cancel()
         }
     }
 
@@ -189,7 +219,13 @@ struct MonsterMessageView: View {
             .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
     }
 
-    private func hpBar(name: String?, current: Int, maximum: Int, color: Color) -> some View {
+    private func hpBar(
+        name: String?,
+        current: Int,
+        previousHP: Int?,
+        maximum: Int,
+        color: Color
+    ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 3) {
                 if let name {
@@ -201,16 +237,66 @@ struct MonsterMessageView: View {
             .font(DungeonTypography.maruMonica(size: 10))
             .foregroundStyle(.white.opacity(0.92))
             GeometryReader { geometry in
+                let safeMaximum = max(1, maximum)
+                let currentWidth = geometry.size.width * CGFloat(max(0, min(current, safeMaximum))) / CGFloat(safeMaximum)
+                let previousWidth = geometry.size.width * CGFloat(max(0, min(previousHP ?? current, safeMaximum))) / CGFloat(safeMaximum)
                 ZStack(alignment: .leading) {
                     Rectangle().fill(Color.white.opacity(0.18))
+                    if let previousHP, previousHP > current {
+                        Rectangle()
+                            .fill(Color.red)
+                            .frame(width: max(0, previousWidth - currentWidth))
+                            .offset(x: currentWidth)
+                    }
                     Rectangle()
                         .fill(color)
-                        .frame(width: geometry.size.width * CGFloat(max(0, current)) / CGFloat(maximum))
+                        .frame(width: currentWidth)
                 }
             }
             .frame(height: 6)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// HPが減った場合だけ減少前の値を一時保持し、回復時は残量表示を解除する。
+    private func updateHPDecreaseDisplay(oldHP: Int, newHP: Int, isPlayer: Bool) {
+        let task = isPlayer ? playerHPDecreaseTask : enemyHPDecreaseTask
+        task?.cancel()
+
+        if newHP >= oldHP {
+            if isPlayer {
+                playerHPBeforeDecrease = nil
+                playerHPDecreaseTask = nil
+            } else {
+                enemyHPBeforeDecrease = nil
+                enemyHPDecreaseTask = nil
+            }
+            return
+        }
+
+        if isPlayer {
+            playerHPBeforeDecrease = oldHP
+        } else {
+            enemyHPBeforeDecrease = oldHP
+        }
+
+        let clearTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard !Task.isCancelled else { return }
+            if isPlayer {
+                playerHPBeforeDecrease = nil
+                playerHPDecreaseTask = nil
+            } else {
+                enemyHPBeforeDecrease = nil
+                enemyHPDecreaseTask = nil
+            }
+        }
+
+        if isPlayer {
+            playerHPDecreaseTask = clearTask
+        } else {
+            enemyHPDecreaseTask = clearTask
+        }
     }
 
     private func playMovementAnimation() {
