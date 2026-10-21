@@ -20,6 +20,7 @@ struct PlayView: View {
     @State private var isShowingSwordPickup = false
     @State private var isShowingDropPickup = false
     @State private var dropPickupTask: Task<Void, Never>?
+    @State private var itemPickupUnlockTask: Task<Void, Never>?
     @State private var dropItemAudioPlayer: AVAudioPlayer?
     @State private var dropItemAudioErrorDelegate: AudioPlaybackErrorDelegate?
     @State private var isMapExpanded = false
@@ -82,6 +83,17 @@ struct PlayView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
     }
 
+    /// 取得演出の閉じるフェードが終わってから、ゲーム側の移動入力ロックを解除する。
+    private func unlockItemPickupInput(after fadeDuration: UInt64) {
+        itemPickupUnlockTask?.cancel()
+        itemPickupUnlockTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: fadeDuration)
+            guard !Task.isCancelled else { return }
+            game.finishItemPickupPresentation()
+            itemPickupUnlockTask = nil
+        }
+    }
+
     /// ダンジョン画面、ステータス、メッセージ、探索マップからフリック操作を受け付ける。
     private var movementFlickGesture: some Gesture {
         DragGesture(minimumDistance: 10)
@@ -97,6 +109,7 @@ struct PlayView: View {
             }
             .onEnded { value in
                 guard !isAcquisitionAnimationActive,
+                      !game.isItemPickupInputLocked,
                       !isMapPinchGestureActive,
                       !isMapExpanded else { return }
                 let horizontal = value.translation.width
@@ -171,6 +184,7 @@ struct PlayView: View {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 isShowingKeyAcquisition = false
                             }
+                            unlockItemPickupInput(after: 200_000_000)
                         }
                     )
                     .padding(2)
@@ -204,6 +218,7 @@ struct PlayView: View {
                         withAnimation(.easeOut(duration: 0.22)) {
                             isShowingSwordPickup = false
                         }
+                        unlockItemPickupInput(after: 220_000_000)
                     }
                     .padding(2)
                     .transition(.opacity)
@@ -444,6 +459,8 @@ struct PlayView: View {
             battleActionTask?.cancel()
             battleScreenFlashTask?.cancel()
             dropPickupTask?.cancel()
+            itemPickupUnlockTask?.cancel()
+            game.finishItemPickupPresentation()
             eventCutInTask?.cancel()
             trapAnimationTask?.cancel()
             pinchSuppressionTask?.cancel()

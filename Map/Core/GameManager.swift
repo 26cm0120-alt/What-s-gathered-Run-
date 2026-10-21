@@ -7,6 +7,8 @@ final class GameManager: ObservableObject {
     let stage: Stage
     @Published private(set) var state: GameState
     @Published private(set) var isInputLocked = false
+    /// 鍵・剣の取得イベントから演出終了まで、移動入力を止める。
+    @Published private(set) var isItemPickupInputLocked = false
     @Published private(set) var wallCollisionID = 0
     @Published private(set) var surpriseReactionID = 0
     @Published private(set) var trapActivationID = 0
@@ -85,7 +87,7 @@ final class GameManager: ObservableObject {
     }
 
     private func turn(to direction: Direction, tutorialAction: TutorialAction? = nil) {
-        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
+        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isItemPickupInputLocked else { return }
         var newState = state
         newState.player.direction = direction
         newState.message = ""
@@ -97,7 +99,7 @@ final class GameManager: ObservableObject {
 
     /// 指定した方向へ1マス進み、壁・イベント・探索済み状態をまとめて処理する。
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
-        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked else { return }
+        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isItemPickupInputLocked else { return }
 
         // 遅行中は設定された回数の前進フリックがそろうまで、マス移動しない。
         if action == .moveForward, state.doubleFlickTrapActive {
@@ -211,6 +213,9 @@ final class GameManager: ObservableObject {
                 newState.enemyBattle = nil
                 newState.message = "トラップの影響でHPが0になり、力尽きた……"
             }
+        }
+        if (!state.hasKey && newState.hasKey) || (!state.hasSword && newState.hasSword) {
+            isItemPickupInputLocked = true
         }
         state = newState
         if let battle = newState.enemyBattle {
@@ -381,6 +386,11 @@ final class GameManager: ObservableObject {
             self.defeatedEnemySpeech = nil
             self.defeatedEnemySpeechTask = nil
         }
+    }
+
+    /// 鍵・剣の取得演出の閉じるフェードが終わった後に、移動入力を再開する。
+    func finishItemPickupPresentation() {
+        isItemPickupInputLocked = false
     }
 
     /// 壁にぶつかった後、移動と方向転換を2秒間受け付けない。
