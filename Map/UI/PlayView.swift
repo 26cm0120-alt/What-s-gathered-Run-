@@ -49,6 +49,7 @@ struct PlayView: View {
     @State private var battleScreenFlashColor: Color = .blue
     @State private var battleScreenFlashOpacity = 0.0
     @State private var battleScreenFlashScale: CGFloat = 1
+    @State private var battleScreenWhiteFlashOpacity = 0.0
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
@@ -240,12 +241,20 @@ struct PlayView: View {
             .simultaneousGesture(movementFlickGesture)
             .frame(height: dungeonHeight)
             .overlay {
-                Rectangle()
-                    .fill(battleScreenFlashColor)
-                    .opacity(battleScreenFlashOpacity)
-                    .scaleEffect(battleScreenFlashScale)
-                    .allowsHitTesting(false)
-                    .clipped()
+                ZStack {
+                    BattleShockwaveShape()
+                        .fill(battleScreenFlashColor)
+                        .opacity(battleScreenFlashOpacity)
+                        .scaleEffect(battleScreenFlashScale)
+
+                    // 衝撃の瞬間だけ、中心に短い白い閃光を重ねる。
+                    BattleShockwaveShape()
+                        .fill(Color.white)
+                        .opacity(battleScreenWhiteFlashOpacity)
+                        .scaleEffect(0.22)
+                }
+                .allowsHitTesting(false)
+                .clipped()
             }
 
             // ステージと鍵の状態は、イベントメッセージが変わっても常に確認できる
@@ -442,14 +451,22 @@ struct PlayView: View {
         }
     }
 
-    /// 3D描写画面内だけで、色面を収縮または拡散させる。
+    /// 3D描写画面内だけで、不規則な衝撃波を収縮または拡散させる。
     private func triggerBattleScreenFlash(color: Color, expands: Bool) {
         battleScreenFlashTask?.cancel()
         battleScreenFlashColor = color
         battleScreenFlashScale = expands ? 0.04 : 1
         battleScreenFlashOpacity = 0.42
+        battleScreenWhiteFlashOpacity = 0.78
 
         battleScreenFlashTask = Task { @MainActor in
+            // 白い閃光は衝撃の瞬間だけ表示し、すぐに消す。
+            try? await Task.sleep(nanoseconds: 55_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.05)) {
+                battleScreenWhiteFlashOpacity = 0
+            }
+
             for _ in 0..<2 {
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeInOut(duration: 0.14)) {
@@ -702,6 +719,36 @@ struct PlayView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(game.stage.title)\(game.stage.seed.map { "。seed \($0)" } ?? "")。\(game.stage.requiresSwordForKey ? "剣：\(game.state.hasSword ? "所持" : "未所持")。" : "")鍵：\(keyText)")
+    }
+}
+
+/// 戦闘時のフラッシュに使う、不規則な尖りを持つ衝撃波。
+private struct BattleShockwaveShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radii: [CGFloat] = [
+            0.48, 0.36, 0.49, 0.39, 0.44, 0.33, 0.50, 0.38,
+            0.46, 0.35, 0.49, 0.40, 0.43, 0.34, 0.50, 0.37,
+            0.47, 0.35, 0.49, 0.39, 0.44, 0.32, 0.50, 0.38,
+            0.45, 0.34, 0.49, 0.40, 0.43, 0.33, 0.50, 0.37
+        ]
+        var path = Path()
+
+        for index in radii.indices {
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(radii.count) - .pi / 2
+            let radius = radii[index]
+            let point = CGPoint(
+                x: center.x + cos(angle) * rect.width * radius,
+                y: center.y + sin(angle) * rect.height * radius
+            )
+            if index == radii.startIndex {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
