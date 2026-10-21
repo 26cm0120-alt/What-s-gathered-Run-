@@ -44,8 +44,11 @@ struct PlayView: View {
     @State private var trapAnimationTask: Task<Void, Never>?
     @State private var isBattleActionLocked = false
     @State private var battleActionTask: Task<Void, Never>?
-    @State private var counterSoundTask: Task<Void, Never>?
     @State private var playerAttackAnimationID = 0
+    @State private var enemyCounterAttackAnimationID = 0
+    @State private var battleScreenFlashColor: Color = .blue
+    @State private var battleScreenFlashOpacity = 0.0
+    @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
 
@@ -132,7 +135,8 @@ struct PlayView: View {
                     EnemyBattleView(
                         battle: battle,
                         playerHP: game.state.playerHP,
-                        playerAttackAnimationID: playerAttackAnimationID
+                        playerAttackAnimationID: playerAttackAnimationID,
+                        counterAttackAnimationID: enemyCounterAttackAnimationID
                     )
                     .transition(.opacity)
                     .zIndex(3)
@@ -415,20 +419,9 @@ struct PlayView: View {
             guard oldSpeech != nil, newSpeech == nil else { return }
             beginPendingDropPickup()
         }
-        .onChangeCompat(of: game.state.playerHP) { oldHP, newHP in
-            guard newHP < oldHP, game.state.enemyBattle != nil else { return }
-            counterSoundTask?.cancel()
-            counterSoundTask = Task { @MainActor in
-                // 攻撃音の後に反撃音が続くよう、短い間隔を空ける。
-                try? await Task.sleep(nanoseconds: 360_000_000)
-                guard !Task.isCancelled else { return }
-                battleSoundEffects.play(named: "戦闘反撃")
-                counterSoundTask = nil
-            }
-        }
         .onDisappear {
             battleActionTask?.cancel()
-            counterSoundTask?.cancel()
+            battleScreenFlashTask?.cancel()
             dropPickupTask?.cancel()
             eventCutInTask?.cancel()
             trapAnimationTask?.cancel()
@@ -438,6 +431,30 @@ struct PlayView: View {
             trapAnimationOffset = 0
             trapAnimationTilt = 0
         }
+        .overlay {
+            Rectangle()
+                .fill(battleScreenFlashColor)
+                .opacity(battleScreenFlashOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .animation(.easeOut(duration: 0.06), value: battleScreenFlashOpacity)
+        }
+    }
+
+    private func triggerBattleScreenFlash(color: Color) {
+        battleScreenFlashTask?.cancel()
+        battleScreenFlashColor = color
+        withAnimation(.easeOut(duration: 0.04)) {
+            battleScreenFlashOpacity = 0.58
+        }
+        battleScreenFlashTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.22)) {
+                battleScreenFlashOpacity = 0
+            }
+            battleScreenFlashTask = nil
+        }
     }
 
     private func performBattleAttack() {
@@ -445,15 +462,34 @@ struct PlayView: View {
         isBattleActionLocked = true
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
-            // Playerの踏み込み攻撃を見せてから、敵へのダメージと反撃を進める。
+            // プレイヤーの踏み込み後、青い画面フラッシュと敵の被弾を同時に見せる。
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
             playerAttackAnimationID += 1
             battleSoundEffects.play(named: "戦闘攻撃")
-            try? await Task.sleep(nanoseconds: 530_000_000)
+            try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
+            triggerBattleScreenFlash(color: .blue)
             game.attackEnemy()
-            try? await Task.sleep(nanoseconds: 700_000_000)
+
+            // 敵が倒れた場合は反撃せず、攻撃演出の後に入力を解放する。
+            guard game.state.enemyBattle != nil, !Task.isCancelled else {
+                isBattleActionLocked = false
+                battleActionTask = nil
+                return
+            }
+
+            // 敵の被弾・HP減少を約1秒見せてから、敵の反撃モーションへ移る。
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
+            enemyCounterAttackAnimationID += 1
+            battleSoundEffects.play(named: "戦闘反撃")
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
+            triggerBattleScreenFlash(color: .red)
+            game.counterattackEnemy()
+
+            try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             isBattleActionLocked = false
             battleActionTask = nil

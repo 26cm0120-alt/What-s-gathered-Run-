@@ -100,7 +100,7 @@ struct MonsterMessageView: View {
                         Image(imageName)
                             .resizable()
                             .scaledToFit()
-                            .colorMultiply(Color(red: 0.08, green: 0.42, blue: 1.0))
+                            .colorMultiply(Color(red: 1.0, green: 0.10, blue: 0.08))
                             .opacity(damageFlashOpacity)
                             .accessibilityHidden(true)
                     }

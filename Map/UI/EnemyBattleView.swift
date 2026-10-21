@@ -5,6 +5,7 @@ struct EnemyBattleView: View {
     let battle: EnemyBattle
     let playerHP: Int
     let playerAttackAnimationID: Int
+    let counterAttackAnimationID: Int
 
     @State private var isBreathing = false
     @State private var isCountering = false
@@ -85,8 +86,7 @@ struct EnemyBattleView: View {
             guard newHP < oldHP else { return }
             playHitReaction(damage: oldHP - newHP)
         }
-        .onChangeCompat(of: playerHP) { oldHP, newHP in
-            guard newHP < oldHP else { return }
+        .onChangeCompat(of: counterAttackAnimationID) { _, _ in
             playCounterReaction()
         }
         .onDisappear {
@@ -148,9 +148,7 @@ struct EnemyBattleView: View {
     private func playCounterReaction() {
         counterTask?.cancel()
         counterTask = Task { @MainActor in
-            // ダメージ表示と赤い被弾演出が終わってから、敵の反撃動作を続ける。
-            try? await Task.sleep(nanoseconds: 650_000_000)
-            guard !Task.isCancelled else { return }
+            // 呼び出し直後に敵の反撃モーションを開始する。
             isCountering = true
             withAnimation(.easeOut(duration: 0.12)) { enemyOffset = 18 }
             try? await Task.sleep(nanoseconds: 170_000_000)
