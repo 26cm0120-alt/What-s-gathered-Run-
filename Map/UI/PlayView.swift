@@ -244,12 +244,9 @@ struct PlayView: View {
             .frame(height: dungeonHeight)
             .overlay {
                 ZStack {
-                    // 短いスピードラインで、青は中心へ、赤は外側へ衝撃を伝える。
-                    BattleSpeedLinesShape(seed: battleScreenFlashShapeSeed)
-                        .stroke(
-                            battleScreenFlashColor,
-                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
-                        )
+                    // 稲妻状のベタフラッシュで、青は中心へ、赤は外側へ衝撃を伝える。
+                    BattleLightningFlashShape(seed: battleScreenFlashShapeSeed)
+                        .fill(battleScreenFlashColor)
                         .opacity(battleScreenFlashOpacity)
                         .scaleEffect(battleScreenFlashScale)
 
@@ -514,6 +511,7 @@ struct PlayView: View {
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             triggerBattleScreenFlash(color: .blue, expands: false)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
             game.attackEnemy()
 
             // 敵が倒れた場合は反撃せず、攻撃演出の後に入力を解放する。
@@ -532,6 +530,8 @@ struct PlayView: View {
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             triggerBattleScreenFlash(color: .red, expands: true)
             game.counterattackEnemy()
+            // プレイヤーが被弾した瞬間は、攻撃命中より重い振動で衝撃を伝える。
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 0.9)
 
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
@@ -731,13 +731,13 @@ struct PlayView: View {
     }
 }
 
-/// 戦闘時に中心へ収束・中心から拡散する、長さと角度が不規則なスピードライン。
-private struct BattleSpeedLinesShape: Shape {
+/// 戦闘時に中心へ収束・中心から拡散する、鋭い稲妻状のベタフラッシュ。
+private struct BattleLightningFlashShape: Shape {
     let seed: Int
 
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let lineCount = 13
+        let rayCount = 9
         var randomState = UInt64(bitPattern: Int64(seed)) &+ 0x9E3779B97F4A7C15
 
         func nextRandomUnit() -> CGFloat {
@@ -746,22 +746,42 @@ private struct BattleSpeedLinesShape: Shape {
         }
 
         var path = Path()
-        for index in 0..<lineCount {
-            // 均等な放射状に見えないよう、角度・長さ・中心からの距離を少しずつ変える。
-            let baseAngle = CGFloat(index) * 2 * .pi / CGFloat(lineCount)
-            let angle = baseAngle + (nextRandomUnit() - 0.5) * 0.24
-            let innerRadius = 0.10 + nextRandomUnit() * 0.13
-            let outerRadius = 0.30 + nextRandomUnit() * 0.20
-            let start = CGPoint(
+        for index in 0..<rayCount {
+            // 光線ごとに幅・長さ・角度を変え、均一な放射状ではなく稲妻のような輪郭にする。
+            let baseAngle = CGFloat(index) * 2 * .pi / CGFloat(rayCount)
+            let angle = baseAngle + (nextRandomUnit() - 0.5) * 0.28
+            let innerRadius = 0.07 + nextRandomUnit() * 0.11
+            let outerRadius = 0.30 + nextRandomUnit() * 0.22
+            let halfWidth = 0.018 + nextRandomUnit() * 0.035
+            let perpendicular = angle + .pi / 2
+
+            let inner = CGPoint(
                 x: center.x + cos(angle) * rect.width * innerRadius,
                 y: center.y + sin(angle) * rect.height * innerRadius
             )
-            let end = CGPoint(
+            let outer = CGPoint(
                 x: center.x + cos(angle) * rect.width * outerRadius,
                 y: center.y + sin(angle) * rect.height * outerRadius
             )
-            path.move(to: start)
-            path.addLine(to: end)
+            let shoulder = CGPoint(
+                x: center.x + cos(angle) * rect.width * (innerRadius + outerRadius) * 0.52
+                    + cos(perpendicular) * rect.width * halfWidth,
+                y: center.y + sin(angle) * rect.height * (innerRadius + outerRadius) * 0.52
+                    + sin(perpendicular) * rect.height * halfWidth
+            )
+            let oppositeShoulder = CGPoint(
+                x: center.x + cos(angle) * rect.width * (innerRadius + outerRadius) * 0.52
+                    - cos(perpendicular) * rect.width * halfWidth,
+                y: center.y + sin(angle) * rect.height * (innerRadius + outerRadius) * 0.52
+                    - sin(perpendicular) * rect.height * halfWidth
+            )
+
+            // 一筋ずつ塗りつぶした鋭い光片にし、線画ではなくベタフラッシュにする。
+            path.move(to: inner)
+            path.addLine(to: shoulder)
+            path.addLine(to: outer)
+            path.addLine(to: oppositeShoulder)
+            path.closeSubpath()
         }
         return path
     }
