@@ -48,6 +48,7 @@ struct PlayView: View {
     @State private var enemyCounterAttackAnimationID = 0
     @State private var battleScreenFlashColor: Color = .blue
     @State private var battleScreenFlashOpacity = 0.0
+    @State private var battleScreenFlashScale: CGFloat = 1
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
@@ -238,6 +239,14 @@ struct PlayView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(movementFlickGesture)
             .frame(height: dungeonHeight)
+            .overlay {
+                Rectangle()
+                    .fill(battleScreenFlashColor)
+                    .opacity(battleScreenFlashOpacity)
+                    .scaleEffect(battleScreenFlashScale)
+                    .allowsHitTesting(false)
+                    .clipped()
+            }
 
             // ステージと鍵の状態は、イベントメッセージが変わっても常に確認できる
             statusBar
@@ -431,26 +440,35 @@ struct PlayView: View {
             trapAnimationOffset = 0
             trapAnimationTilt = 0
         }
-        .overlay {
-            Rectangle()
-                .fill(battleScreenFlashColor)
-                .opacity(battleScreenFlashOpacity)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-                .animation(.easeOut(duration: 0.06), value: battleScreenFlashOpacity)
-        }
     }
 
-    private func triggerBattleScreenFlash(color: Color) {
+    /// 3D描写画面内だけで、色面を収縮または拡散させる。
+    private func triggerBattleScreenFlash(color: Color, expands: Bool) {
         battleScreenFlashTask?.cancel()
         battleScreenFlashColor = color
-        withAnimation(.easeOut(duration: 0.04)) {
-            battleScreenFlashOpacity = 0.58
-        }
+        battleScreenFlashScale = expands ? 0.04 : 1
+        battleScreenFlashOpacity = 0.42
+
         battleScreenFlashTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 90_000_000)
+            for _ in 0..<2 {
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.14)) {
+                    battleScreenFlashScale = expands ? 1 : 0.04
+                }
+                try? await Task.sleep(nanoseconds: 145_000_000)
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeOut(duration: 0.045)) {
+                    battleScreenFlashOpacity = 0
+                }
+                try? await Task.sleep(nanoseconds: 55_000_000)
+                guard !Task.isCancelled else { return }
+                battleScreenFlashScale = expands ? 0.04 : 1
+                withAnimation(.easeIn(duration: 0.035)) {
+                    battleScreenFlashOpacity = 0.42
+                }
+            }
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.22)) {
+            withAnimation(.easeOut(duration: 0.08)) {
                 battleScreenFlashOpacity = 0
             }
             battleScreenFlashTask = nil
@@ -469,7 +487,7 @@ struct PlayView: View {
             battleSoundEffects.play(named: "戦闘攻撃")
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            triggerBattleScreenFlash(color: .blue)
+            triggerBattleScreenFlash(color: .blue, expands: false)
             game.attackEnemy()
 
             // 敵が倒れた場合は反撃せず、攻撃演出の後に入力を解放する。
@@ -486,7 +504,7 @@ struct PlayView: View {
             battleSoundEffects.play(named: "戦闘反撃")
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
-            triggerBattleScreenFlash(color: .red)
+            triggerBattleScreenFlash(color: .red, expands: true)
             game.counterattackEnemy()
 
             try? await Task.sleep(nanoseconds: 300_000_000)
