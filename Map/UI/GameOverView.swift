@@ -118,7 +118,7 @@ struct GameOverView: View {
             }
         }
         .onDisappear {
-            gameOverAudioPlayer?.stop()
+            AudioPlayback.stop(gameOverAudioPlayer)
             gameOverAudioPlayer = nil
             gameOverAudioErrorDelegate = nil
         }
@@ -204,7 +204,7 @@ struct GameOverView: View {
               let player = AudioPlayback.makePlayer(for: .gameOver) else { return }
         let delegate = AudioPlaybackErrorDelegate(resource: .gameOver)
         player.delegate = delegate
-        guard AudioPlayback.play(player, for: .gameOver) else { return }
+        AudioPlayback.play(player, for: .gameOver)
         gameOverAudioPlayer = player
         gameOverAudioErrorDelegate = delegate
     }

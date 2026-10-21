@@ -628,11 +628,11 @@ struct PlayView: View {
 
     /// MP3形式のアイテム発見音を再生し、再生中のプレイヤーとdelegateを保持する。
     private func playDropItemFoundSound() {
-        dropItemAudioPlayer?.stop()
+        AudioPlayback.stop(dropItemAudioPlayer)
         guard let player = AudioPlayback.makePlayer(for: .itemFound) else { return }
         let delegate = AudioPlaybackErrorDelegate(resource: .itemFound)
         player.delegate = delegate
-        guard AudioPlayback.play(player, for: .itemFound) else { return }
+        AudioPlayback.play(player, for: .itemFound)
         dropItemAudioPlayer = player
         dropItemAudioErrorDelegate = delegate
     }

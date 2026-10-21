@@ -19,8 +19,11 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
     /// アプリ全体で共通して使用する効果音管理インスタンス
     static let shared = SoundEffectManager()
 
-    /// 短い効果音を連続再生した場合でも、再生途中で破棄されないようにする
-    private var activePlayers: [AVAudioPlayer] = []
+    /// 連続する効果音でプレイヤーを毎回生成しないよう、音源ごとに少数を再利用する。
+    /// 同じ効果音が重なった場合だけ、最大数まで追加プレイヤーを作る。
+    private let effectPlayerPoolLimit = 4
+    private var effectPlayerPools: [String: [AVAudioPlayer]] = [:]
+    private var nextEffectPlayerIndex: [String: Int] = [:]
 
     /// 現在再生中のBGMプレイヤー
     private var bgmPlayer: AVAudioPlayer?
@@ -43,22 +46,39 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
     /// 指定したData Setの音声を効果音として再生する
     /// - Parameter assetName: Assets.xcassets内のData Set名
     private func play(assetName: String, volume: Float? = nil) {
-        guard let asset = NSDataAsset(name: assetName) else {
-            return
+        AudioPlayback.performOnPlaybackQueue { [weak self] in
+            self?.playEffectOnQueue(assetName: assetName, volume: volume)
+        }
+    }
+
+    /// 効果音キュー上でプレイヤーを取得または生成し、先頭から再生する。
+    private func playEffectOnQueue(assetName: String, volume: Float?) {
+        var players = effectPlayerPools[assetName, default: []]
+        let player: AVAudioPlayer
+
+        if let idlePlayer = players.first(where: { !$0.isPlaying }) {
+            idlePlayer.currentTime = 0
+            player = idlePlayer
+        } else if players.count < effectPlayerPoolLimit {
+            guard let asset = NSDataAsset(name: assetName),
+                  let newPlayer = try? AVAudioPlayer(data: asset.data) else {
+                return
+            }
+            players.append(newPlayer)
+            effectPlayerPools[assetName] = players
+            player = newPlayer
+        } else {
+            // 効果音が重なり続けてもプレイヤー数を増やさず、最も古い枠を再利用する。
+            let index = nextEffectPlayerIndex[assetName, default: 0] % players.count
+            let reusedPlayer = players[index]
+            reusedPlayer.stop()
+            reusedPlayer.currentTime = 0
+            nextEffectPlayerIndex[assetName] = (index + 1) % players.count
+            player = reusedPlayer
         }
 
-        do {
-            let player = try AVAudioPlayer(data: asset.data)
-            player.volume = volume ?? soundEffectVolume
-            player.prepareToPlay()
-            player.play()
-
-            activePlayers.append(player)
-            activePlayers.removeAll { !$0.isPlaying }
-
-        } catch {
-            return
-        }
+        player.volume = volume ?? soundEffectVolume
+        AudioPlayback.prepareAndPlayOnPlaybackQueue(player, assetName: assetName)
     }
 
     /// プレイヤー・CPUのカーソル移動音を再生する
@@ -123,10 +143,13 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
             // プロローグBGMはループさせない
             player.numberOfLoops = 0
 
-            player.prepareToPlay()
-
             bgmPlayer = player
-            player.play()
+            AudioPlayback.performOnPlaybackQueue {
+                AudioPlayback.prepareAndPlayOnPlaybackQueue(
+                    player,
+                    assetName: "nes_boss_15sec_rhythmic"
+                )
+            }
 
         } catch {
             bgmPlayer = nil
@@ -135,7 +158,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
 
     /// プロローグBGMを停止する
     func stopPrologueBGM() {
-        bgmPlayer?.stop()
+        AudioPlayback.stop(bgmPlayer)
         bgmPlayer = nil
         currentBGMNumber = 0
     }
@@ -159,7 +182,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         bgmFadeTimer?.invalidate()
         bgmFadeTimer = nil
         isBGM2LockedPermanently = false
-        bgmPlayer?.stop()
+        AudioPlayback.stop(bgmPlayer)
         bgmPlayer = nil
         currentBGMNumber = 0
     }
@@ -176,7 +199,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
 
         // BGM2が既に流れている場合は、フェードせずBGM2の無限ループに固定する
         if currentBGMNumber == 2, let player = bgmPlayer, player.isPlaying {
-            player.numberOfLoops = -1
+            AudioPlayback.performOnPlaybackQueue { player.numberOfLoops = -1 }
             return
         }
 
@@ -185,7 +208,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
               let player = bgmPlayer,
               player.isPlaying,
               fadeOutDuration > 0 else {
-            bgmPlayer?.stop()
+            AudioPlayback.stop(bgmPlayer)
             bgmPlayer = nil
             currentBGMNumber = 2
             playCurrentBGM()
@@ -212,7 +235,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
 
             let elapsed = Date().timeIntervalSince(fadeStartDate)
             let progress = min(max(elapsed / fadeOutDuration, 0), 1)
-            player.volume = startingVolume * Float(1 - progress)
+            AudioPlayback.setVolume(startingVolume * Float(1 - progress), on: player)
 
             if progress >= 1 {
                 self.finishBGM2Transition(from: player)
@@ -228,7 +251,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         // 古いプレイヤーからの完了通知が新しいBGMに影響しないよう確認する
         guard bgmPlayer === previousPlayer else { return }
 
-        previousPlayer.stop()
+        AudioPlayback.stop(previousPlayer)
         bgmPlayer = nil
         currentBGMNumber = 2
         playCurrentBGM()
@@ -273,12 +296,19 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
             }
             
             player.delegate = self
-            let prepared = player.prepareToPlay()
-            print("[ShiritoriBGM-DIAG] prepareToPlay=\(prepared), number=\(currentBGMNumber), rate=\(player.rate)")
-
             bgmPlayer = player
-            let started = player.play()
-            print("[ShiritoriBGM-DIAG] play() returned=\(started), isPlaying=\(player.isPlaying), number=\(currentBGMNumber)")
+            let requestedBGMNumber = currentBGMNumber
+            AudioPlayback.performOnPlaybackQueue {
+                let started = AudioPlayback.prepareAndPlayOnPlaybackQueue(
+                    player,
+                    assetName: assetName
+                )
+                print(
+                    "[ShiritoriBGM-DIAG] playback prepared and started=\(started), " +
+                    "number=\(requestedBGMNumber), isPlaying=\(player.isPlaying)"
+                )
+            }
+            print("[ShiritoriBGM-DIAG] playback request queued: \(assetName), number=\(requestedBGMNumber)")
 
             // 診断専用：再生開始後も再生位置・音量・出力先が正常か確認する。
             // 再生処理やゲーム動作そのものは変更しない。
@@ -313,6 +343,16 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
 
     /// BGM1またはBGM2の再生終了時に、次のBGMへ切り替える
     func audioPlayerDidFinishPlaying(
+        _ player: AVAudioPlayer,
+        successfully flag: Bool
+    ) {
+        DispatchQueue.main.async { [weak self, weak player] in
+            guard let self, let player else { return }
+            self.handleAudioPlayerDidFinishPlaying(player, successfully: flag)
+        }
+    }
+
+    private func handleAudioPlayerDidFinishPlaying(
         _ player: AVAudioPlayer,
         successfully flag: Bool
     ) {
