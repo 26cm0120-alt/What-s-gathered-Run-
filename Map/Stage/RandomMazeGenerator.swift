@@ -64,7 +64,14 @@ enum RandomMazeGenerator {
         assert(distances.count == walkableCount, "ランダム迷宮の通路が連結していません")
 
         let farthestDistance = distances.values.max() ?? 0
-        let farthestCells = distances.compactMap { $0.value == farthestDistance ? $0.key : nil }
+        // Dictionaryの列挙順に依存させず、seedから選ぶ候補順を固定する。
+        let farthestCells = distances
+            .filter { $0.value == farthestDistance }
+            .map(\.key)
+            .sorted {
+                if $0.y == $1.y { return $0.x < $1.x }
+                return $0.y < $1.y
+            }
         let goal = farthestCells[random.nextInt(upperBound: farthestCells.count)]
         let path = shortestPath(from: start, to: goal, in: cells)
         precondition(path.count >= 6, "ランダム迷宮の経路が短すぎて剣・敵・鍵を配置できません")
@@ -111,23 +118,17 @@ enum RandomMazeGenerator {
         precondition(trapCandidates.count >= 2, "ゴールへの経路外にトラップを2つ置く通路がありません")
         var availableTrapCandidates = trapCandidates
         var trapKinds: [GridPos: TrapKind] = [:]
-        // 効果は重複させず、2種類目は1種類目を除いた設定率を重みに選ぶ。
-        var selectedTrapKinds: Set<TrapKind> = []
+        // 罠の位置は別々にし、効果はグループAから各マスごとに独立して抽選する。
         for _ in 0..<2 {
             let candidateIndex = random.nextInt(upperBound: availableTrapCandidates.count)
             let trap = availableTrapCandidates.remove(at: candidateIndex)
-            let fallbackKind = TrapKind.allCases.first {
-                $0.group == .a && !selectedTrapKinds.contains($0)
-            }
-            guard let trapKind = selectTrap(in: .a, excluding: selectedTrapKinds, drawRoll: { upperBound in
+            guard let trapKind = selectTrap(in: .a, excluding: [], drawRoll: { upperBound in
                 random.nextInt(upperBound: upperBound) + 1
-            }) ?? fallbackKind else {
-                preconditionFailure("グループAから異なるトラップを2種類選べません")
+            }) else {
+                preconditionFailure("グループAからトラップを抽選できません")
             }
-            selectedTrapKinds.insert(trapKind)
             trapKinds[trap] = trapKind
         }
-        precondition(selectedTrapKinds.count == 2, "ランダムステージのトラップ種類は重複できません")
 
         // TはSからGへの選択された最短経路外に2つ置く。イベント記号の置換で通路の連結性は変わらない。
         cells[start.y][start.x] = "S"

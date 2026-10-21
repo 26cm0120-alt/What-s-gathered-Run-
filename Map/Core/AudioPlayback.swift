@@ -22,7 +22,9 @@ enum AudioResource: Hashable {
     case wallCollision
     case enemyDefeat
     case battleAttack
-    case battleCounterattack
+    case slimeCounterattack
+    case skeletonCounterattack
+    case gargoyleCounterattack
     case battleEscape
 
     var name: String {
@@ -45,7 +47,9 @@ enum AudioResource: Hashable {
         case .wallCollision: return "壁衝突音"
         case .enemyDefeat: return "敵撃破"
         case .battleAttack: return "戦闘攻撃"
-        case .battleCounterattack: return "戦闘反撃"
+        case .slimeCounterattack: return "スライム反撃"
+        case .skeletonCounterattack: return "スケルトン反撃"
+        case .gargoyleCounterattack: return "ガーゴイル反撃"
         case .battleEscape: return "戦闘逃走"
         }
     }
@@ -54,9 +58,11 @@ enum AudioResource: Hashable {
         switch self {
         case .titleBGM, .explorationBGM, .normalBattleBGM, .gargoyleBattleBGM:
             return "m4a"
-        case .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen:
+        case .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen,
+             .battleAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack:
             return "mp3"
-        case .gameOver, .shiritoriEnemyFall, .movement, .wallCollision, .enemyDefeat, .battleAttack, .battleCounterattack, .battleEscape:
+        case .gameOver, .shiritoriEnemyFall, .movement, .wallCollision, .enemyDefeat,
+             .battleEscape:
             return "wav"
         }
     }

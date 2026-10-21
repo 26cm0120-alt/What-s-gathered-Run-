@@ -523,6 +523,7 @@ struct PlayView: View {
     private func performBattleAttack() {
         guard !isBattleActionLocked,
               let battleBeforeAttack = game.state.enemyBattle else { return }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.8)
         isBattleActionLocked = true
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
@@ -578,12 +579,16 @@ struct PlayView: View {
 
             // 敵の被弾・HP減少を約1秒見せてから、敵の反撃モーションへ移る。
             try? await Task.sleep(nanoseconds: 1_000_000_000)
-            guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
+            guard !Task.isCancelled,
+                  let counterattackingEnemy = game.state.enemyBattle else { return }
             enemyCounterAttackAnimationID += 1
-            battleSoundEffects.play(.battleCounterattack)
+            if let counterattackAudioResource = counterattackingEnemy.kind.counterattackAudioResource {
+                battleSoundEffects.play(counterattackAudioResource)
+            }
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             triggerBattleScreenFlash(color: .red, expands: true)
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
             game.counterattackEnemy()
 
             try? await Task.sleep(nanoseconds: 300_000_000)

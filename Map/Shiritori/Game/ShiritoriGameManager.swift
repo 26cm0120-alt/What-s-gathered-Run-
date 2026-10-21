@@ -379,7 +379,7 @@ final class ShiritoriGameManager {
             selectedCardID = id
             confirmedCardID = nil
 
-            // 選択カードを切り替えた時だけ軽い触覚を返す
+            // PLAYERが選択対象のカードを変えた時に軽い触覚を返す
             SoundEffectManager.shared.playCardSelectionHaptic()
 
             // 別のカードへ選択を移動したときにカーソル音を再生する
@@ -760,7 +760,7 @@ final class ShiritoriGameManager {
             return
         }
 
-        // CPUのカード走査が終わり、選択カードを確定した時に1回だけ振動する
+        // CPUがスキャンを終えて実際に選んだカードへ到達した時に1回だけ触覚を返す
         SoundEffectManager.shared.playCardSelectionHaptic()
 
         // 正規化後の末尾が「ん」ならCPU自滅
