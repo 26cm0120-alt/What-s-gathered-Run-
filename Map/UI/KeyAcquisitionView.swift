@@ -61,7 +61,7 @@ struct KeyAcquisitionView: View {
             .task {
                 // 初回の鍵取得時だけ、メッセージと同時に宝箱を開ける音を再生する
                 chestOpenAudioPlayer?.stop()
-                chestOpenAudioPlayer = playSound(named: "宝箱を開ける")
+                chestOpenAudioPlayer = playSound(.chestOpen)
 
                 // メッセージが表示されてから1秒待って、宝箱を開ける
                 chestIsOpen = false
@@ -72,7 +72,7 @@ struct KeyAcquisitionView: View {
                 guard !Task.isCancelled else { return }
 
                 itemFoundAudioPlayer?.stop()
-                itemFoundAudioPlayer = playSound(named: "アイテム発見")
+                itemFoundAudioPlayer = playSound(.itemFound)
 
                 if reduceMotion {
                     withAnimation(.easeOut(duration: 0.15)) {
@@ -108,11 +108,11 @@ struct KeyAcquisitionView: View {
     }
 
     /// アプリに同梱した効果音を再生する
-    private func playSound(named resourceName: String) -> AVAudioPlayer? {
-        guard let player = AudioPlayback.makePlayer(named: resourceName) else { return nil }
-        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: resourceName)
+    private func playSound(_ resource: AudioResource) -> AVAudioPlayer? {
+        guard let player = AudioPlayback.makePlayer(for: resource) else { return nil }
+        let errorDelegate = AudioPlaybackErrorDelegate(resource: resource)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, named: resourceName) else { return nil }
+        guard AudioPlayback.play(player, for: resource) else { return nil }
         audioErrorDelegates.append(errorDelegate)
         return player
     }
@@ -177,10 +177,10 @@ struct SwordPickupView: View {
     }
 
     private func playItemFoundSound() {
-        guard let player = AudioPlayback.makePlayer(named: "アイテム発見") else { return }
-        let delegate = AudioPlaybackErrorDelegate(resourceName: "アイテム発見")
+        guard let player = AudioPlayback.makePlayer(for: .itemFound) else { return }
+        let delegate = AudioPlaybackErrorDelegate(resource: .itemFound)
         player.delegate = delegate
-        guard AudioPlayback.play(player, named: "アイテム発見") else { return }
+        guard AudioPlayback.play(player, for: .itemFound) else { return }
         audioPlayer = player
         audioErrorDelegate = delegate
     }

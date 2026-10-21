@@ -28,17 +28,13 @@ enum DungeonTheme: CaseIterable {
         }
     }
 
-    var backgroundMusicName: String {
+    var backgroundMusic: AudioResource {
         switch self {
-        case .temple: "古代神殿BGM"
-        case .cave: "水晶洞窟BGM"
-        case .hell: "地獄の回廊BGM"
-        case .forestMansion: "森の洋館BGM"
+        case .temple: return .templeBGM
+        case .cave: return .caveBGM
+        case .hell: return .hellBGM
+        case .forestMansion: return .forestMansionBGM
         }
-    }
-
-    var backgroundMusicExtension: String {
-        "mp3"
     }
 
     /// 壁・床・天井それぞれの基調色。各値は0〜1のRGB。

@@ -7,9 +7,9 @@ final class GameManager: ObservableObject {
     let stage: Stage
     @Published private(set) var state: GameState
     @Published private(set) var isInputLocked = false
-    /// スケルトン撃破からドロップ取得完了まで、移動入力を止める。
+    /// スケルトンの撃破からドロップ取得完了まで、移動入力を止める。
     @Published private(set) var isSkeletonDropPickupInputLocked = false
-    /// 鍵・剣の取得イベントから演出終了まで、移動入力を止める。
+    /// 鍵・剣の取得イベントから取得演出の終了まで、移動入力を止める。
     @Published private(set) var isItemPickupInputLocked = false
     @Published private(set) var wallCollisionID = 0
     @Published private(set) var surpriseReactionID = 0
@@ -89,7 +89,9 @@ final class GameManager: ObservableObject {
     }
 
     private func turn(to direction: Direction, tutorialAction: TutorialAction? = nil) {
-        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isSkeletonDropPickupInputLocked, !isItemPickupInputLocked else { return }
+        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil,
+              !isInputLocked, !isSkeletonDropPickupInputLocked,
+              !isItemPickupInputLocked else { return }
         var newState = state
         newState.player.direction = direction
         newState.message = ""
@@ -101,7 +103,9 @@ final class GameManager: ObservableObject {
 
     /// 指定した方向へ1マス進み、壁・イベント・探索済み状態をまとめて処理する。
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
-        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isSkeletonDropPickupInputLocked, !isItemPickupInputLocked else { return }
+        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil,
+              !isInputLocked, !isSkeletonDropPickupInputLocked,
+              !isItemPickupInputLocked else { return }
 
         // 遅行中は設定された回数の前進フリックがそろうまで、マス移動しない。
         if action == .moveForward, state.doubleFlickTrapActive {
@@ -144,7 +148,7 @@ final class GameManager: ObservableObject {
             state = newState
             wallCollisionID += 1
             surpriseReactionID += 1
-            soundEffects.play(named: "壁衝突音")
+            soundEffects.play(.wallCollision)
             if isGameOverFromWallDamage {
                 onGameOver?()
             } else {
@@ -182,7 +186,7 @@ final class GameManager: ObservableObject {
         newState.trapActivationMessage = nil
         newState.recordTutorialAction(action)
         if cell != .key && cell != .goal && cell != .sword {
-            soundEffects.play(named: "移動音")
+            soundEffects.play(.movement)
         }
         if slowWasActive {
             newState.doubleFlickTrapMovesRemaining = max(0, newState.doubleFlickTrapMovesRemaining - 1)
@@ -216,7 +220,10 @@ final class GameManager: ObservableObject {
                 newState.message = "トラップの影響でHPが0になり、力尽きた……"
             }
         }
-        if (!state.hasKey && newState.hasKey) || (!state.hasSword && newState.hasSword) {
+        // UI側のonChangeが動く前から移動を止め、取得演出の開始漏れを防ぐ。
+        let acquiredKey = !state.hasKey && newState.hasKey
+        let acquiredSword = !state.hasSword && newState.hasSword
+        if acquiredKey || acquiredSword {
             isItemPickupInputLocked = true
         }
         state = newState
@@ -254,17 +261,18 @@ final class GameManager: ObservableObject {
         var newState = state
 
         if battle.enemyHP == 0 {
+            newState.enemyHPByPosition.removeValue(forKey: battle.enemyPosition)
             newState.defeatedEnemies.insert(battle.enemyPosition)
             newState.defeatedEnemyKinds[battle.enemyPosition] = battle.kind
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
             if battle.kind == .skeleton,
                let drop = SkeletonDropItem.allCases.randomElement() {
-                isSkeletonDropPickupInputLocked = true
                 pendingSkeletonDrop = drop
+                isSkeletonDropPickupInputLocked = true
             }
             state = newState
-            soundEffects.play(named: "敵撃破")
+            soundEffects.play(.enemyDefeat)
             showDefeatedEnemySpeech(battle.kind)
             onBattleStateChanged?(nil)
             return
@@ -273,6 +281,7 @@ final class GameManager: ObservableObject {
         battle.message = gargoyleNeedsSword
             ? "剣がないと攻撃が通じない！"
             : "攻撃！敵に\(playerDamage)ダメージ。"
+        newState.enemyHPByPosition[battle.enemyPosition] = battle.enemyHP
         newState.enemyBattle = battle
         state = newState
     }
@@ -310,6 +319,11 @@ final class GameManager: ObservableObject {
         encounterEnemySpeechTask = nil
         encounterEnemySpeech = nil
         var newState = state
+        if battle.enemyHP < battle.kind.maxHP {
+            newState.enemyHPByPosition[battle.enemyPosition] = battle.enemyHP
+        } else {
+            newState.enemyHPByPosition.removeValue(forKey: battle.enemyPosition)
+        }
         newState.player.position = battle.retreatPosition
         newState.enemyBattle = nil
         newState.message = "戦闘から逃げ出した。"
@@ -339,10 +353,20 @@ final class GameManager: ObservableObject {
         pendingSkeletonDrop = nil
     }
 
-    /// ドロップ効果を適用した後に、撃破時から保持していた移動ロックを解除する。
+    /// ドロップの効果適用後に、撃破時から保持していた移動ロックを解除する。
     func finishSkeletonDropPickupPresentation() {
         guard pendingSkeletonDrop == nil else { return }
         isSkeletonDropPickupInputLocked = false
+    }
+
+    /// 鍵・剣の取得演出を閉じ終えた後に移動ロックを解除する。
+    func finishItemPickupPresentation() {
+        isItemPickupInputLocked = false
+    }
+
+    /// プレイ画面を離れる場合は、取得演出に対応する移動ロックを破棄する。
+    func cancelItemPickupPresentation() {
+        isItemPickupInputLocked = false
     }
 
     /// プレイ画面を離れる場合は、未回収ドロップと対応する入力ロックを破棄する。
@@ -402,11 +426,6 @@ final class GameManager: ObservableObject {
             self.defeatedEnemySpeech = nil
             self.defeatedEnemySpeechTask = nil
         }
-    }
-
-    /// 鍵・剣の取得演出の閉じるフェードが終わった後に、移動入力を再開する。
-    func finishItemPickupPresentation() {
-        isItemPickupInputLocked = false
     }
 
     /// 壁にぶつかった後、移動と方向転換を2秒間受け付けない。

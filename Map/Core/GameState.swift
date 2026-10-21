@@ -35,7 +35,7 @@ enum TutorialAction {
     case zoomMap
 }
 
-/// 戦闘中の状態。敵は固定HPで管理し、seedが同じなら同じ配置になる。
+/// 戦闘中の状態。敵種ごとの最大HPを基準に、現在HPを管理する。
 struct EnemyBattle: Equatable {
     let kind: EnemyKind
     let enemyPosition: GridPos
@@ -43,11 +43,11 @@ struct EnemyBattle: Equatable {
     var enemyHP: Int
     var message: String
 
-    init(kind: EnemyKind, enemyPosition: GridPos, retreatPosition: GridPos) {
+    init(kind: EnemyKind, enemyPosition: GridPos, retreatPosition: GridPos, enemyHP: Int? = nil) {
         self.kind = kind
         self.enemyPosition = enemyPosition
         self.retreatPosition = retreatPosition
-        self.enemyHP = kind.maxHP
+        self.enemyHP = min(kind.maxHP, max(1, enemyHP ?? kind.maxHP))
         self.message = "\(kind.name)が現れた！"
     }
 }
@@ -118,6 +118,8 @@ struct GameState {
     /// 今回の探索タイムから差し引く秒数。
     var runTimeReductionSeconds = 0
     var enemyBattle: EnemyBattle?
+    /// 逃走後も同じ敵マスで再戦できるよう、敵ごとの残りHPを保持する。
+    var enemyHPByPosition: [GridPos: Int] = [:]
     var defeatedEnemies: Set<GridPos> = []
     /// 撃破したマスと敵の種類。3D表示には敵ごとの倒れた画像を残す。
     var defeatedEnemyKinds: [GridPos: EnemyKind] = [:]

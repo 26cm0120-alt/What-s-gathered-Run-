@@ -4,14 +4,12 @@ import AVFoundation
 import UIKit
 
 private final class AudioPlayerCompletionDelegate: NSObject, AVAudioPlayerDelegate {
-    private let resourceName: String
-    private let fileExtension: String
+    private let resource: AudioResource
     private let completion: () -> Void
     private var hasCompleted = false
 
-    init(resourceName: String, fileExtension: String, completion: @escaping () -> Void) {
-        self.resourceName = resourceName
-        self.fileExtension = fileExtension
+    init(resource: AudioResource, completion: @escaping () -> Void) {
+        self.resource = resource
         self.completion = completion
     }
 
@@ -20,7 +18,7 @@ private final class AudioPlayerCompletionDelegate: NSObject, AVAudioPlayerDelega
     }
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        AudioPlayback.logDecodeError(for: resourceName, withExtension: fileExtension, error: error)
+        AudioPlayback.logDecodeError(for: resource, error: error)
         finish()
     }
 
@@ -186,6 +184,18 @@ final class AppFlow: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Simulatorでクリア画面とランキングを確認するためのDebug専用表示。
+    func presentDebugClearScreen() {
+        guard game != nil, supportsReplayAndTiming else { return }
+        stopStageBackgroundMusic()
+        stopEncounterBackgroundMusic()
+        timerStartedAt = nil
+        currentRunTime = 42.6
+        screen = .cleared
+    }
+    #endif
+
     /// しりとりのプロローグ終了後、開始元に対応するゲーム画面へ進む。
     func startShiritoriGame() {
         guard case .shiritoriPrologue = screen else { return }
@@ -259,13 +269,13 @@ final class AppFlow: ObservableObject {
         stopEncounterBackgroundMusic()
         let gameAtClear = game
 
-        guard let player = AudioPlayback.makePlayer(named: "ドアを開ける1") else {
+        guard let player = AudioPlayback.makePlayer(for: .doorOpen) else {
             isPlayingDoorOpenSequence = false
             screen = .shiritoriPrologue
             return
         }
 
-        let completionDelegate = AudioPlayerCompletionDelegate(resourceName: "ドアを開ける1", fileExtension: "mp3") { [weak self] in
+        let completionDelegate = AudioPlayerCompletionDelegate(resource: .doorOpen) { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.doorOpenAudioPlayer = nil
@@ -278,7 +288,7 @@ final class AppFlow: ObservableObject {
         doorOpenAudioPlayer = player
         doorOpenCompletionDelegate = completionDelegate
         player.delegate = completionDelegate
-        if !AudioPlayback.play(player, named: "ドアを開ける1") {
+        if !AudioPlayback.play(player, for: .doorOpen) {
             doorOpenAudioPlayer = nil
             doorOpenCompletionDelegate = nil
             isPlayingDoorOpenSequence = false
@@ -288,11 +298,11 @@ final class AppFlow: ObservableObject {
 
     /// しりとり勝利後、敵が倒れる音を再生し終えてからクリア画面を出す。
     private func playShiritoriEnemyFallThenShowClear() {
-        guard let player = AudioPlayback.makePlayer(named: "しりとり敵撃破", withExtension: "wav") else {
+        guard let player = AudioPlayback.makePlayer(for: .shiritoriEnemyFall) else {
             showClearScreenAfterShiritoriWin()
             return
         }
-        let delegate = AudioPlayerCompletionDelegate(resourceName: "しりとり敵撃破", fileExtension: "wav") { [weak self] in
+        let delegate = AudioPlayerCompletionDelegate(resource: .shiritoriEnemyFall) { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.shiritoriEnemyFallAudioPlayer = nil
@@ -303,7 +313,7 @@ final class AppFlow: ObservableObject {
         shiritoriEnemyFallAudioPlayer = player
         shiritoriEnemyFallCompletionDelegate = delegate
         player.delegate = delegate
-        if !AudioPlayback.play(player, named: "しりとり敵撃破", withExtension: "wav") {
+        if !AudioPlayback.play(player, for: .shiritoriEnemyFall) {
             shiritoriEnemyFallAudioPlayer = nil
             shiritoriEnemyFallCompletionDelegate = nil
             showClearScreenAfterShiritoriWin()
@@ -321,15 +331,14 @@ final class AppFlow: ObservableObject {
 
     /// ステージ中のBGMをループ再生する。
     private func playStageBackgroundMusic(for stage: Stage) {
-        let resourceName = stage.dungeonTheme?.backgroundMusicName ?? "探索BGM"
-        let fileExtension = stage.dungeonTheme?.backgroundMusicExtension ?? "mp3"
-        guard let player = AudioPlayback.makePlayer(named: resourceName, withExtension: fileExtension) else { return }
+        let resource = stage.dungeonTheme?.backgroundMusic ?? .explorationBGM
+        guard let player = AudioPlayback.makePlayer(for: resource) else { return }
 
         player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1
-        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: fileExtension)
+        let errorDelegate = AudioPlaybackErrorDelegate(resource: resource)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, named: resourceName, withExtension: fileExtension) else { return }
+        guard AudioPlayback.play(player, for: resource) else { return }
         stageBackgroundAudioPlayer = player
         stageBackgroundAudioErrorDelegate = errorDelegate
     }
@@ -339,16 +348,16 @@ final class AppFlow: ObservableObject {
         if let enemyKind {
             stopStageBackgroundMusic()
             stopEncounterBackgroundMusic()
-            let resourceName = enemyKind == .gargoyle ? "ガーゴイル戦闘BGM" : "通常戦闘BGM"
-            guard let player = AudioPlayback.makePlayer(named: resourceName, withExtension: "m4a") else {
+            let resource: AudioResource = enemyKind == .gargoyle ? .gargoyleBattleBGM : .normalBattleBGM
+            guard let player = AudioPlayback.makePlayer(for: resource) else {
                 playStageBackgroundMusic(for: game.stage)
                 return
             }
             player.volume = AudioPlayback.encounterMusicVolume
             player.numberOfLoops = -1
-            let delegate = AudioPlaybackErrorDelegate(resourceName: resourceName, fileExtension: "m4a")
+            let delegate = AudioPlaybackErrorDelegate(resource: resource)
             player.delegate = delegate
-            guard AudioPlayback.play(player, named: resourceName, withExtension: "m4a") else {
+            guard AudioPlayback.play(player, for: resource) else {
                 playStageBackgroundMusic(for: game.stage)
                 return
             }
@@ -373,13 +382,13 @@ final class AppFlow: ObservableObject {
     /// タイトル画面のBGMをループ再生する。
     private func playTitleBackgroundMusic() {
         guard titleBackgroundAudioPlayer?.isPlaying != true,
-              let player = AudioPlayback.makePlayer(named: "タイトルBGM") else { return }
+              let player = AudioPlayback.makePlayer(for: .titleBGM) else { return }
 
         player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1
-        let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "タイトルBGM")
+        let errorDelegate = AudioPlaybackErrorDelegate(resource: .titleBGM)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, named: "タイトルBGM") else { return }
+        guard AudioPlayback.play(player, for: .titleBGM) else { return }
         titleBackgroundAudioPlayer = player
         titleBackgroundAudioErrorDelegate = errorDelegate
     }
@@ -406,11 +415,12 @@ final class AppFlow: ObservableObject {
         self.timerStartedAt = nil
     }
 
-    /// クリア画面で入力された名前を、現在のモードの上位100件へ保存する。
-    func saveLeaderboardEntry(playerName: String) {
-        guard let currentLeaderboardMode, let currentRunTime else { return }
+    /// クリア画面で入力された名前を保存し、TOP100に入った場合は登録行IDを返す。
+    @discardableResult
+    func saveLeaderboardEntry(playerName: String) -> UUID? {
+        guard let currentLeaderboardMode, let currentRunTime else { return nil }
         let cleanName = String(playerName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(16))
-        guard !cleanName.isEmpty else { return }
+        guard !cleanName.isEmpty else { return nil }
         let entry = LeaderboardEntry(playerName: cleanName, clearTime: currentRunTime, seed: game?.stage.seed)
         leaderboardEntries = LocalLeaderboard.add(entry, to: currentLeaderboardMode)
         if bestClearTime == nil || currentRunTime < bestClearTime! {
@@ -419,6 +429,20 @@ final class AppFlow: ObservableObject {
                 UserDefaults.standard.set(currentRunTime, forKey: currentRecordKey)
             }
         }
+        return leaderboardEntries.contains(where: { $0.id == entry.id }) ? entry.id : nil
+    }
+
+    /// 登録済みランキング記録の名前だけを更新し、クリアタイムや順位の基準を保つ。
+    @discardableResult
+    func updateLeaderboardEntryName(id: UUID, playerName: String) -> Bool {
+        guard let currentLeaderboardMode else { return false }
+        let cleanName = String(playerName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(16))
+        guard !cleanName.isEmpty,
+              LocalLeaderboard.updateName(for: id, to: cleanName, in: currentLeaderboardMode) else {
+            return false
+        }
+        leaderboardEntries = LocalLeaderboard.load(currentLeaderboardMode)
+        return true
     }
 
     /// 完走タイムが既存の記録より短い場合だけ端末内に保存する。
