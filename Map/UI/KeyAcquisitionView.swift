@@ -60,7 +60,7 @@ struct KeyAcquisitionView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .task {
                 // 初回の鍵取得時だけ、メッセージと同時に宝箱を開ける音を再生する
-                chestOpenAudioPlayer?.stop()
+                AudioPlayback.stop(chestOpenAudioPlayer)
                 chestOpenAudioPlayer = playSound(.chestOpen)
 
                 // メッセージが表示されてから1秒待って、宝箱を開ける
@@ -71,7 +71,7 @@ struct KeyAcquisitionView: View {
                 try? await Task.sleep(for: .milliseconds(1000))
                 guard !Task.isCancelled else { return }
 
-                itemFoundAudioPlayer?.stop()
+                AudioPlayback.stop(itemFoundAudioPlayer)
                 itemFoundAudioPlayer = playSound(.itemFound)
 
                 if reduceMotion {
@@ -112,7 +112,7 @@ struct KeyAcquisitionView: View {
         guard let player = AudioPlayback.makePlayer(for: resource) else { return nil }
         let errorDelegate = AudioPlaybackErrorDelegate(resource: resource)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, for: resource) else { return nil }
+        AudioPlayback.play(player, for: resource)
         audioErrorDelegates.append(errorDelegate)
         return player
     }
@@ -180,7 +180,7 @@ struct SwordPickupView: View {
         guard let player = AudioPlayback.makePlayer(for: .itemFound) else { return }
         let delegate = AudioPlaybackErrorDelegate(resource: .itemFound)
         player.delegate = delegate
-        guard AudioPlayback.play(player, for: .itemFound) else { return }
+        AudioPlayback.play(player, for: .itemFound)
         audioPlayer = player
         audioErrorDelegate = delegate
     }

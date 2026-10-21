@@ -123,14 +123,14 @@ struct ClearView: View {
             guard let player = AudioPlayback.makePlayer(for: .gameClear) else { return }
             let errorDelegate = AudioPlaybackErrorDelegate(resource: .gameClear)
             player.delegate = errorDelegate
-            guard AudioPlayback.play(player, for: .gameClear) else { return }
+            AudioPlayback.play(player, for: .gameClear)
             clearAudioPlayer = player
             clearAudioErrorDelegate = errorDelegate
         }
         .onDisappear {
             registrationTask?.cancel()
             registrationTask = nil
-            clearAudioPlayer?.stop()
+            AudioPlayback.stop(clearAudioPlayer)
             clearAudioPlayer = nil
             clearAudioErrorDelegate = nil
         }

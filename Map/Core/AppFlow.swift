@@ -108,10 +108,10 @@ final class AppFlow: ObservableObject {
         stopTitleBackgroundMusic()
         stopStageBackgroundMusic()
         stopEncounterBackgroundMusic()
-        doorOpenAudioPlayer?.stop()
+        AudioPlayback.stop(doorOpenAudioPlayer)
         doorOpenAudioPlayer = nil
         doorOpenCompletionDelegate = nil
-        shiritoriEnemyFallAudioPlayer?.stop()
+        AudioPlayback.stop(shiritoriEnemyFallAudioPlayer)
         shiritoriEnemyFallAudioPlayer = nil
         shiritoriEnemyFallCompletionDelegate = nil
         isPlayingDoorOpenSequence = false
@@ -239,11 +239,11 @@ final class AppFlow: ObservableObject {
     func returnToStart() {
         stopStageBackgroundMusic()
         stopEncounterBackgroundMusic()
-        doorOpenAudioPlayer?.stop()
+        AudioPlayback.stop(doorOpenAudioPlayer)
         doorOpenAudioPlayer = nil
         doorOpenCompletionDelegate = nil
         isPlayingDoorOpenSequence = false
-        shiritoriEnemyFallAudioPlayer?.stop()
+        AudioPlayback.stop(shiritoriEnemyFallAudioPlayer)
         shiritoriEnemyFallAudioPlayer = nil
         shiritoriEnemyFallCompletionDelegate = nil
         timerStartedAt = nil
@@ -288,11 +288,14 @@ final class AppFlow: ObservableObject {
         doorOpenAudioPlayer = player
         doorOpenCompletionDelegate = completionDelegate
         player.delegate = completionDelegate
-        if !AudioPlayback.play(player, for: .doorOpen) {
-            doorOpenAudioPlayer = nil
-            doorOpenCompletionDelegate = nil
-            isPlayingDoorOpenSequence = false
-            screen = .shiritoriPrologue
+        AudioPlayback.play(player, for: .doorOpen) { [weak self, weak player] in
+            guard let self, let player,
+                  self.doorOpenAudioPlayer === player else { return }
+            self.doorOpenAudioPlayer = nil
+            self.doorOpenCompletionDelegate = nil
+            self.isPlayingDoorOpenSequence = false
+            guard self.game === gameAtClear, case .playing = self.screen else { return }
+            self.screen = .shiritoriPrologue
         }
     }
 
@@ -313,10 +316,12 @@ final class AppFlow: ObservableObject {
         shiritoriEnemyFallAudioPlayer = player
         shiritoriEnemyFallCompletionDelegate = delegate
         player.delegate = delegate
-        if !AudioPlayback.play(player, for: .shiritoriEnemyFall) {
-            shiritoriEnemyFallAudioPlayer = nil
-            shiritoriEnemyFallCompletionDelegate = nil
-            showClearScreenAfterShiritoriWin()
+        AudioPlayback.play(player, for: .shiritoriEnemyFall) { [weak self, weak player] in
+            guard let self, let player,
+                  self.shiritoriEnemyFallAudioPlayer === player else { return }
+            self.shiritoriEnemyFallAudioPlayer = nil
+            self.shiritoriEnemyFallCompletionDelegate = nil
+            self.showClearScreenAfterShiritoriWin()
         }
     }
 
@@ -338,9 +343,14 @@ final class AppFlow: ObservableObject {
         player.numberOfLoops = -1
         let errorDelegate = AudioPlaybackErrorDelegate(resource: resource)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, for: resource) else { return }
         stageBackgroundAudioPlayer = player
         stageBackgroundAudioErrorDelegate = errorDelegate
+        AudioPlayback.play(player, for: resource) { [weak self, weak player] in
+            guard let self, let player,
+                  self.stageBackgroundAudioPlayer === player else { return }
+            self.stageBackgroundAudioPlayer = nil
+            self.stageBackgroundAudioErrorDelegate = nil
+        }
     }
 
     /// 敵との戦闘中だけ新しい戦闘BGMをループし、通常探索BGMと重ねない。
@@ -357,12 +367,15 @@ final class AppFlow: ObservableObject {
             player.numberOfLoops = -1
             let delegate = AudioPlaybackErrorDelegate(resource: resource)
             player.delegate = delegate
-            guard AudioPlayback.play(player, for: resource) else {
-                playStageBackgroundMusic(for: game.stage)
-                return
-            }
             encounterBackgroundAudioPlayer = player
             encounterBackgroundAudioErrorDelegate = delegate
+            AudioPlayback.play(player, for: resource) { [weak self, weak player, weak game] in
+                guard let self, let player, let game,
+                      self.encounterBackgroundAudioPlayer === player else { return }
+                self.encounterBackgroundAudioPlayer = nil
+                self.encounterBackgroundAudioErrorDelegate = nil
+                self.playStageBackgroundMusic(for: game.stage)
+            }
         } else {
             stopEncounterBackgroundMusic()
             guard case .playing = screen,
@@ -374,7 +387,7 @@ final class AppFlow: ObservableObject {
     }
 
     private func stopEncounterBackgroundMusic() {
-        encounterBackgroundAudioPlayer?.stop()
+        AudioPlayback.stop(encounterBackgroundAudioPlayer)
         encounterBackgroundAudioPlayer = nil
         encounterBackgroundAudioErrorDelegate = nil
     }
@@ -388,21 +401,26 @@ final class AppFlow: ObservableObject {
         player.numberOfLoops = -1
         let errorDelegate = AudioPlaybackErrorDelegate(resource: .titleBGM)
         player.delegate = errorDelegate
-        guard AudioPlayback.play(player, for: .titleBGM) else { return }
         titleBackgroundAudioPlayer = player
         titleBackgroundAudioErrorDelegate = errorDelegate
+        AudioPlayback.play(player, for: .titleBGM) { [weak self, weak player] in
+            guard let self, let player,
+                  self.titleBackgroundAudioPlayer === player else { return }
+            self.titleBackgroundAudioPlayer = nil
+            self.titleBackgroundAudioErrorDelegate = nil
+        }
     }
 
     /// タイトル画面を離れるときにタイトルBGMを止める。
     private func stopTitleBackgroundMusic() {
-        titleBackgroundAudioPlayer?.stop()
+        AudioPlayback.stop(titleBackgroundAudioPlayer)
         titleBackgroundAudioPlayer = nil
         titleBackgroundAudioErrorDelegate = nil
     }
 
     /// ステージを離れるときはBGMを止める。
     private func stopStageBackgroundMusic() {
-        stageBackgroundAudioPlayer?.stop()
+        AudioPlayback.stop(stageBackgroundAudioPlayer)
         stageBackgroundAudioPlayer = nil
         stageBackgroundAudioErrorDelegate = nil
     }

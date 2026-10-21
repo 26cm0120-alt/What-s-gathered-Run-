@@ -77,16 +77,95 @@ enum AudioPlayback {
         category: "Audio"
     )
 
+    /// AVAudioSession の有効化と AVAudioPlayer の再生開始を UI スレッドから分離する。
+    private static let playbackQueue = DispatchQueue(label: "DungeonGame.AudioPlayback")
+    private static var isCategoryConfigured = false
+    private static var isSessionActive = false
+    private static var interruptionObserver: NSObjectProtocol?
+
     /// 消音スイッチや画面ロックに従うゲーム向け音声カテゴリを設定する。
     static func configureForDeviceSettings() {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.soloAmbient)
-        } catch {
-            logger.error("音声セッションの設定に失敗しました: \(error.localizedDescription, privacy: .public)")
+        performOnPlaybackQueue {
+            _ = ensureSessionIsReadyOnPlaybackQueue()
         }
     }
 
-    /// 対応表から音源を読み込み、再生準備に失敗した場合は記録する。
+    /// 音声処理を共通の直列キューへ送る。Shiritori側のプレイヤープールも同じキューを使う。
+    static func performOnPlaybackQueue(_ operation: @escaping () -> Void) {
+        playbackQueue.async(execute: operation)
+    }
+
+    /// 音声セッションの準備を終えてから再生する。呼び出し元は共通キュー上であること。
+    @discardableResult
+    static func prepareAndPlayOnPlaybackQueue(
+        _ player: AVAudioPlayer,
+        for resource: AudioResource
+    ) -> Bool {
+        prepareAndPlayOnPlaybackQueue(player, assetName: resource.fileName)
+    }
+
+    /// 共通対応表に登録されていないShiritori Asset Catalog音源を再生する。
+    @discardableResult
+    static func prepareAndPlayOnPlaybackQueue(
+        _ player: AVAudioPlayer,
+        assetName: String
+    ) -> Bool {
+        dispatchPrecondition(condition: .onQueue(playbackQueue))
+        guard ensureSessionIsReadyOnPlaybackQueue() else { return false }
+        guard player.prepareToPlay() else {
+            logger.error("音源の再生準備に失敗しました: \(assetName, privacy: .public)")
+            return false
+        }
+        guard player.play() else {
+            logger.error("音源の再生開始に失敗しました: \(assetName, privacy: .public)")
+            return false
+        }
+        return true
+    }
+
+    private static func ensureSessionIsReadyOnPlaybackQueue() -> Bool {
+        dispatchPrecondition(condition: .onQueue(playbackQueue))
+        let session = AVAudioSession.sharedInstance()
+        installInterruptionObserverIfNeeded(for: session)
+
+        if !isCategoryConfigured {
+            do {
+                try session.setCategory(.soloAmbient)
+                isCategoryConfigured = true
+            } catch {
+                logger.error("音声セッションの設定に失敗しました: \(error.localizedDescription, privacy: .public)")
+                return false
+            }
+        }
+
+        if !isSessionActive {
+            do {
+                // iOSでは非同期activate APIが利用できないため、専用キューで同期APIを呼ぶ。
+                try session.setActive(true)
+                isSessionActive = true
+            } catch {
+                logger.error("音声セッションの有効化に失敗しました: \(error.localizedDescription, privacy: .public)")
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func installInterruptionObserverIfNeeded(for session: AVAudioSession) {
+        guard interruptionObserver == nil else { return }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: session,
+            queue: nil
+        ) { _ in
+            performOnPlaybackQueue {
+                // 通話などで中断された後は、次の再生要求時にセッションを再有効化する。
+                isSessionActive = false
+            }
+        }
+    }
+
+    /// 対応表から音源を読み込み、取得に失敗した場合は記録する。準備と再生は専用キューで行う。
     static func makePlayer(for resource: AudioResource) -> AVAudioPlayer? {
         guard let url = Bundle.main.url(forResource: resource.name, withExtension: resource.fileExtension) else {
             logger.error("音源ファイルが見つかりません: \(resource.fileName, privacy: .public)")
@@ -96,10 +175,6 @@ enum AudioPlayback {
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.volume = soundEffectVolume
-            guard player.prepareToPlay() else {
-                logger.error("音源の再生準備に失敗しました: \(resource.fileName, privacy: .public)")
-                return nil
-            }
             return player
         } catch {
             logger.error("音源の読み込みに失敗しました: \(resource.fileName, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -108,13 +183,30 @@ enum AudioPlayback {
     }
 
     /// 再生開始に失敗した場合は記録する。
-    @discardableResult
-    static func play(_ player: AVAudioPlayer, for resource: AudioResource) -> Bool {
-        guard player.play() else {
-            logger.error("音源の再生開始に失敗しました: \(resource.fileName, privacy: .public)")
-            return false
+    static func play(
+        _ player: AVAudioPlayer,
+        for resource: AudioResource,
+        onFailure: (() -> Void)? = nil
+    ) {
+        performOnPlaybackQueue {
+            guard prepareAndPlayOnPlaybackQueue(player, for: resource) else {
+                if let onFailure {
+                    DispatchQueue.main.async(execute: onFailure)
+                }
+                return
+            }
         }
-        return true
+    }
+
+    /// 再生停止も同じキューに並べ、再生開始との競合を避ける。
+    static func stop(_ player: AVAudioPlayer?) {
+        guard let player else { return }
+        performOnPlaybackQueue { player.stop() }
+    }
+
+    /// 再生中プレイヤーの音量変更を共通キューに並べる。
+    static func setVolume(_ volume: Float, on player: AVAudioPlayer) {
+        performOnPlaybackQueue { player.volume = volume }
     }
 
     /// 再生中のデコードエラーを記録する。
@@ -145,21 +237,27 @@ final class SoundEffectController {
     private var players: [AudioResource: AVAudioPlayer] = [:]
     private var delegates: [AudioResource: AudioPlaybackErrorDelegate] = [:]
 
-    func play(_ resource: AudioResource) {
-        let player: AVAudioPlayer
-        if let retainedPlayer = players[resource] {
-            retainedPlayer.stop()
-            retainedPlayer.currentTime = 0
-            player = retainedPlayer
-        } else {
-            guard let newPlayer = AudioPlayback.makePlayer(for: resource) else { return }
-            let delegate = AudioPlaybackErrorDelegate(resource: resource)
-            newPlayer.volume = AudioPlayback.soundEffectVolume
-            newPlayer.delegate = delegate
-            players[resource] = newPlayer
-            delegates[resource] = delegate
-            player = newPlayer
+    func play(_ resource: AudioResource, rate: Float = 1.0) {
+        AudioPlayback.performOnPlaybackQueue { [weak self] in
+            guard let self else { return }
+            let player: AVAudioPlayer
+            if let retainedPlayer = self.players[resource] {
+                retainedPlayer.stop()
+                retainedPlayer.currentTime = 0
+                player = retainedPlayer
+            } else {
+                guard let newPlayer = AudioPlayback.makePlayer(for: resource) else { return }
+                let delegate = AudioPlaybackErrorDelegate(resource: resource)
+                newPlayer.volume = AudioPlayback.soundEffectVolume
+                newPlayer.delegate = delegate
+                self.players[resource] = newPlayer
+                self.delegates[resource] = delegate
+                player = newPlayer
+            }
+            // 再生速度をAVAudioPlayerの許容範囲内に制限する。
+            player.enableRate = true
+            player.rate = min(max(rate, 0.5), 2.0)
+            AudioPlayback.prepareAndPlayOnPlaybackQueue(player, for: resource)
         }
-        AudioPlayback.play(player, for: resource)
     }
 }
