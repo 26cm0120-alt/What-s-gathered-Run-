@@ -84,9 +84,6 @@ struct EnemyBattleView: View {
             guard newHP < oldHP else { return }
             playHitReaction(damage: oldHP - newHP)
         }
-        .onChangeCompat(of: playerAttackAnimationID) { _, _ in
-            playAnticipatedHitReaction()
-        }
         .onChangeCompat(of: playerHP) { oldHP, newHP in
             guard newHP < oldHP else { return }
             playCounterReaction()
@@ -112,18 +109,6 @@ struct EnemyBattleView: View {
             try? await Task.sleep(nanoseconds: 360_000_000)
             guard !Task.isCancelled else { return }
             damageLabel = nil
-            hitTask = nil
-        }
-    }
-
-    /// 攻撃ボタンの演出に合わせ、実際のHP更新前にも敵の被弾差分を短く見せる。
-    private func playAnticipatedHitReaction() {
-        hitTask?.cancel()
-        hitTask = Task { @MainActor in
-            isHit = true
-            await playImpactMotion(recoil: 10)
-            guard !Task.isCancelled else { return }
-            isHit = false
             hitTask = nil
         }
     }
