@@ -50,6 +50,8 @@ struct PlayView: View {
     @State private var battleScreenFlashOpacity = 0.0
     @State private var battleScreenFlashScale: CGFloat = 1
     @State private var battleScreenWhiteFlashOpacity = 0.0
+    /// フラッシュごとに変える衝撃波の輪郭番号。1回の表示中は固定する。
+    @State private var battleScreenFlashShapeSeed = 0
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
@@ -242,13 +244,13 @@ struct PlayView: View {
             .frame(height: dungeonHeight)
             .overlay {
                 ZStack {
-                    BattleShockwaveShape()
+                    BattleShockwaveShape(seed: battleScreenFlashShapeSeed)
                         .fill(battleScreenFlashColor)
                         .opacity(battleScreenFlashOpacity)
                         .scaleEffect(battleScreenFlashScale)
 
-                    // 衝撃の瞬間だけ、中心に短い白い閃光を重ねる。
-                    BattleShockwaveShape()
+                    // 衝撃の瞬間だけ、同じ輪郭の中心に短い白い閃光を重ねる。
+                    BattleShockwaveShape(seed: battleScreenFlashShapeSeed)
                         .fill(Color.white)
                         .opacity(battleScreenWhiteFlashOpacity)
                         .scaleEffect(0.22)
@@ -455,6 +457,7 @@ struct PlayView: View {
     private func triggerBattleScreenFlash(color: Color, expands: Bool) {
         battleScreenFlashTask?.cancel()
         battleScreenFlashColor = color
+        battleScreenFlashShapeSeed += 1
         battleScreenFlashScale = expands ? 0.04 : 1
         battleScreenFlashOpacity = 0.42
         battleScreenWhiteFlashOpacity = 0.78
@@ -480,6 +483,8 @@ struct PlayView: View {
                 try? await Task.sleep(nanoseconds: 55_000_000)
                 guard !Task.isCancelled else { return }
                 battleScreenFlashScale = expands ? 0.04 : 1
+                // 前の波が薄くなったタイミングで輪郭を変え、表示中の形状は固定する。
+                battleScreenFlashShapeSeed += 1
                 withAnimation(.easeIn(duration: 0.035)) {
                     battleScreenFlashOpacity = 0.42
                 }
@@ -722,30 +727,55 @@ struct PlayView: View {
     }
 }
 
-/// 戦闘時のフラッシュに使う、不規則な尖りを持つ衝撃波。
+/// 戦闘時のフラッシュに使う、有機的で輪郭が毎回変わる衝撃波。
 private struct BattleShockwaveShape: Shape {
+    /// 同じ表示中は同じ輪郭を保つための値。
+    let seed: Int
+
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radii: [CGFloat] = [
-            0.48, 0.36, 0.49, 0.39, 0.44, 0.33, 0.50, 0.38,
-            0.46, 0.35, 0.49, 0.40, 0.43, 0.34, 0.50, 0.37,
-            0.47, 0.35, 0.49, 0.39, 0.44, 0.32, 0.50, 0.38,
-            0.45, 0.34, 0.49, 0.40, 0.43, 0.33, 0.50, 0.37
-        ]
-        var path = Path()
+        let pointCount = 28
 
-        for index in radii.indices {
-            let angle = CGFloat(index) * 2 * .pi / CGFloat(radii.count) - .pi / 2
-            let radius = radii[index]
-            let point = CGPoint(
+        // seedから輪郭を決定的に生成し、SwiftUIの再描画ごとに形が揺れないようにする。
+        var randomState = UInt64(bitPattern: Int64(seed)) &+ 0x9E3779B97F4A7C15
+        func nextRandomUnit() -> CGFloat {
+            randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
+            return CGFloat((randomState >> 33) & 0x7FFF_FFFF) / CGFloat(0x7FFF_FFFF)
+        }
+
+        // 急な尖りを避け、隣り合う点をなめらかにつないで空気の波紋に近づける。
+        let rawVariation = (0..<pointCount).map { _ in nextRandomUnit() }
+        let radii = (0..<pointCount).map { index -> CGFloat in
+            let previous = rawVariation[(index + pointCount - 1) % pointCount]
+            let current = rawVariation[index]
+            let next = rawVariation[(index + 1) % pointCount]
+            let smoothed = previous * 0.25 + current * 0.5 + next * 0.25
+            return 0.39 + smoothed * 0.13
+        }
+
+        let points = radii.enumerated().map { index, radius in
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(pointCount) - .pi / 2
+            return CGPoint(
                 x: center.x + cos(angle) * rect.width * radius,
                 y: center.y + sin(angle) * rect.height * radius
             )
-            if index == radii.startIndex {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
+        }
+
+        var path = Path()
+        // 各点の中間を二次曲線で結び、漫画的なギザギザではなく不規則な輪郭にする。
+        let firstMidpoint = CGPoint(
+            x: (points[pointCount - 1].x + points[0].x) / 2,
+            y: (points[pointCount - 1].y + points[0].y) / 2
+        )
+        path.move(to: firstMidpoint)
+        for index in 0..<pointCount {
+            let current = points[index]
+            let next = points[(index + 1) % pointCount]
+            let midpoint = CGPoint(
+                x: (current.x + next.x) / 2,
+                y: (current.y + next.y) / 2
+            )
+            path.addQuadCurve(to: midpoint, control: current)
         }
         path.closeSubpath()
         return path
