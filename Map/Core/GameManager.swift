@@ -235,7 +235,7 @@ final class GameManager: ObservableObject {
         }
     }
 
-    /// プレイヤーの攻撃後、生存していれば敵が反撃する。
+    /// プレイヤーの攻撃ダメージだけを先に適用し、反撃は演出後に別処理で行う。
     func attackEnemy() {
         guard var battle = state.enemyBattle, !state.isCleared, !state.isGameOver else { return }
 
@@ -261,10 +261,23 @@ final class GameManager: ObservableObject {
             return
         }
 
+        battle.message = gargoyleNeedsSword
+            ? "剣がないと攻撃が通じない！"
+            : "攻撃！敵に\(playerDamage)ダメージ。"
+        newState.enemyBattle = battle
+        state = newState
+    }
+
+    /// 敵の攻撃モーション後に反撃ダメージを適用する。
+    func counterattackEnemy() {
+        guard var battle = state.enemyBattle, !state.isCleared, !state.isGameOver else { return }
+
         let enemyDamage = battle.kind.attackDamage
+        var newState = state
         newState.playerHP = max(0, newState.playerHP - enemyDamage)
         playerDamageAmount = enemyDamage
         playerDamageAnimationID += 1
+
         if newState.playerHP == 0 {
             battle.message = "力尽きた……"
             newState.enemyBattle = battle
@@ -276,11 +289,7 @@ final class GameManager: ObservableObject {
             return
         }
 
-        if gargoyleNeedsSword {
-            battle.message = "剣がないと攻撃が通じない！\n反撃で\(enemyDamage)ダメージを受けた。"
-        } else {
-            battle.message = "攻撃！敵に\(playerDamage)ダメージ。\n反撃で\(enemyDamage)ダメージを受けた。"
-        }
+        battle.message += "\n反撃で\(enemyDamage)ダメージを受けた。"
         newState.enemyBattle = battle
         state = newState
     }
