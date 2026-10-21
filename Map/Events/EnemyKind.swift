@@ -98,6 +98,16 @@ enum EnemyKind: CaseIterable, Equatable {
         }
     }
 
+    /// 専用の反撃効果音が設定されている敵種の音源。ドラゴンは nil。
+    var counterattackAudioResource: AudioResource? {
+        switch self {
+        case .dragon: nil
+        case .slime: .slimeCounterattack
+        case .skeleton: .skeletonCounterattack
+        case .gargoyle: .gargoyleCounterattack
+        }
+    }
+
     static func encounter(seed: UInt64?, position: GridPos) -> EnemyKind {
         let coordinate = (UInt64(position.x) << 32) ^ UInt64(position.y)
         let index = Int(((seed ?? 0) ^ coordinate) % 4)
