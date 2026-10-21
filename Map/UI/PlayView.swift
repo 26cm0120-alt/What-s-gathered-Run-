@@ -18,9 +18,9 @@ struct PlayView: View {
     /// 鍵取得演出を表示中か
     @State private var isShowingKeyAcquisition = false
     @State private var isShowingSwordPickup = false
+    @State private var itemPickupUnlockTask: Task<Void, Never>?
     @State private var isShowingDropPickup = false
     @State private var dropPickupTask: Task<Void, Never>?
-    @State private var itemPickupUnlockTask: Task<Void, Never>?
     @State private var dropItemAudioPlayer: AVAudioPlayer?
     @State private var dropItemAudioErrorDelegate: AudioPlaybackErrorDelegate?
     @State private var isMapExpanded = false
@@ -47,14 +47,12 @@ struct PlayView: View {
     @State private var battleActionTask: Task<Void, Never>?
     @State private var playerAttackAnimationID = 0
     @State private var enemyCounterAttackAnimationID = 0
-    /// 撃破が確定する前に、敵の最後ののけぞり演出を再生する。
+    /// 撃破確定前に、敵の最後ののけぞり演出を再生する。
     @State private var enemyDefeatRecoilAnimationID = 0
     @State private var battleScreenFlashColor: Color = .blue
     @State private var battleScreenFlashOpacity = 0.0
     @State private var battleScreenFlashScale: CGFloat = 1
     @State private var battleScreenWhiteFlashOpacity = 0.0
-    /// フラッシュごとに変える衝撃波の輪郭番号。1回の表示中は固定する。
-    @State private var battleScreenFlashShapeSeed = 0
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
@@ -64,7 +62,7 @@ struct PlayView: View {
         game.map.cell(at: game.state.player.position) == .key
     }
 
-    /// 鍵・剣の取得演出中は、表示が重ならないよう移動入力を止める。
+    /// 鍵・剣の取得演出と、撃破直後からドロップ取得完了まで移動入力を止める。
     private var isAcquisitionAnimationActive: Bool {
         isShowingKeyAcquisition || isShowingSwordPickup || isShowingDropPickup
             || game.isSkeletonDropPickupInputLocked || game.isItemPickupInputLocked
@@ -86,11 +84,18 @@ struct PlayView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
     }
 
-    /// 取得演出の閉じるフェードが終わってから、ゲーム側の移動入力ロックを解除する。
-    private func unlockItemPickupInput(after fadeDuration: UInt64) {
+    /// 取得演出を閉じるフェードが終わるまでモデル側の移動ロックを保つ。
+    private func closeItemPickupPresentation(
+        animationDuration: TimeInterval,
+        hide: () -> Void
+    ) {
+        withAnimation(.easeOut(duration: animationDuration)) {
+            hide()
+        }
         itemPickupUnlockTask?.cancel()
+        let delay = UInt64(animationDuration * 1_000_000_000)
         itemPickupUnlockTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: fadeDuration)
+            try? await Task.sleep(nanoseconds: delay)
             guard !Task.isCancelled else { return }
             game.finishItemPickupPresentation()
             itemPickupUnlockTask = nil
@@ -112,7 +117,6 @@ struct PlayView: View {
             }
             .onEnded { value in
                 guard !isAcquisitionAnimationActive,
-                      !game.isItemPickupInputLocked,
                       !isMapPinchGestureActive,
                       !isMapExpanded else { return }
                 let horizontal = value.translation.width
@@ -185,10 +189,9 @@ struct PlayView: View {
                 if isStandingAtKey && isShowingKeyAcquisition {
                     KeyAcquisitionView(
                         onFinished: {
-                            withAnimation(.easeOut(duration: 0.2)) {
+                            closeItemPickupPresentation(animationDuration: 0.2) {
                                 isShowingKeyAcquisition = false
                             }
-                            unlockItemPickupInput(after: 200_000_000)
                         }
                     )
                     .padding(2)
@@ -219,10 +222,9 @@ struct PlayView: View {
             .overlay {
                 if isShowingSwordPickup {
                     SwordPickupView {
-                        withAnimation(.easeOut(duration: 0.22)) {
+                        closeItemPickupPresentation(animationDuration: 0.22) {
                             isShowingSwordPickup = false
                         }
-                        unlockItemPickupInput(after: 220_000_000)
                     }
                     .padding(2)
                     .transition(.opacity)
@@ -263,14 +265,13 @@ struct PlayView: View {
             .frame(height: dungeonHeight)
             .overlay {
                 ZStack {
-                    // 稲妻状のベタフラッシュで、青は中心へ、赤は外側へ衝撃を伝える。
-                    BattleLightningFlashShape(seed: battleScreenFlashShapeSeed)
+                    BattleShockwaveShape()
                         .fill(battleScreenFlashColor)
                         .opacity(battleScreenFlashOpacity)
                         .scaleEffect(battleScreenFlashScale)
 
-                    // 衝撃の瞬間だけ、鋭い白い芯を短く表示する。
-                    BattleImpactCoreShape(seed: battleScreenFlashShapeSeed)
+                    // 衝撃の瞬間だけ、中心に短い白い閃光を重ねる。
+                    BattleShockwaveShape()
                         .fill(Color.white)
                         .opacity(battleScreenWhiteFlashOpacity)
                         .scaleEffect(0.22)
@@ -464,7 +465,8 @@ struct PlayView: View {
             battleScreenFlashTask?.cancel()
             dropPickupTask?.cancel()
             itemPickupUnlockTask?.cancel()
-            game.finishItemPickupPresentation()
+            itemPickupUnlockTask = nil
+            game.cancelItemPickupPresentation()
             isShowingDropPickup = false
             game.cancelSkeletonDropPickupPresentation()
             eventCutInTask?.cancel()
@@ -481,7 +483,6 @@ struct PlayView: View {
     private func triggerBattleScreenFlash(color: Color, expands: Bool) {
         battleScreenFlashTask?.cancel()
         battleScreenFlashColor = color
-        battleScreenFlashShapeSeed += 1
         battleScreenFlashScale = expands ? 0.04 : 1
         battleScreenFlashOpacity = 0.42
         battleScreenWhiteFlashOpacity = 0.78
@@ -507,8 +508,6 @@ struct PlayView: View {
                 try? await Task.sleep(nanoseconds: 55_000_000)
                 guard !Task.isCancelled else { return }
                 battleScreenFlashScale = expands ? 0.04 : 1
-                // 前の波が薄くなったタイミングで輪郭を変え、表示中の形状は固定する。
-                battleScreenFlashShapeSeed += 1
                 withAnimation(.easeIn(duration: 0.035)) {
                     battleScreenFlashOpacity = 0.42
                 }
@@ -527,12 +526,11 @@ struct PlayView: View {
         isBattleActionLocked = true
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
-            // 撃破判定に必要なダメージを先に見積もり、撃破時だけ死体表示を遅らせる。
-            let playerDamage = game.state.requiresSwordForKey
+            // GameManager.attackEnemy() と同じ条件で撃破可能かを判定する。
+            let gargoyleNeedsSword = game.state.requiresSwordForKey
                 && battleBeforeAttack.kind == .gargoyle
                 && !game.state.hasSword
-                ? 0
-                : (game.state.hasSword ? 10 : 5)
+            let playerDamage = gargoyleNeedsSword ? 0 : (game.state.hasSword ? 10 : 5)
             let willDefeatEnemy = playerDamage > 0
                 && battleBeforeAttack.enemyHP <= playerDamage
 
@@ -540,14 +538,13 @@ struct PlayView: View {
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
             playerAttackAnimationID += 1
-            battleSoundEffects.play(named: "戦闘攻撃")
+            battleSoundEffects.play(.battleAttack)
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             triggerBattleScreenFlash(color: .blue, expands: false)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
 
             if willDefeatEnemy {
-                // 青い閃光を見せてから、赤い閃光とのけぞりを重ねる。
+                // 青い閃光のあと、赤い閃光とのけぞりを見せてから撃破処理を行う。
                 try? await Task.sleep(nanoseconds: 480_000_000)
                 guard !Task.isCancelled, game.state.enemyBattle != nil else {
                     isBattleActionLocked = false
@@ -557,7 +554,7 @@ struct PlayView: View {
                 triggerBattleScreenFlash(color: .red, expands: true)
                 enemyDefeatRecoilAnimationID += 1
 
-                // のけぞりが終わるまで撃破処理を保留し、死体への切り替わりを後ろへずらす。
+                // のけぞりが終わるまで撃破処理を保留し、死体表示への切り替えを遅らせる。
                 try? await Task.sleep(nanoseconds: 330_000_000)
                 guard !Task.isCancelled, game.state.enemyBattle != nil else {
                     isBattleActionLocked = false
@@ -572,7 +569,7 @@ struct PlayView: View {
 
             game.attackEnemy()
 
-            // 敵が倒れた場合（通常は上の撃破演出で処理）は反撃しない。
+            // 敵が倒れた場合は反撃せず、攻撃演出の後に入力を解放する。
             guard game.state.enemyBattle != nil, !Task.isCancelled else {
                 isBattleActionLocked = false
                 battleActionTask = nil
@@ -583,13 +580,11 @@ struct PlayView: View {
             try? await Task.sleep(nanoseconds: 1_000_000_000)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             enemyCounterAttackAnimationID += 1
-            battleSoundEffects.play(named: "戦闘反撃")
+            battleSoundEffects.play(.battleCounterattack)
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             triggerBattleScreenFlash(color: .red, expands: true)
             game.counterattackEnemy()
-            // プレイヤーが被弾した瞬間は、攻撃命中より重い振動で衝撃を伝える。
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 0.9)
 
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
@@ -634,10 +629,10 @@ struct PlayView: View {
     /// MP3形式のアイテム発見音を再生し、再生中のプレイヤーとdelegateを保持する。
     private func playDropItemFoundSound() {
         dropItemAudioPlayer?.stop()
-        guard let player = AudioPlayback.makePlayer(named: "アイテム発見") else { return }
-        let delegate = AudioPlaybackErrorDelegate(resourceName: "アイテム発見")
+        guard let player = AudioPlayback.makePlayer(for: .itemFound) else { return }
+        let delegate = AudioPlaybackErrorDelegate(resource: .itemFound)
         player.delegate = delegate
-        guard AudioPlayback.play(player, named: "アイテム発見") else { return }
+        guard AudioPlayback.play(player, for: .itemFound) else { return }
         dropItemAudioPlayer = player
         dropItemAudioErrorDelegate = delegate
     }
@@ -649,7 +644,7 @@ struct PlayView: View {
         battleActionTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
-            battleSoundEffects.play(named: "戦闘逃走")
+            battleSoundEffects.play(.battleEscape)
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard !Task.isCancelled else { return }
             game.fleeBattle()
@@ -795,87 +790,26 @@ struct PlayView: View {
     }
 }
 
-/// 戦闘時に中心へ収束・中心から拡散する、鋭い稲妻状のベタフラッシュ。
-private struct BattleLightningFlashShape: Shape {
-    let seed: Int
-
+/// 戦闘時のフラッシュに使う、不規則な尖りを持つ衝撃波。
+private struct BattleShockwaveShape: Shape {
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let rayCount = 9
-        var randomState = UInt64(bitPattern: Int64(seed)) &+ 0x9E3779B97F4A7C15
-
-        func nextRandomUnit() -> CGFloat {
-            randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
-            return CGFloat((randomState >> 33) & 0x7FFF_FFFF) / CGFloat(0x7FFF_FFFF)
-        }
-
+        let radii: [CGFloat] = [
+            0.48, 0.36, 0.49, 0.39, 0.44, 0.33, 0.50, 0.38,
+            0.46, 0.35, 0.49, 0.40, 0.43, 0.34, 0.50, 0.37,
+            0.47, 0.35, 0.49, 0.39, 0.44, 0.32, 0.50, 0.38,
+            0.45, 0.34, 0.49, 0.40, 0.43, 0.33, 0.50, 0.37
+        ]
         var path = Path()
-        for index in 0..<rayCount {
-            // 光線ごとに幅・長さ・角度を変え、均一な放射状ではなく稲妻のような輪郭にする。
-            let baseAngle = CGFloat(index) * 2 * .pi / CGFloat(rayCount)
-            let angle = baseAngle + (nextRandomUnit() - 0.5) * 0.28
-            let innerRadius = 0.07 + nextRandomUnit() * 0.11
-            let outerRadius = 0.30 + nextRandomUnit() * 0.22
-            let halfWidth = 0.018 + nextRandomUnit() * 0.035
-            let perpendicular = angle + .pi / 2
 
-            let inner = CGPoint(
-                x: center.x + cos(angle) * rect.width * innerRadius,
-                y: center.y + sin(angle) * rect.height * innerRadius
-            )
-            let outer = CGPoint(
-                x: center.x + cos(angle) * rect.width * outerRadius,
-                y: center.y + sin(angle) * rect.height * outerRadius
-            )
-            let shoulder = CGPoint(
-                x: center.x + cos(angle) * rect.width * (innerRadius + outerRadius) * 0.52
-                    + cos(perpendicular) * rect.width * halfWidth,
-                y: center.y + sin(angle) * rect.height * (innerRadius + outerRadius) * 0.52
-                    + sin(perpendicular) * rect.height * halfWidth
-            )
-            let oppositeShoulder = CGPoint(
-                x: center.x + cos(angle) * rect.width * (innerRadius + outerRadius) * 0.52
-                    - cos(perpendicular) * rect.width * halfWidth,
-                y: center.y + sin(angle) * rect.height * (innerRadius + outerRadius) * 0.52
-                    - sin(perpendicular) * rect.height * halfWidth
-            )
-
-            // 一筋ずつ塗りつぶした鋭い光片にし、線画ではなくベタフラッシュにする。
-            path.move(to: inner)
-            path.addLine(to: shoulder)
-            path.addLine(to: outer)
-            path.addLine(to: oppositeShoulder)
-            path.closeSubpath()
-        }
-        return path
-    }
-}
-
-/// 中央に一瞬だけ表示する、円形ではない鋭い白い衝撃点。
-private struct BattleImpactCoreShape: Shape {
-    let seed: Int
-
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let pointCount = 8
-        var randomState = UInt64(bitPattern: Int64(seed)) &+ 0xD1B54A32D192ED03
-
-        func nextRandomUnit() -> CGFloat {
-            randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
-            return CGFloat((randomState >> 33) & 0x7FFF_FFFF) / CGFloat(0x7FFF_FFFF)
-        }
-
-        var path = Path()
-        for index in 0..<pointCount {
-            let angle = CGFloat(index) * 2 * .pi / CGFloat(pointCount) - .pi / 2
-            // 長い光の先端と短い谷を交互に置き、丸いフラッシュを避ける。
-            let radius = (index.isMultiple(of: 2) ? 0.46 : 0.12)
-                + (nextRandomUnit() - 0.5) * 0.08
+        for index in radii.indices {
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(radii.count) - .pi / 2
+            let radius = radii[index]
             let point = CGPoint(
                 x: center.x + cos(angle) * rect.width * radius,
                 y: center.y + sin(angle) * rect.height * radius
             )
-            if index == 0 {
+            if index == radii.startIndex {
                 path.move(to: point)
             } else {
                 path.addLine(to: point)
