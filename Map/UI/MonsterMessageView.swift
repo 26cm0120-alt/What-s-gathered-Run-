@@ -296,15 +296,17 @@ struct MonsterMessageView: View {
             }
         }
 
-        withAnimation(.linear(duration: 1.2)) {
-            if isPlayer {
-                playerHPResidualProgress = 0
-            } else {
-                enemyHPResidualProgress = 0
-            }
-        }
-
         let clearTask = Task { @MainActor in
+            // いったん減少前の幅を描画してから、残像だけを滑らかに縮める。
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            withAnimation(.linear(duration: 1.2)) {
+                if isPlayer {
+                    playerHPResidualProgress = 0
+                } else {
+                    enemyHPResidualProgress = 0
+                }
+            }
             try? await Task.sleep(nanoseconds: 1_200_000_000)
             guard !Task.isCancelled else { return }
             if isPlayer {
