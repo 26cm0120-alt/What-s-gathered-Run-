@@ -244,13 +244,17 @@ struct PlayView: View {
             .frame(height: dungeonHeight)
             .overlay {
                 ZStack {
-                    BattleShockwaveShape(seed: battleScreenFlashShapeSeed)
-                        .fill(battleScreenFlashColor)
+                    // 短いスピードラインで、青は中心へ、赤は外側へ衝撃を伝える。
+                    BattleSpeedLinesShape(seed: battleScreenFlashShapeSeed)
+                        .stroke(
+                            battleScreenFlashColor,
+                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                        )
                         .opacity(battleScreenFlashOpacity)
                         .scaleEffect(battleScreenFlashScale)
 
-                    // 衝撃の瞬間だけ、同じ輪郭の中心に短い白い閃光を重ねる。
-                    BattleShockwaveShape(seed: battleScreenFlashShapeSeed)
+                    // 衝撃の瞬間だけ、鋭い白い芯を短く表示する。
+                    BattleImpactCoreShape(seed: battleScreenFlashShapeSeed)
                         .fill(Color.white)
                         .opacity(battleScreenWhiteFlashOpacity)
                         .scaleEffect(0.22)
@@ -727,55 +731,71 @@ struct PlayView: View {
     }
 }
 
-/// 戦闘時のフラッシュに使う、有機的で輪郭が毎回変わる衝撃波。
-private struct BattleShockwaveShape: Shape {
-    /// 同じ表示中は同じ輪郭を保つための値。
+/// 戦闘時に中心へ収束・中心から拡散する、長さと角度が不規則なスピードライン。
+private struct BattleSpeedLinesShape: Shape {
     let seed: Int
 
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let pointCount = 28
-
-        // seedから輪郭を決定的に生成し、SwiftUIの再描画ごとに形が揺れないようにする。
+        let lineCount = 13
         var randomState = UInt64(bitPattern: Int64(seed)) &+ 0x9E3779B97F4A7C15
+
         func nextRandomUnit() -> CGFloat {
             randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
             return CGFloat((randomState >> 33) & 0x7FFF_FFFF) / CGFloat(0x7FFF_FFFF)
         }
 
-        // 急な尖りを避け、隣り合う点をなめらかにつないで空気の波紋に近づける。
-        let rawVariation = (0..<pointCount).map { _ in nextRandomUnit() }
-        let radii = (0..<pointCount).map { index -> CGFloat in
-            let previous = rawVariation[(index + pointCount - 1) % pointCount]
-            let current = rawVariation[index]
-            let next = rawVariation[(index + 1) % pointCount]
-            let smoothed = previous * 0.25 + current * 0.5 + next * 0.25
-            return 0.39 + smoothed * 0.13
-        }
-
-        let points = radii.enumerated().map { index, radius in
-            let angle = CGFloat(index) * 2 * .pi / CGFloat(pointCount) - .pi / 2
-            return CGPoint(
-                x: center.x + cos(angle) * rect.width * radius,
-                y: center.y + sin(angle) * rect.height * radius
+        var path = Path()
+        for index in 0..<lineCount {
+            // 均等な放射状に見えないよう、角度・長さ・中心からの距離を少しずつ変える。
+            let baseAngle = CGFloat(index) * 2 * .pi / CGFloat(lineCount)
+            let angle = baseAngle + (nextRandomUnit() - 0.5) * 0.24
+            let innerRadius = 0.10 + nextRandomUnit() * 0.13
+            let outerRadius = 0.30 + nextRandomUnit() * 0.20
+            let start = CGPoint(
+                x: center.x + cos(angle) * rect.width * innerRadius,
+                y: center.y + sin(angle) * rect.height * innerRadius
             )
+            let end = CGPoint(
+                x: center.x + cos(angle) * rect.width * outerRadius,
+                y: center.y + sin(angle) * rect.height * outerRadius
+            )
+            path.move(to: start)
+            path.addLine(to: end)
+        }
+        return path
+    }
+}
+
+/// 中央に一瞬だけ表示する、円形ではない鋭い白い衝撃点。
+private struct BattleImpactCoreShape: Shape {
+    let seed: Int
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let pointCount = 8
+        var randomState = UInt64(bitPattern: Int64(seed)) &+ 0xD1B54A32D192ED03
+
+        func nextRandomUnit() -> CGFloat {
+            randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
+            return CGFloat((randomState >> 33) & 0x7FFF_FFFF) / CGFloat(0x7FFF_FFFF)
         }
 
         var path = Path()
-        // 各点の中間を二次曲線で結び、漫画的なギザギザではなく不規則な輪郭にする。
-        let firstMidpoint = CGPoint(
-            x: (points[pointCount - 1].x + points[0].x) / 2,
-            y: (points[pointCount - 1].y + points[0].y) / 2
-        )
-        path.move(to: firstMidpoint)
         for index in 0..<pointCount {
-            let current = points[index]
-            let next = points[(index + 1) % pointCount]
-            let midpoint = CGPoint(
-                x: (current.x + next.x) / 2,
-                y: (current.y + next.y) / 2
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(pointCount) - .pi / 2
+            // 長い光の先端と短い谷を交互に置き、丸いフラッシュを避ける。
+            let radius = (index.isMultiple(of: 2) ? 0.46 : 0.12)
+                + (nextRandomUnit() - 0.5) * 0.08
+            let point = CGPoint(
+                x: center.x + cos(angle) * rect.width * radius,
+                y: center.y + sin(angle) * rect.height * radius
             )
-            path.addQuadCurve(to: midpoint, control: current)
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
         }
         path.closeSubpath()
         return path
