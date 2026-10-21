@@ -47,6 +47,8 @@ struct PlayView: View {
     @State private var battleActionTask: Task<Void, Never>?
     @State private var playerAttackAnimationID = 0
     @State private var enemyCounterAttackAnimationID = 0
+    /// 撃破が確定する前に、敵の最後ののけぞり演出を再生する。
+    @State private var enemyDefeatRecoilAnimationID = 0
     @State private var battleScreenFlashColor: Color = .blue
     @State private var battleScreenFlashOpacity = 0.0
     @State private var battleScreenFlashScale: CGFloat = 1
@@ -154,7 +156,8 @@ struct PlayView: View {
                         battle: battle,
                         playerHP: game.state.playerHP,
                         playerAttackAnimationID: playerAttackAnimationID,
-                        counterAttackAnimationID: enemyCounterAttackAnimationID
+                        counterAttackAnimationID: enemyCounterAttackAnimationID,
+                        defeatRecoilAnimationID: enemyDefeatRecoilAnimationID
                     )
                     .transition(.opacity)
                     .zIndex(3)
@@ -519,10 +522,20 @@ struct PlayView: View {
     }
 
     private func performBattleAttack() {
-        guard !isBattleActionLocked, game.state.enemyBattle != nil else { return }
+        guard !isBattleActionLocked,
+              let battleBeforeAttack = game.state.enemyBattle else { return }
         isBattleActionLocked = true
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
+            // 撃破判定に必要なダメージを先に見積もり、撃破時だけ死体表示を遅らせる。
+            let playerDamage = game.state.requiresSwordForKey
+                && battleBeforeAttack.kind == .gargoyle
+                && !game.state.hasSword
+                ? 0
+                : (game.state.hasSword ? 10 : 5)
+            let willDefeatEnemy = playerDamage > 0
+                && battleBeforeAttack.enemyHP <= playerDamage
+
             // プレイヤーの踏み込み後、青い画面フラッシュと敵の被弾を同時に見せる。
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
@@ -532,9 +545,34 @@ struct PlayView: View {
             guard !Task.isCancelled else { return }
             triggerBattleScreenFlash(color: .blue, expands: false)
             UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
+
+            if willDefeatEnemy {
+                // 青い閃光を見せてから、赤い閃光とのけぞりを重ねる。
+                try? await Task.sleep(nanoseconds: 480_000_000)
+                guard !Task.isCancelled, game.state.enemyBattle != nil else {
+                    isBattleActionLocked = false
+                    battleActionTask = nil
+                    return
+                }
+                triggerBattleScreenFlash(color: .red, expands: true)
+                enemyDefeatRecoilAnimationID += 1
+
+                // のけぞりが終わるまで撃破処理を保留し、死体への切り替わりを後ろへずらす。
+                try? await Task.sleep(nanoseconds: 330_000_000)
+                guard !Task.isCancelled, game.state.enemyBattle != nil else {
+                    isBattleActionLocked = false
+                    battleActionTask = nil
+                    return
+                }
+                game.attackEnemy()
+                isBattleActionLocked = false
+                battleActionTask = nil
+                return
+            }
+
             game.attackEnemy()
 
-            // 敵が倒れた場合は反撃せず、攻撃演出の後に入力を解放する。
+            // 敵が倒れた場合（通常は上の撃破演出で処理）は反撃しない。
             guard game.state.enemyBattle != nil, !Task.isCancelled else {
                 isBattleActionLocked = false
                 battleActionTask = nil
