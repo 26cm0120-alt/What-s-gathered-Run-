@@ -139,10 +139,24 @@ struct ShiritoriGameView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // PLAYER画像の表示サイズ（既存サイズを維持）
-            let characterSize = min(geometry.size.width * 0.34, geometry.size.height * 0.18)
-            // CPU画像は上部の横幅を確保し、PLAYER画像より大きく表示する
-            let cpuCharacterSize = min(geometry.size.width * 0.42, geometry.size.height * 0.23)
+            // 小型端末では上下のキャラクターと余白を抑え、5×5のカード盤面と
+            // PLAYER情報まで画面内に収める。
+            let isCompactHeight = geometry.size.height < 700
+            let verticalSpacing: CGFloat = isCompactHeight ? 4 : 6
+            let verticalPadding: CGFloat = isCompactHeight ? 4 : 8
+            let hintRowHeight: CGFloat = isCompactHeight ? 28 : 30
+            let characterSize = min(geometry.size.width * 0.24, geometry.size.height * 0.115)
+            let cpuCharacterSize = min(geometry.size.width * 0.30, geometry.size.height * 0.155)
+            let reservedHeight = cpuCharacterSize
+                + hintRowHeight * 2
+                + 72 // メッセージ枠
+                + characterSize
+                + verticalSpacing * 5
+                + verticalPadding * 2
+            let boardSize = min(
+                max(0, geometry.size.width - 16),
+                max(0, geometry.size.height - reservedHeight)
+            )
 
             TimelineView(.periodic(from: Date(), by: 0.05)) { timeline in
                 let now = timeline.date
@@ -150,7 +164,7 @@ struct ShiritoriGameView: View {
                     Color.black
                         .ignoresSafeArea()
 
-                    VStack(spacing: 6) {
+                    VStack(spacing: verticalSpacing) {
 
                         // MARK: - 上部：CPU画像・残り枚数・次の文字
 
@@ -183,6 +197,11 @@ struct ShiritoriGameView: View {
                             }
                             .frame(maxWidth: .infinity)
                         }
+                        .frame(height: cpuCharacterSize)
+
+                        // ヒントはメッセージ枠へ重ねず、専用の高さを確保して表示する。
+                        HintLineView(text: bossHintMessages[upperHintIndex])
+                            .frame(height: hintRowHeight)
 
                         // MARK: - メッセージウィンドウ
 
@@ -207,10 +226,6 @@ struct ShiritoriGameView: View {
                                 handleMessageDisplayCompleted(completedMessage)
                             }
                         )
-                        .overlay(alignment: .top) {
-                            HintLineView(text: bossHintMessages[upperHintIndex])
-                                .offset(y: -17)
-                        }
 
                         // MARK: - 中央：25枚のカード
 
@@ -227,7 +242,12 @@ struct ShiritoriGameView: View {
                                 }
                             }
                         )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(width: boardSize, height: boardSize)
+                        .frame(maxWidth: .infinity)
+
+                        // PLAYER向けヒントも専用行に分け、情報表示と重ならないようにする。
+                        HintLineView(text: systemHintMessages[lowerHintIndex])
+                            .frame(height: hintRowHeight)
 
                         // MARK: - 下部：PLAYER情報・PLAYER画像
 
@@ -250,12 +270,10 @@ struct ShiritoriGameView: View {
                                 .scaleEffect(x: -1, y: 1)
                                 .frame(width: characterSize, height: characterSize)
                         }
-                        .overlay(alignment: .top) {
-                            HintLineView(text: systemHintMessages[lowerHintIndex])
-                                .offset(y: -9)
-                        }
+                        .frame(height: characterSize)
                     }
-                    .padding(8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, verticalPadding)
                 }
             }
             .onAppear {
