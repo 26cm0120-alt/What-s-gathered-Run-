@@ -35,16 +35,17 @@ struct EnemyBattleView: View {
                         height: min(geometry.size.height * 0.76, 190)
                     )
                     .overlay {
-                        Rectangle()
-                            .fill(Color(red: 0.98, green: 0.16, blue: 0.12))
-                            .mask {
-                                Image(enemyImage)
-                                    .interpolation(.none)
-                                    .resizable()
-                                    .scaledToFit()
-                            }
-                            .opacity(isHit ? 0.82 : 0)
-                            .animation(.easeOut(duration: 0.08), value: isHit)
+                        Image(enemyImage)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(
+                                width: min(geometry.size.width * 0.62, 190),
+                                height: min(geometry.size.height * 0.76, 190)
+                            )
+                            .colorMultiply(Color(red: 1.0, green: 0.08, blue: 0.06))
+                            .opacity(isHit ? 0.98 : 0)
+                            .animation(.easeOut(duration: 0.06), value: isHit)
                     }
                     .offset(x: enemyOffset, y: isBreathing && enemyOffset == 0 ? -3 : 0)
                     .scaleEffect(isHit ? 1.06 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))

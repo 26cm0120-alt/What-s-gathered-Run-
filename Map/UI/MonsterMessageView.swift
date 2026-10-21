@@ -98,12 +98,10 @@ struct MonsterMessageView: View {
                     .rotationEffect(.degrees(isTrapReactionActive ? trapAnimationTilt : collisionTilt + damageTilt))
                     .overlay {
                         Image(imageName)
-                            .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
-                            .foregroundStyle(Color(red: 0.20, green: 0.55, blue: 1.0))
+                            .colorMultiply(Color(red: 0.08, green: 0.42, blue: 1.0))
                             .opacity(damageFlashOpacity)
-                            .blendMode(.screen)
                             .accessibilityHidden(true)
                     }
                     .accessibilityHidden(true)
