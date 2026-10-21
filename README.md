@@ -48,9 +48,18 @@
 | [AI作業手順書](docs/05_AI作業手順書.md) | AIを使った開発からPull Requestまで |
 | [AI依頼テンプレート](docs/AI依頼テンプレート.md) | 変更依頼のひな形 |
 
+## コアロジックの自動テスト
+
+macOSのSwift 6.2以降で、初回タイム方針・迷宮生成・ランキングを次のコマンドで検証できます。
+
+```sh
+Tests/run_core_logic_tests.sh
+```
+
+同じテストをGitHub ActionsでもPull Requestと`main`へのpush時に実行します。
+
 ## 現在の確認状況
 
-- 2026-10-16: iOS Simulator向けXcodeビルド成功。今回追加した機能のSimulator操作・音声・触覚確認は未実施。
-- レビュー対応のSimulator操作確認は未実施です。
-- 複数seedでの生成再現性・到達可能性の自動検証は未整備です。
+- 2026-10-21: Swift 6.2.4で7,024 assertionsが通過し、500 seedの生成条件と別プロセス間の256 seed再現性を確認しました。
+- このコアロジック変更のXcodeプロジェクトビルド、Simulator・実機操作、GitHub Actions実行は未確認です。
 - 実機確認・正式採用の状況は[進捗記録](docs/06_進捗記録.md)を参照してください。

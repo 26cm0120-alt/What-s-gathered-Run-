@@ -120,10 +120,10 @@ final class AppFlow: ObservableObject {
             wallCollisionDamageEnabled: !stage.isStepByStepTutorial
         )
         lastRandomSeed = stage.seed
-        currentRecordKey = clearTimeRecordKey(for: stage)
-        supportsReplayAndTiming = currentRecordKey != nil
+        currentRecordKey = StageTimingPolicy.recordKey(for: stage)
+        supportsReplayAndTiming = StageTimingPolicy.startsTimer(for: stage)
         shiritoriTimeBonusSeconds = 0
-        currentLeaderboardMode = leaderboardMode(for: stage)
+        currentLeaderboardMode = StageTimingPolicy.leaderboardMode(for: stage)
         leaderboardEntries = currentLeaderboardMode.map { LocalLeaderboard.load($0) } ?? []
         bestClearTime = currentRecordKey.flatMap { loadBestClearTime(for: $0) }
         currentRunTime = nil
@@ -488,26 +488,6 @@ final class AppFlow: ObservableObject {
         return ([stored].compactMap { $0 } + legacy).min()
     }
 
-    /// 試練とランダムの最短タイムは各モード共通で保存する。
-    private func clearTimeRecordKey(for stage: Stage) -> String? {
-        if stage.seed != nil {
-            return "dungeon.bestClearTime.random"
-        }
-
-        guard !stage.isStepByStepTutorial else { return nil }
-        switch stage.shiritoriStageKind {
-        case .trial:
-            return "dungeon.bestClearTime.trial"
-        case .standard:
-            return nil
-        }
-    }
-
-    private func leaderboardMode(for stage: Stage) -> LeaderboardMode? {
-        if stage.seed != nil { return .random }
-        guard !stage.isStepByStepTutorial, stage.shiritoriStageKind == .trial else { return nil }
-        return .trial
-    }
 }
 
 enum DungeonTimeFormatter {
