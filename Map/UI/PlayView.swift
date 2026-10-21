@@ -65,6 +65,7 @@ struct PlayView: View {
     /// 鍵・剣の取得演出中は、表示が重ならないよう移動入力を止める。
     private var isAcquisitionAnimationActive: Bool {
         isShowingKeyAcquisition || isShowingSwordPickup || isShowingDropPickup
+            || game.isSkeletonDropPickupInputLocked || game.isItemPickupInputLocked
     }
 
     /// イベントの状況メッセージを優先し、なければチュートリアル案内を表示する
@@ -461,6 +462,8 @@ struct PlayView: View {
             dropPickupTask?.cancel()
             itemPickupUnlockTask?.cancel()
             game.finishItemPickupPresentation()
+            isShowingDropPickup = false
+            game.cancelSkeletonDropPickupPresentation()
             eventCutInTask?.cancel()
             trapAnimationTask?.cancel()
             pinchSuppressionTask?.cancel()
@@ -559,15 +562,21 @@ struct PlayView: View {
 
     /// 撃破セリフと倒れる動作が終わってから、ドロップを回収する。
     private func beginPendingDropPickup() {
-        guard game.pendingSkeletonDrop != nil else { return }
+        guard game.pendingSkeletonDrop != nil,
+              game.encounterEnemySpeech == nil,
+              game.defeatedEnemySpeech == nil,
+              !isShowingDropPickup else { return }
+        dropPickupTask?.cancel()
         withAnimation(.easeIn(duration: 0.18)) { isShowingDropPickup = true }
         playDropItemFoundSound()
-        dropPickupTask?.cancel()
         dropPickupTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_800_000_000)
             guard !Task.isCancelled else { return }
-            game.collectPendingSkeletonDrop()
             withAnimation(.easeOut(duration: 0.18)) { isShowingDropPickup = false }
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+            game.collectPendingSkeletonDrop()
+            game.finishSkeletonDropPickupPresentation()
             dropPickupTask = nil
         }
     }

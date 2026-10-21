@@ -7,6 +7,8 @@ final class GameManager: ObservableObject {
     let stage: Stage
     @Published private(set) var state: GameState
     @Published private(set) var isInputLocked = false
+    /// スケルトン撃破からドロップ取得完了まで、移動入力を止める。
+    @Published private(set) var isSkeletonDropPickupInputLocked = false
     /// 鍵・剣の取得イベントから演出終了まで、移動入力を止める。
     @Published private(set) var isItemPickupInputLocked = false
     @Published private(set) var wallCollisionID = 0
@@ -87,7 +89,7 @@ final class GameManager: ObservableObject {
     }
 
     private func turn(to direction: Direction, tutorialAction: TutorialAction? = nil) {
-        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isItemPickupInputLocked else { return }
+        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isSkeletonDropPickupInputLocked, !isItemPickupInputLocked else { return }
         var newState = state
         newState.player.direction = direction
         newState.message = ""
@@ -99,7 +101,7 @@ final class GameManager: ObservableObject {
 
     /// 指定した方向へ1マス進み、壁・イベント・探索済み状態をまとめて処理する。
     private func moveOneTile(in direction: Direction, action: TutorialAction, blockedMessage: String) {
-        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isItemPickupInputLocked else { return }
+        guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil, !isInputLocked, !isSkeletonDropPickupInputLocked, !isItemPickupInputLocked else { return }
 
         // 遅行中は設定された回数の前進フリックがそろうまで、マス移動しない。
         if action == .moveForward, state.doubleFlickTrapActive {
@@ -256,10 +258,12 @@ final class GameManager: ObservableObject {
             newState.defeatedEnemyKinds[battle.enemyPosition] = battle.kind
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
-            state = newState
-            if battle.kind == .skeleton {
-                pendingSkeletonDrop = SkeletonDropItem.allCases.randomElement()
+            if battle.kind == .skeleton,
+               let drop = SkeletonDropItem.allCases.randomElement() {
+                isSkeletonDropPickupInputLocked = true
+                pendingSkeletonDrop = drop
             }
+            state = newState
             soundEffects.play(named: "敵撃破")
             showDefeatedEnemySpeech(battle.kind)
             onBattleStateChanged?(nil)
@@ -333,6 +337,18 @@ final class GameManager: ObservableObject {
         }
         state = newState
         pendingSkeletonDrop = nil
+    }
+
+    /// ドロップ効果を適用した後に、撃破時から保持していた移動ロックを解除する。
+    func finishSkeletonDropPickupPresentation() {
+        guard pendingSkeletonDrop == nil else { return }
+        isSkeletonDropPickupInputLocked = false
+    }
+
+    /// プレイ画面を離れる場合は、未回収ドロップと対応する入力ロックを破棄する。
+    func cancelSkeletonDropPickupPresentation() {
+        pendingSkeletonDrop = nil
+        isSkeletonDropPickupInputLocked = false
     }
 
     private func showDefeatedEnemySpeech(_ kind: EnemyKind) {
