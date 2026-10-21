@@ -201,10 +201,10 @@ struct GameOverView: View {
 
     private func playGameOverSound() {
         guard gameOverAudioPlayer == nil,
-              let player = AudioPlayback.makePlayer(named: "ゲームオーバー", withExtension: "wav") else { return }
-        let delegate = AudioPlaybackErrorDelegate(resourceName: "ゲームオーバー", fileExtension: "wav")
+              let player = AudioPlayback.makePlayer(for: .gameOver) else { return }
+        let delegate = AudioPlaybackErrorDelegate(resource: .gameOver)
         player.delegate = delegate
-        guard AudioPlayback.play(player, named: "ゲームオーバー", withExtension: "wav") else { return }
+        guard AudioPlayback.play(player, for: .gameOver) else { return }
         gameOverAudioPlayer = player
         gameOverAudioErrorDelegate = delegate
     }
