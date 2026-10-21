@@ -66,6 +66,11 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         play(assetName: "shiritori_card_cursor_01")
     }
 
+    /// 画面上のボタン押下音を再生する。既存の短いUIカーソル音を共用する。
+    func playButtonTap() {
+        play(assetName: "shiritori_card_cursor_01")
+    }
+
     /// メッセージを一文字表示するたびに鳴らす効果音を再生する
     func playMessageBeep() {
         play(assetName: "shiritori_message_beep")

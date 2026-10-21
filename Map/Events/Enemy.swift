@@ -14,7 +14,8 @@ struct EnemyEvent: TileEvent {
         state.enemyBattle = EnemyBattle(
             kind: kind,
             enemyPosition: state.player.position,
-            retreatPosition: previousPosition
+            retreatPosition: previousPosition,
+            enemyHP: state.enemyHPByPosition[state.player.position]
         )
         state.message = ""
     }

@@ -4,6 +4,9 @@ import SwiftUI
 /// スタート画面・プレイ画面・クリア表示・ゲームオーバー表示を切り替える
 struct ContentView: View {
     @StateObject private var flow = AppFlow()
+    #if DEBUG
+    @State private var didOpenDebugClearScreen = false
+    #endif
 
     var body: some View {
         ZStack {
@@ -35,8 +38,10 @@ struct ContentView: View {
                                     bestClearTime: flow.bestClearTime,
                                     nextStageTitle: flow.nextStageTitle,
                                     leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
+                                    leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
                                     leaderboardEntries: flow.leaderboardEntries,
                                     onSaveName: flow.saveLeaderboardEntry,
+                                    onUpdateName: flow.updateLeaderboardEntryName,
                                     onNextStage: flow.startNextStage,
                                     onReplay: flow.supportsReplayAndTiming
                                         ? { flow.replayCurrentStage() }
@@ -71,6 +76,15 @@ struct ContentView: View {
                 }
             }
         }
+        #if DEBUG
+        .onAppear {
+            guard !didOpenDebugClearScreen,
+                  ProcessInfo.processInfo.arguments.contains("-debug-clear-screen") else { return }
+            didOpenDebugClearScreen = true
+            flow.startGame(stage: Stages.trial)
+            flow.presentDebugClearScreen()
+        }
+        #endif
     }
 }
 

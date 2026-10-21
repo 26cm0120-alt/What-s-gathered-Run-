@@ -10,8 +10,12 @@ struct ClearView: View {
     /// 次に進むステージ名
     let nextStageTitle: String
     let leaderboardTitle: String
+    let leaderboardMode: LeaderboardMode
     let leaderboardEntries: [LeaderboardEntry]
-    let onSaveName: (String) -> Void
+    /// TOP100へ保存できた場合は、更新後の記録IDを返す。
+    let onSaveName: (String) -> UUID?
+    /// 登録済み記録の名前だけを更新する。
+    let onUpdateName: (UUID, String) -> Bool
     /// クリア後に次のステージへ進む
     let onNextStage: () -> Void
     /// 対象モードだけ再挑戦を表示する
@@ -23,13 +27,31 @@ struct ClearView: View {
     @State private var clearAudioErrorDelegate: AudioPlaybackErrorDelegate?
     @State private var isCelebrating = false
     @State private var playerName = ""
-    @State private var didSaveEntry = false
+    @State private var isRegisteringEntry = false
+    @State private var didAttemptRegistration = false
+    @State private var savedEntryID: UUID?
+    @State private var didUpdateName = false
+    @State private var didFailNameUpdate = false
+    @State private var registrationTask: Task<Void, Never>?
     @FocusState private var isPlayerNameFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var formattedBestClearTime: String {
         guard let bestClearTime else { return "記録なし" }
         return DungeonTimeFormatter.string(from: bestClearTime)
+    }
+
+    private var savedEntryRank: Int? {
+        guard let savedEntryID else { return nil }
+        // 登録結果は保存されたランキングを基準にする。
+        return leaderboardEntries.firstIndex(where: { $0.id == savedEntryID }).map { $0 + 1 }
+    }
+
+    private var hasPendingNameChange: Bool {
+        guard let savedEntryID,
+              let savedEntry = leaderboardEntries.first(where: { $0.id == savedEntryID }) else { return false }
+        let editedName = String(playerName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(16))
+        return !editedName.isEmpty && editedName != savedEntry.playerName
     }
 
     var body: some View {
@@ -98,14 +120,16 @@ struct ClearView: View {
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 1.15).repeatForever(autoreverses: true)) {
                 isCelebrating = true
             }
-            guard let player = AudioPlayback.makePlayer(named: "レトロなゲームクリア音") else { return }
-            let errorDelegate = AudioPlaybackErrorDelegate(resourceName: "レトロなゲームクリア音")
+            guard let player = AudioPlayback.makePlayer(for: .gameClear) else { return }
+            let errorDelegate = AudioPlaybackErrorDelegate(resource: .gameClear)
             player.delegate = errorDelegate
-            guard AudioPlayback.play(player, named: "レトロなゲームクリア音") else { return }
+            guard AudioPlayback.play(player, for: .gameClear) else { return }
             clearAudioPlayer = player
             clearAudioErrorDelegate = errorDelegate
         }
         .onDisappear {
+            registrationTask?.cancel()
+            registrationTask = nil
             clearAudioPlayer?.stop()
             clearAudioPlayer = nil
             clearAudioErrorDelegate = nil
@@ -228,41 +252,144 @@ struct ClearView: View {
     @ViewBuilder
     private var nameEntrySection: some View {
         if currentRunTime != nil {
-            HStack(spacing: 8) {
-                TextField("", text: $playerName, prompt: Text("プレイヤー名を入力"))
-                    .font(DungeonTypography.maruMonica(size: 17))
-                    .textFieldStyle(.plain)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($isPlayerNameFocused)
-                    .submitLabel(.done)
-                    .onSubmit { isPlayerNameFocused = false }
-                    .padding(.horizontal, 12)
-                    .frame(height: 42)
-                    .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.35), lineWidth: 1))
+            VStack(spacing: 7) {
+                HStack(spacing: 8) {
+                    TextField("", text: $playerName, prompt: Text("プレイヤー名を入力"))
+                        .font(DungeonTypography.maruMonica(size: 17))
+                        .textFieldStyle(.plain)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($isPlayerNameFocused)
+                        .submitLabel(.done)
+                        .onSubmit { isPlayerNameFocused = false }
+                        .onChangeCompat(of: playerName) { _, _ in
+                            didFailNameUpdate = false
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 42)
+                        .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.35), lineWidth: 1))
+                        .disabled(isRegisteringEntry || (didAttemptRegistration && savedEntryID == nil))
 
-                Button {
-                    let trimmedName = playerName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmedName.isEmpty else { return }
-                    onSaveName(trimmedName)
-                    didSaveEntry = true
-                    isPlayerNameFocused = false
-                } label: {
-                    Text(didSaveEntry ? "登録済み" : "記録")
-                        .font(DungeonTypography.maruMonica(size: 16))
-                        .frame(width: 76, height: 42)
+                    Button(action: beginLeaderboardRegistration) {
+                        HStack(spacing: 5) {
+                            if isRegisteringEntry {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(Color(red: 0.12, green: 0.09, blue: 0.04))
+                                Text("登録中")
+                            } else if didAttemptRegistration, savedEntryID != nil,
+                                      hasPendingNameChange || playerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("更新")
+                            } else if didAttemptRegistration, savedEntryID != nil {
+                                Image(systemName: "checkmark.seal.fill")
+                                Text("登録済み")
+                            } else if didAttemptRegistration {
+                                Image(systemName: "checkmark")
+                                Text("確認済み")
+                            } else {
+                                Text("記録")
+                            }
+                        }
+                        .font(DungeonTypography.maruMonica(size: 15))
+                        .frame(width: 96, height: 42)
                         .foregroundStyle(Color(red: 0.12, green: 0.09, blue: 0.04))
                         .background(Color(red: 0.95, green: 0.74, blue: 0.32), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .disabled(
+                        isRegisteringEntry
+                            || playerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || (didAttemptRegistration && !hasPendingNameChange)
+                    )
+                    .opacity(playerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.65 : 1)
                 }
-                .disabled(didSaveEntry)
+
+                registrationFeedback
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityElement(children: .combine)
             }
             .padding(.top, 16)
+        }
+    }
 
-            Text(didSaveEntry ? "ランキングに記録しました" : "名前を入力してランキングに記録")
-                .font(DungeonTypography.maruMonica(size: 14))
+    @ViewBuilder
+    private var registrationFeedback: some View {
+        if isRegisteringEntry {
+            Text(didAttemptRegistration ? "変更した名前をランキングへ反映しています…" : "名前とクリアタイムをランキングへ登録しています…")
+                .foregroundStyle(Color.white.opacity(0.82))
+                .transition(.opacity)
+        } else if didFailNameUpdate {
+            Label("名前を更新できませんでした。もう一度お試しください", systemImage: "exclamationmark.circle.fill")
+                .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.62))
+                .transition(.move(edge: .top).combined(with: .opacity))
+        } else if didAttemptRegistration, savedEntryID != nil,
+                  playerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text("名前を入力してください")
+                .foregroundStyle(Color.white.opacity(0.82))
+        } else if hasPendingNameChange {
+            Text("名前を直したら「更新」を押してください")
+                .foregroundStyle(Color.white.opacity(0.82))
+                .transition(.opacity)
+        } else if didAttemptRegistration, let rank = savedEntryRank {
+            Label(
+                didUpdateName ? "名前を更新しました！ ランキング \(rank) 位" : "登録完了！ ランキング \(rank) 位",
+                systemImage: "checkmark.seal.fill"
+            )
+                .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                .transition(.move(edge: .top).combined(with: .opacity))
+        } else if didAttemptRegistration {
+            Label("今回のタイムはTOP100圏外でした", systemImage: "info.circle.fill")
+                .foregroundStyle(Color.white.opacity(0.78))
+                .transition(.move(edge: .top).combined(with: .opacity))
+        } else {
+            Text("名前を入力してランキングに記録")
                 .foregroundStyle(.white.opacity(0.75))
-                .padding(.top, 5)
+        }
+    }
+
+    private func beginLeaderboardRegistration() {
+        guard !isRegisteringEntry else { return }
+        let cleanName = String(playerName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(16))
+        guard !cleanName.isEmpty else { return }
+
+        let entryID: UUID?
+        let nameUpdateSucceeded: Bool?
+        if didAttemptRegistration {
+            guard let savedEntryID, hasPendingNameChange else { return }
+            nameUpdateSucceeded = onUpdateName(savedEntryID, cleanName)
+            entryID = savedEntryID
+        } else {
+            // 保存を先に完了し、画面を離れて演出Taskがキャンセルされても記録を失わない。
+            entryID = onSaveName(cleanName)
+            nameUpdateSucceeded = nil
+        }
+
+        SoundEffectManager.shared.playButtonTap()
+        isPlayerNameFocused = false
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+            isRegisteringEntry = true
+        }
+        registrationTask?.cancel()
+        registrationTask = Task { @MainActor in
+            if !reduceMotion {
+                try? await Task.sleep(nanoseconds: 550_000_000)
+            }
+            guard !Task.isCancelled else {
+                registrationTask = nil
+                return
+            }
+
+            savedEntryID = entryID
+            playerName = cleanName
+            if let nameUpdateSucceeded {
+                didUpdateName = nameUpdateSucceeded
+                didFailNameUpdate = !nameUpdateSucceeded
+            }
+            withAnimation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.72)) {
+                isRegisteringEntry = false
+                didAttemptRegistration = true
+            }
+            registrationTask = nil
         }
     }
 
@@ -270,10 +397,13 @@ struct ClearView: View {
     private var leaderboardPanel: some View {
         if currentRunTime != nil {
             VStack(spacing: 6) {
-                Text("\(leaderboardTitle)  TOP 100")
-                    .font(DungeonTypography.maruMonica(size: 16))
-                    .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(alignment: .center) {
+                    Text("\(leaderboardTitle)  TOP 100")
+                        .font(DungeonTypography.maruMonica(size: 16))
+                        .foregroundStyle(Color(red: 1.0, green: 0.84, blue: 0.45))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                }
 
                 if leaderboardEntries.isEmpty {
                     Text("記録はまだありません")
@@ -281,15 +411,31 @@ struct ClearView: View {
                         .foregroundStyle(.white.opacity(0.65))
                         .frame(maxWidth: .infinity, minHeight: 56)
                 } else {
-                    ScrollView(.vertical) {
-                        LazyVStack(spacing: 4) {
-                            ForEach(Array(leaderboardEntries.prefix(100).enumerated()), id: \.element.id) { index, entry in
-                                LeaderboardRowView(rank: index + 1, entry: entry)
+                    ScrollViewReader { proxy in
+                        ScrollView(.vertical) {
+                            LazyVStack(spacing: 4) {
+                                ForEach(Array(leaderboardEntries.prefix(100).enumerated()), id: \.element.id) { index, entry in
+                                    LeaderboardRowView(
+                                        rank: index + 1,
+                                        entry: entry,
+                                        isHighlighted: entry.id == savedEntryID
+                                    )
+                                    .id(entry.id)
+                                    .transition(.move(edge: .top).combined(with: .opacity))
+                                }
+                            }
+                            .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.78), value: leaderboardEntries.map(\.id))
+                        }
+                        .frame(height: 150)
+                        .scrollIndicators(.visible)
+                        .onChangeCompat(of: leaderboardEntries.map(\.id)) { _, _ in
+                            guard let savedEntryID,
+                                  leaderboardEntries.contains(where: { $0.id == savedEntryID }) else { return }
+                            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.45)) {
+                                proxy.scrollTo(savedEntryID, anchor: .center)
                             }
                         }
                     }
-                    .frame(height: 150)
-                    .scrollIndicators(.visible)
                 }
             }
             .padding(10)
@@ -364,6 +510,7 @@ struct ClearView: View {
 private struct LeaderboardRowView: View {
     let rank: Int
     let entry: LeaderboardEntry
+    let isHighlighted: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -382,9 +529,20 @@ private struct LeaderboardRowView: View {
         }
         .font(DungeonTypography.maruMonica(size: 14))
         .foregroundStyle(.white.opacity(0.92))
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .padding(.horizontal, 8)
-        .background(rank.isMultiple(of: 2) ? Color.white.opacity(0.055) : .clear)
+        .background {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(isHighlighted
+                    ? Color(red: 0.95, green: 0.74, blue: 0.32).opacity(0.28)
+                    : (rank.isMultiple(of: 2) ? Color.white.opacity(0.055) : .clear))
+        }
+        .overlay {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 7)
+                    .stroke(Color(red: 1.0, green: 0.84, blue: 0.45).opacity(0.9), lineWidth: 1.5)
+            }
+        }
     }
 }
 

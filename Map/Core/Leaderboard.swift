@@ -1,7 +1,7 @@
 import Foundation
 
 /// 端末内ランキングを試練とランダムで分けて保存する。
-enum LeaderboardMode: String, Codable {
+enum LeaderboardMode: String, Codable, Hashable {
     case trial
     case random
 
@@ -15,7 +15,7 @@ enum LeaderboardMode: String, Codable {
 
 struct LeaderboardEntry: Codable, Identifiable {
     let id: UUID
-    let playerName: String
+    var playerName: String
     let clearTime: TimeInterval
     let recordedAt: Date
     let seed: UInt64?
@@ -47,6 +47,17 @@ enum LocalLeaderboard {
             UserDefaults.standard.set(data, forKey: storageKey(for: mode))
         }
         return entries
+    }
+
+    /// 既存のランキング記録の名前だけを変更する。
+    @discardableResult
+    static func updateName(for entryID: UUID, to playerName: String, in mode: LeaderboardMode) -> Bool {
+        var entries = load(mode)
+        guard let index = entries.firstIndex(where: { $0.id == entryID }) else { return false }
+        entries[index].playerName = playerName
+        guard let data = try? JSONEncoder().encode(entries) else { return false }
+        UserDefaults.standard.set(data, forKey: storageKey(for: mode))
+        return true
     }
 
     private static func sorted(_ entries: [LeaderboardEntry]) -> [LeaderboardEntry] {
