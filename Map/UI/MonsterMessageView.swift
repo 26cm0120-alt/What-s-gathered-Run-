@@ -193,6 +193,7 @@ struct MonsterMessageView: View {
             guard let oldHP, let newHP else {
                 enemyHPDecreaseTask?.cancel()
                 enemyHPBeforeDecrease = nil
+                enemyHPResidualProgress = 0
                 return
             }
             updateHPDecreaseDisplay(oldHP: oldHP, newHP: newHP, isPlayer: false)
