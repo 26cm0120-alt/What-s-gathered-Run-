@@ -6,6 +6,7 @@ struct EnemyBattleView: View {
     let playerHP: Int
     let playerAttackAnimationID: Int
     let counterAttackAnimationID: Int
+    let defeatRecoilAnimationID: Int
 
     @State private var isBreathing = false
     @State private var isCountering = false
@@ -89,6 +90,9 @@ struct EnemyBattleView: View {
         .onChangeCompat(of: counterAttackAnimationID) { _, _ in
             playCounterReaction()
         }
+        .onChangeCompat(of: defeatRecoilAnimationID) { _, _ in
+            playDefeatRecoil()
+        }
         .onDisappear {
             hitTask?.cancel()
             counterTask?.cancel()
@@ -143,6 +147,18 @@ struct EnemyBattleView: View {
             enemyHitTilt = 0
         }
         try? await Task.sleep(nanoseconds: 120_000_000)
+    }
+
+    /// 撃破確定前に、赤い被弾表現を伴う最後ののけぞりを再生する。
+    private func playDefeatRecoil() {
+        hitTask?.cancel()
+        hitTask = Task { @MainActor in
+            isHit = true
+            await playImpactMotion(recoil: 24)
+            guard !Task.isCancelled else { return }
+            isHit = false
+            hitTask = nil
+        }
     }
 
     private func playCounterReaction() {
