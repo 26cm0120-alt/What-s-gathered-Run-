@@ -139,24 +139,31 @@ struct ShiritoriGameView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // 小型端末では上下のキャラクターと余白を抑え、5×5のカード盤面と
-            // PLAYER情報まで画面内に収める。
-            let isCompactHeight = geometry.size.height < 700
-            let verticalSpacing: CGFloat = isCompactHeight ? 4 : 6
-            let verticalPadding: CGFloat = isCompactHeight ? 4 : 8
-            let hintRowHeight: CGFloat = isCompactHeight ? 28 : 30
-            let characterSize = min(geometry.size.width * 0.24, geometry.size.height * 0.115)
-            let cpuCharacterSize = min(geometry.size.width * 0.30, geometry.size.height * 0.155)
-            let reservedHeight = cpuCharacterSize
+            // 端末の縦幅に合わせて上下の余白とヒント行を詰め、5×5盤面の最大幅を優先する。
+            let isCompactHeight = geometry.size.height < 760
+            let isVeryCompactHeight = geometry.size.height < 700
+            let verticalSpacing: CGFloat = isVeryCompactHeight ? 1 : (isCompactHeight ? 4 : 6)
+            let verticalPadding: CGFloat = isVeryCompactHeight ? 0 : (isCompactHeight ? 4 : 8)
+            let hintRowHeight: CGFloat = isVeryCompactHeight ? 14 : (isCompactHeight ? 16 : 20)
+            let messageWindowHeight: CGFloat = 72
+            let boardSize = max(0, geometry.size.width - 16)
+            let preferredCPUCharacterSize = min(geometry.size.width * 0.36, geometry.size.height * 0.19)
+            let preferredPlayerCharacterSize = min(geometry.size.width * 0.30, geometry.size.height * 0.15)
+            let nonCharacterHeight = boardSize
                 + hintRowHeight * 2
-                + 72 // メッセージ枠
-                + characterSize
+                + messageWindowHeight
                 + verticalSpacing * 5
                 + verticalPadding * 2
-            let boardSize = min(
-                max(0, geometry.size.width - 16),
-                max(0, geometry.size.height - reservedHeight)
-            )
+            let availableCharacterHeight = max(0, geometry.size.height - nonCharacterHeight)
+            let preferredCharacterHeight = preferredCPUCharacterSize + preferredPlayerCharacterSize
+            let characterLayoutScale = preferredCharacterHeight > 0
+                ? min(1, availableCharacterHeight / preferredCharacterHeight)
+                : 1
+            let characterDisplayScale = characterLayoutScale > 0
+                ? min(1.12, 1 / characterLayoutScale)
+                : 1
+            let cpuCharacterSize = preferredCPUCharacterSize * characterLayoutScale
+            let characterSize = preferredPlayerCharacterSize * characterLayoutScale
 
             TimelineView(.periodic(from: Date(), by: 0.05)) { timeline in
                 let now = timeline.date
@@ -179,6 +186,7 @@ struct ShiritoriGameView: View {
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: cpuCharacterSize, height: cpuCharacterSize)
+                                .scaleEffect(characterDisplayScale)
                                 // CPU2の元画像は画面端で見切れやすいため、試練ステージだけ表示を90%に縮小する。
                                 .scaleEffect(isTrialStage ? 0.9 : 1.0)
 
@@ -199,7 +207,7 @@ struct ShiritoriGameView: View {
                         }
                         .frame(height: cpuCharacterSize)
 
-                        // ヒントはメッセージ枠へ重ねず、専用の高さを確保して表示する。
+                        // CPU向けヒントは1行分の高さで表示し、メッセージ枠へ重ねない。
                         HintLineView(text: bossHintMessages[upperHintIndex])
                             .frame(height: hintRowHeight)
 
@@ -245,7 +253,7 @@ struct ShiritoriGameView: View {
                         .frame(width: boardSize, height: boardSize)
                         .frame(maxWidth: .infinity)
 
-                        // PLAYER向けヒントも専用行に分け、情報表示と重ならないようにする。
+                        // PLAYER向けヒントも1行分の高さで表示し、情報表示と重ならないようにする。
                         HintLineView(text: systemHintMessages[lowerHintIndex])
                             .frame(height: hintRowHeight)
 
@@ -269,6 +277,7 @@ struct ShiritoriGameView: View {
                                 .scaledToFit()
                                 .scaleEffect(x: -1, y: 1)
                                 .frame(width: characterSize, height: characterSize)
+                                .scaleEffect(characterDisplayScale)
                         }
                         .frame(height: characterSize)
                     }
@@ -732,22 +741,27 @@ struct ShiritoriGameView: View {
     ShiritoriGameView(onGameFinished: { _ in })
 }
 
-// ヒントは意味のまとまりで折り返し、短い表示時間でも全文を読み取れるようにする。
+// ヒントは常に1行で表示し、長い文は端末幅に合わせて文字を縮小する。
 private struct HintLineView: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(DungeonTypography.maruMonica(size: 11))
-            .foregroundStyle(.white)
-            .lineLimit(2)
-            .lineSpacing(1)
-            .multilineTextAlignment(.center)
-            .minimumScaleFactor(0.82)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 4)
-            .background(Color.black)
-            .accessibilityLabel(text)
+        GeometryReader { geometry in
+            let availableWidth = max(1, geometry.size.width - 8)
+            let characterCount = CGFloat(max(1, text.count))
+            let fontSize = min(11, max(7, availableWidth / characterCount))
+
+            Text(text)
+                .font(DungeonTypography.maruMonica(size: fontSize))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .minimumScaleFactor(0.65)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 4)
+                .background(Color.black)
+                .accessibilityLabel(text)
+        }
     }
 }
