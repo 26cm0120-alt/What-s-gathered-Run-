@@ -32,31 +32,34 @@ struct ContentView: View {
                         timerStartedAt: flow.timerStartedAt,
                         onGiveUp: flow.returnToStart
                     )
-                        .overlay {
-                            if flow.screen == .cleared {
-                                ClearView(
-                                    currentRunTime: flow.currentRunTime,
-                                    bestClearTime: flow.bestClearTime,
-                                    nextStageTitle: flow.nextStageTitle,
-                                    leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
-                                    leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
-                                    leaderboardEntries: flow.leaderboardEntries,
-                                    onSaveName: flow.saveLeaderboardEntry,
-                                    onUpdateName: flow.updateLeaderboardEntryName,
-                                    onNextStage: flow.startNextStage,
-                                    onReplay: flow.supportsReplayAndTiming
-                                        ? { flow.replayCurrentStage() }
-                                        : nil,
-                                    onReturn: flow.returnToStart
-                                )
-                            } else if flow.screen == .gameOver {
-                                GameOverView(
-                                    onReturn: flow.returnToStart,
-                                    reasonMessage: flow.gameOverReasonMessage,
-                                    detailMessage: flow.gameOverDetailMessage
-                                )
-                            }
+                    // GameManagerが切り替わったらPlayViewも作り直し、
+                    // 前ステージの演出Stateや監視状態を引き継がない。
+                    .id(ObjectIdentifier(game))
+                    .overlay {
+                        if flow.screen == .cleared {
+                            ClearView(
+                                currentRunTime: flow.currentRunTime,
+                                bestClearTime: flow.bestClearTime,
+                                nextStageTitle: flow.nextStageTitle,
+                                leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
+                                leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
+                                leaderboardEntries: flow.leaderboardEntries,
+                                onSaveName: flow.saveLeaderboardEntry,
+                                onUpdateName: flow.updateLeaderboardEntryName,
+                                onNextStage: flow.startNextStage,
+                                onReplay: flow.supportsReplayAndTiming
+                                    ? { flow.replayCurrentStage() }
+                                    : nil,
+                                onReturn: flow.returnToStart
+                            )
+                        } else if flow.screen == .gameOver {
+                            GameOverView(
+                                onReturn: flow.returnToStart,
+                                reasonMessage: flow.gameOverReasonMessage,
+                                detailMessage: flow.gameOverDetailMessage
+                            )
                         }
+                    }
                 }
 
             case .shiritoriPrologue:
