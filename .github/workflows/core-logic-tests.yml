@@ -1,4 +1,4 @@
-name: Core Logic Tests
+name: Core Logic Tests and iOS Build
 
 on:
   pull_request:
@@ -7,15 +7,48 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# macos-latestの切替に影響されないよう、ランナーとXcodeを明示する。
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
 jobs:
   core-logic-tests:
-    runs-on: macos-latest
+    runs-on: macos-15
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Show Swift version
-        run: swift --version
+      - name: Show toolchain versions
+        run: |
+          xcodebuild -version
+          xcrun swift --version
 
-      - name: Run timing, maze, and leaderboard tests
-        run: Tests/run_core_logic_tests.sh
+      - name: Run generation, selection, state, and leaderboard tests
+        run: sh Tests/run_core_logic_tests.sh
+
+  ios-build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build iOS Simulator app with iOS 16 deployment target
+        env:
+          BUILD_OUTPUT_DIR: ${{ runner.temp }}/wagyaran-ios-build
+        run: sh Tests/build_ios_simulator.sh
+
+      - name: Upload build failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-diagnostics
+          path: |
+            ${{ runner.temp }}/wagyaran-ios-build/run-*/build.log
+            ${{ runner.temp }}/wagyaran-ios-build/run-*/*.xcresult
+          retention-days: 7
+          if-no-files-found: ignore

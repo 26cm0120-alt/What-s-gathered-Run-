@@ -30,6 +30,14 @@ private func normalizedTrapRates(
         ]
     }
     
+    return normalizedTrapRates(in: group, rates: groupRates)
+}
+
+/// 発生率の検証・補正を独立させ、設定変更時の境界条件も検証できるようにする。
+func normalizedTrapRates(
+    in group: TrapGroup,
+    rates groupRates: [(kind: TrapKind, rate: Int)]
+) -> [(kind: TrapKind, rate: Int)]? {
     // 発生率の未入力確認
     let groupTraps = TrapKind.allCases.filter { $0.group == group }
     guard groupRates.count == groupTraps.count,

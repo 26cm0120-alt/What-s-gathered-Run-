@@ -5,13 +5,16 @@ struct CoreLogicTests {
     private static var assertionCount = 0
 
     @MainActor
-    static func main() throws {
+    static func main() async throws {
         if CommandLine.arguments.contains("--determinism-probe") {
             for seed in 0..<256 {
                 print(mapSignature(RandomMazeGenerator.generate(seed: UInt64(seed))))
             }
             return
         }
+
+        try testTrapSelection()
+        print("PASS: 罠抽選の境界値・除外・発生率補正")
 
         try testStageTimingPolicy()
         print("PASS: 初回タイム計測ポリシー")
@@ -28,7 +31,74 @@ struct CoreLogicTests {
         try testLeaderboardNameUpdate()
         print("PASS: 名前更新時の記録情報維持")
 
+        assertionCount += try await GameManagerTests.run()
+
         print("完了: \(assertionCount) assertions")
+    }
+
+    private static func testTrapSelection() throws {
+        let groups: [(TrapGroup, [(Int, TrapKind)])] = [
+            (.a, [(1, .turnRight), (30, .turnRight), (31, .doubleFlick), (60, .doubleFlick), (61, .hpDrain), (100, .hpDrain)]),
+            (.b, [(1, .warpToStart), (30, .warpToStart), (31, .randomWarp), (60, .randomWarp), (61, .warpBeforeKey), (100, .warpBeforeKey)]),
+            (.c, [(1, .forceGameOver), (10, .forceGameOver), (11, .unexploded), (100, .unexploded)])
+        ]
+        for (group, cases) in groups {
+            for (roll, expected) in cases {
+                var upper = 0
+                let actual = selectTrap(in: group, excluding: [], drawRoll: { upper = $0; return roll })
+                try expect(upper == 100 && actual == expected, "抽選境界 \(group): \(roll)")
+            }
+            for roll in [0, 101] {
+                try expect(selectTrap(in: group, excluding: [], drawRoll: { _ in roll }) == nil, "範囲外ロールを拒否")
+            }
+            var drew = false
+            let none = selectTrap(in: group, excluding: Set(TrapKind.allCases), drawRoll: { _ in drew = true; return 1 })
+            try expect(none == nil && !drew, "全除外時は乱数を呼ばない")
+        }
+        for (roll, expected) in [(1, TrapKind.doubleFlick), (30, .doubleFlick), (31, .hpDrain), (70, .hpDrain)] {
+            var upper = 0
+            let actual = selectTrap(in: .a, excluding: [.turnRight, .randomWarp], drawRoll: { upper = $0; return roll })
+            try expect(upper == 70 && actual == expected, "除外後の境界 \(roll)、他グループの除外は無影響")
+        }
+        let kinds: [TrapKind] = [.turnRight, .doubleFlick, .hpDrain]
+        for (input, expected) in [([30,30,40], [30,30,40]), ([20,20,30], [20,20,60]), ([40,40,40], [20,40,40]), ([0,0,0], [100,0,0])] {
+            let result = normalizedTrapRates(in: .a, rates: Array(zip(kinds, input)))
+            try expect(result?.map(\.rate) == expected, "発生率補正 \(input)、同率時は先頭を補正")
+        }
+        for rates: [(kind: TrapKind, rate: Int)] in [
+            [(.turnRight, 100)],
+            [(.turnRight, 30), (.turnRight, 30), (.hpDrain, 40)],
+            [(.turnRight, 30), (.randomWarp, 30), (.hpDrain, 40)],
+            [(.turnRight, -1), (.doubleFlick, 61), (.hpDrain, 40)],
+            [(.turnRight, 101), (.doubleFlick, 0), (.hpDrain, 0)],
+            [(.turnRight, 100), (.doubleFlick, 100), (.hpDrain, 100)]
+        ] {
+            try expect(normalizedTrapRates(in: .a, rates: rates) == nil, "不正設定・補正不能を拒否")
+        }
+    }
+
+    // 同距離の経路は北・東・南・西の順で選ぶという現在の生成規約を検証する。
+    private static func shortestTestPath(from start: GridPos, to goal: GridPos, in map: MapData) -> [GridPos] {
+        var queue = [start]
+        var visited: Set<GridPos> = [start]
+        var parent: [GridPos: GridPos] = [:]
+        var index = 0
+        while index < queue.count {
+            let current = queue[index]
+            index += 1
+            if current == goal { break }
+            for direction in [Direction.north, .east, .south, .west] {
+                let next = current.moved(direction)
+                if !map.cell(at: next).isWall && visited.insert(next).inserted {
+                    parent[next] = current
+                    queue.append(next)
+                }
+            }
+        }
+        guard visited.contains(goal) else { return [] }
+        var path = [goal]
+        while let previous = parent[path.last!] { path.append(previous) }
+        return path.reversed()
     }
 
     private static func testStageTimingPolicy() throws {
@@ -94,6 +164,14 @@ struct CoreLogicTests {
             try expect(reachable == walkable, "seed \(seed): 通路が全て連結")
             try expect(map.trapKinds.keys.allSatisfy { reachable.contains($0) }, "seed \(seed): trap に到達可能")
 
+            let goal = try unwrap(walkable.first { map.cell(at: $0) == .goal }, "ゴールが存在")
+            let path = shortestTestPath(from: map.startPosition, to: goal, in: map)
+            let events = path.map { map.cell(at: $0) }.filter { $0 != .floor }
+            try expect(events == [.start, .sword, .enemy, .key, .enemy, .goal], "seed \(seed): S→剣→敵→鍵→敵→G、選択経路に罠なし")
+            try expect(Set(path).isDisjoint(with: map.trapKinds.keys), "seed \(seed): 罠は選択された最短経路外")
+            if let firstEnemy = path.first(where: { map.cell(at: $0) == .enemy }) {
+                try expect(map.enemyKinds[firstEnemy] == .gargoyle, "seed \(seed): 剣の後の敵はガーゴイル")
+            }
             let repeated = RandomMazeGenerator.generate(seed: UInt64(seed))
             try expect(mapSignature(map) == mapSignature(repeated), "seed \(seed): 同じseedで同じマップ")
         }

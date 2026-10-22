@@ -36,13 +36,21 @@
 
 ## コアロジックの自動テスト
 
-macOSのSwift 6.2以降で、初回タイム方針・迷宮生成・ランキングを次のコマンドで検証できます。
+macOSのSwift 6.2以降で、初回タイム方針・迷宮生成・罠の抽選・毒と遅行・取得ロック・ランキングを次のコマンドで検証できます。
 
 ```sh
 Tests/run_core_logic_tests.sh
 ```
 
-同じテストをGitHub ActionsでもPull Requestと`main`へのpush時に実行します。
+GitHub ActionsではPull Requestと`main`へのpush時に、テストとアプリのReleaseビルドを別ジョブで実行します。ランナーは`macos-15`、Xcodeは26.3を指定しています。
+
+アプリのビルドは次のコマンドでも確認できます（Xcodeのインストールが必要です）。
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer sh Tests/build_ios_simulator.sh
+```
+
+最小対象をiOS 16.0に設定してgeneric iOS Simulator向けにビルドします。iOS 16実機・Simulatorでの動作確認を代替するものではありません。ビルドログとresult bundleの保存先は実行時に表示され、CI失敗時には診断用artifactとして7日間保存されます。
 
 ## 文書案内
 
@@ -60,5 +68,7 @@ Tests/run_core_logic_tests.sh
 
 ## 現在の確認状況
 
-- 2026-10-21: Swift 6.2.4で7,024 assertionsが通過し、別プロセス間で256 seedの生成結果が一致することを確認しました。
-- この変更ではXcodeビルド、Simulator・実機確認は行っていません。最新の確認範囲は[進捗記録](docs/06_進捗記録.md)を参照してください。
+- テスト拡充後、Swift 6.2.4で8,650 assertionsが通過し、別プロセス間で256 seedの生成結果が一致しました。うち87 assertionsは実際のGameManagerを使った毒・遅行・壁・取得ロックの検証です（音声出力のみスタブ）。
+- Xcode 26.3（17C529）で、追加したビルドスクリプトによるRelease / generic iOS Simulator向けビルドに成功しました。最小対象はiOS 16.0です。
+- 2026-10-22確認：基準コミット`4788010`の既存CIは[push起点の実行で成功](https://github.com/26cm0130-tech/DungeonShiritoriIntegrated/actions/runs/39589400930)しています。今回拡充したテスト・ビルドジョブはローカル検証済みです。GitHub上の最新結果は[Actions](https://github.com/26cm0130-tech/DungeonShiritoriIntegrated/actions)で確認できます。
+- 今回はSimulatorの操作・実機確認を行っていません。以前の音声確認を含む詳細は[進捗記録](docs/06_進捗記録.md)を参照してください。

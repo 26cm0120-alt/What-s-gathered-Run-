@@ -6,7 +6,7 @@ BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 TEST_BINARY="$BUILD_DIR/wagyaran-core-tests"
 
-swiftc \
+xcrun swiftc \
   -parse-as-library \
   -swift-version 5 \
   -default-isolation MainActor \
@@ -23,6 +23,14 @@ swiftc \
   "$REPO_ROOT/Map/Stage/RandomMazeGenerator.swift" \
   "$REPO_ROOT/Map/Stage/Stages.swift" \
   "$REPO_ROOT/Tests/Support/AudioResourceStub.swift" \
+  "$REPO_ROOT/Map/Core/GameManager.swift" \
+  "$REPO_ROOT/Map/Core/GameState.swift" \
+  "$REPO_ROOT/Map/Core/Player.swift" \
+  "$REPO_ROOT/Map/Events/TileEvent.swift" \
+  "$REPO_ROOT/Map/Events/Trap.swift" \
+  "$REPO_ROOT/Map/Events/Key.swift" \
+  "$REPO_ROOT/Map/Events/Enemy.swift" \
+  "$REPO_ROOT/Tests/GameManagerTests.swift" \
   "$REPO_ROOT/Tests/CoreLogicTests.swift"
 
 FIRST_SIGNATURE=$("$TEST_BINARY" --determinism-probe | shasum -a 256)
