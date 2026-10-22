@@ -254,9 +254,17 @@ struct ClearView: View {
         if currentRunTime != nil {
             VStack(spacing: 7) {
                 HStack(spacing: 8) {
-                    TextField("", text: $playerName, prompt: Text("プレイヤー名を入力"))
+                    TextField(
+                        "",
+                        text: $playerName,
+                        prompt: Text("プレイヤー名を入力")
+                            .foregroundStyle(Color.white.opacity(0.55))
+                    )
                         .font(DungeonTypography.maruMonica(size: 17))
+                        .foregroundStyle(.white)
+                        .tint(Color(red: 1.0, green: 0.84, blue: 0.45))
                         .textFieldStyle(.plain)
+                        .keyboardType(.default)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .focused($isPlayerNameFocused)
