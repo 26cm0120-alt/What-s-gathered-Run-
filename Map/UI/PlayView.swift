@@ -7,6 +7,9 @@ struct PlayView: View {
     /// 現在のプレイ(AppFlow が作って渡す)
     @ObservedObject var game: GameManager
 
+    /// 画面遷移中・結果表示中は移動入力を受け付けない。
+    let isInputEnabled: Bool
+
     /// 計時対象の面で計測中なら単調増加時計の開始時刻
     let timerStartedAt: TimeInterval?
 
@@ -32,6 +35,7 @@ struct PlayView: View {
     @State private var monsterReactionID = 0
     @State private var dungeonShakeOffset: CGFloat = 0
     @State private var collisionFlashOpacity = 0.0
+    @State private var wallCollisionAnimationTask: Task<Void, Never>?
     @State private var isShowingEventCutIn = false
     @State private var eventCutInTitle = ""
     @State private var eventCutInMessage = ""
@@ -106,7 +110,7 @@ struct PlayView: View {
     private var movementFlickGesture: some Gesture {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
-                guard !isMapPinchGestureActive, !isMapExpanded else { return }
+                guard isInputEnabled, !isMapPinchGestureActive, !isMapExpanded else { return }
                 if let direction = MovementFlickDirection.classify(
                     horizontal: value.translation.width,
                     vertical: value.translation.height,
@@ -116,7 +120,8 @@ struct PlayView: View {
                 }
             }
             .onEnded { value in
-                guard !isAcquisitionAnimationActive,
+                guard isInputEnabled,
+                      !isAcquisitionAnimationActive,
                       !isMapPinchGestureActive,
                       !isMapExpanded else { return }
                 let horizontal = value.translation.width
@@ -339,7 +344,7 @@ struct PlayView: View {
                 onFlickEnded: { finishFlick(in: $0) },
                 onGiveUp: { isConfirmingGiveUp = true },   // まず確認を表示する
                 isBattling: game.state.enemyBattle != nil,
-                isMovementDisabled: isAcquisitionAnimationActive || game.isInputLocked || game.state.isGameOver,
+                isMovementDisabled: !isInputEnabled || isAcquisitionAnimationActive || game.isInputLocked || game.state.isGameOver,
                 isBattleActionDisabled: isBattleActionLocked || game.state.isGameOver,
                 onBattleAttack: performBattleAttack,
                 onBattleFlee: performBattleFlee,
@@ -463,6 +468,10 @@ struct PlayView: View {
         .onDisappear {
             battleActionTask?.cancel()
             battleScreenFlashTask?.cancel()
+            wallCollisionAnimationTask?.cancel()
+            wallCollisionAnimationTask = nil
+            dungeonShakeOffset = 0
+            collisionFlashOpacity = 0
             dropPickupTask?.cancel()
             itemPickupUnlockTask?.cancel()
             itemPickupUnlockTask = nil
@@ -659,14 +668,22 @@ struct PlayView: View {
     }
 
     private func playWallCollisionAnimation() {
-        Task { @MainActor in
+        wallCollisionAnimationTask?.cancel()
+        wallCollisionAnimationTask = Task { @MainActor in
             showEventCutIn(title: "WALL IMPACT", message: "痛い・・・", style: .wall)
             withAnimation(.easeOut(duration: 0.07)) { collisionFlashOpacity = 0.24 }
             for offset in [CGFloat(-8), 7, -4, 0] {
+                guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.05)) { dungeonShakeOffset = offset }
-                try? await Task.sleep(nanoseconds: 55_000_000)
+                do {
+                    try await Task.sleep(nanoseconds: 55_000_000)
+                } catch {
+                    return
+                }
             }
+            guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: 0.18)) { collisionFlashOpacity = 0 }
+            wallCollisionAnimationTask = nil
         }
     }
 
