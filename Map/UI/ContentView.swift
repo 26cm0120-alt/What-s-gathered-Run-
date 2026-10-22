@@ -28,6 +28,7 @@ struct ContentView: View {
                 if let game = flow.game {
                     PlayView(
                         game: game,
+                        isInputEnabled: flow.screen == .playing,
                         timerStartedAt: flow.timerStartedAt,
                         onGiveUp: flow.returnToStart
                     )
