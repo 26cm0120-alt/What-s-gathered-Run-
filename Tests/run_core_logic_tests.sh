@@ -10,6 +10,7 @@ xcrun swiftc \
   -parse-as-library \
   -swift-version 5 \
   -default-isolation MainActor \
+  -D DEBUG \
   -o "$TEST_BINARY" \
   "$REPO_ROOT/Map/Core/Direction.swift" \
   "$REPO_ROOT/Map/Core/GridPos.swift" \
@@ -30,6 +31,23 @@ xcrun swiftc \
   "$REPO_ROOT/Map/Events/Trap.swift" \
   "$REPO_ROOT/Map/Events/Key.swift" \
   "$REPO_ROOT/Map/Events/Enemy.swift" \
+  "$REPO_ROOT/Map/Shiritori/Models/Card.swift" \
+  "$REPO_ROOT/Map/Shiritori/Models/Vocabulary.swift" \
+  "$REPO_ROOT/Map/Shiritori/Models/WordType.swift" \
+  "$REPO_ROOT/Map/Shiritori/Game/Turn.swift" \
+  "$REPO_ROOT/Map/Shiritori/Game/ShiritoriGameState.swift" \
+  "$REPO_ROOT/Map/Shiritori/Game/GameResult.swift" \
+  "$REPO_ROOT/Map/Shiritori/Game/ShiritoriGameManager.swift" \
+  "$REPO_ROOT/Map/Shiritori/Logic/KanaNormalizer.swift" \
+  "$REPO_ROOT/Map/Shiritori/Logic/VocabularySelector.swift" \
+  "$REPO_ROOT/Map/Shiritori/Logic/CPUSelector.swift" \
+  "$REPO_ROOT/Map/Shiritori/Logic/CPUScanState.swift" \
+  "$REPO_ROOT/Map/Shiritori/Logic/MessageSelector.swift" \
+  "$REPO_ROOT/Map/Shiritori/Data/CardData.swift" \
+  "$REPO_ROOT/Map/Shiritori/Data/CardData2.swift" \
+  "$REPO_ROOT/Tests/Support/SoundEffectManagerStub.swift" \
+  "$REPO_ROOT/Tests/ShiritoriLogicTests.swift" \
+  "$REPO_ROOT/Tests/ShiritoriGameManagerTests.swift" \
   "$REPO_ROOT/Tests/GameManagerTests.swift" \
   "$REPO_ROOT/Tests/CoreLogicTests.swift"
 

@@ -31,6 +31,8 @@ struct CoreLogicTests {
         try testLeaderboardNameUpdate()
         print("PASS: 名前更新時の記録情報維持")
 
+        assertionCount += try ShiritoriLogicTests.run()
+        assertionCount += try ShiritoriGameManagerTests.run()
         assertionCount += try await GameManagerTests.run()
 
         print("完了: \(assertionCount) assertions")

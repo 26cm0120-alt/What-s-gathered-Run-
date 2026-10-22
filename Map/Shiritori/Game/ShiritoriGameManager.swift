@@ -1038,4 +1038,35 @@ final class ShiritoriGameManager {
         cpuScanRound = 0
         gameState = .gameOver
     }
+
+#if DEBUG
+    // MARK: - テスト専用の入口
+    // CPUのスキャン演出はタイマーで進むため、ロジックの検証ではここから状態を直接指定する。
+    // Releaseビルドには含めない。
+
+    /// 進行状態・ターン・要求文字を直接設定し、動作中のタイマーを止める。
+    func prepareStateForTesting(
+        gameState: ShiritoriGameState,
+        turn: Turn,
+        currentPrompt: Character?
+    ) {
+        stopPlayerTimer()
+        stopCPUReaction()
+        stopCPUScan()
+        self.gameState = gameState
+        self.turn = turn
+        self.currentPrompt = currentPrompt
+    }
+
+    /// 2周のスキャンを待たず、CPU対象の決定から取得（または選べるカードなしの勝利）までを実行する。
+    /// 分岐はadvanceCPUScanの終了処理と同じ。
+    func runCPUTurnWithoutScanForTesting() {
+        prepareCPUTarget()
+        guard cpuTargetCardID != nil, cpuTargetVocabulary != nil else {
+            finishNoCPUTargetVictory()
+            return
+        }
+        acquireCPUCard()
+    }
+#endif
 }
