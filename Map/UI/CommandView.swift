@@ -144,7 +144,6 @@ struct CommandView: View {
         .gesture(
             DragGesture(minimumDistance: 10)
                 .onChanged { value in
-                    guard !isMovementDisabled else { return }
                     if let direction = MovementFlickDirection.classify(
                         horizontal: value.translation.width,
                         vertical: value.translation.height,
@@ -154,8 +153,7 @@ struct CommandView: View {
                     }
                 }
                 .onEnded { value in
-                    guard !isMovementDisabled,
-                          let direction = MovementFlickDirection.classify(
+                    guard let direction = MovementFlickDirection.classify(
                         horizontal: value.translation.width,
                         vertical: value.translation.height,
                         threshold: 16
