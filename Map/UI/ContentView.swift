@@ -32,6 +32,8 @@ struct ContentView: View {
                         timerStartedAt: flow.timerStartedAt,
                         onGiveUp: flow.returnToStart
                     )
+                        // GameManagerが切り替わったらPlayViewも作り直し、前ステージの演出状態を引き継がない。
+                        .id(ObjectIdentifier(game))
                         .overlay {
                             if flow.screen == .cleared {
                                 ClearView(
