@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7F560A0C306A388200A76BAC /* Map.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = Map.app; path = "ワギャラン.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7F560A0C306A388200A76BAC /* ワギャラン.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ワギャラン.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		7F560A0D306A388200A76BAC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7F560A0C306A388200A76BAC /* Map.app */,
+				7F560A0C306A388200A76BAC /* ワギャラン.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -67,7 +67,7 @@
 			packageProductDependencies = (
 			);
 			productName = "ワギャラン";
-			productReference = 7F560A0C306A388200A76BAC /* Map.app */;
+			productReference = 7F560A0C306A388200A76BAC /* ワギャラン.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

@@ -6,6 +6,7 @@ enum GameManagerTests {
     private static var count = 0
 
     static func run() async throws -> Int {
+        try testTrapDiscovery()
         try testPoison()
         try testSlow()
         try await testWallDuringTraps()
@@ -35,6 +36,20 @@ enum GameManagerTests {
         let stage = Stage(title: "テスト", map: map, requiresKey: false, isStepByStepTutorial: false,
                           seed: nil, shiritoriStageKind: .standard, dungeonTheme: nil, requiresSwordForKey: false)
         return GameManager(stage: stage, wallCollisionDamageEnabled: false)
+    }
+
+    private static func testTrapDiscovery() throws {
+        // 全種類で、進入するまで未発見。ワープしても発動元の位置を記録する。
+        for symbol in "TFHURPDN" {
+            let g = game("S\(symbol)..K.")
+            let trap = GridPos(x: 1, y: 0)
+            try expect(g.state.activatedTrapPositions.isEmpty, "開始時は罠を表示しない")
+            g.turnRight()
+            g.turnLeft()
+            try expect(g.state.activatedTrapPositions.isEmpty, "見回しても罠を表示しない")
+            g.moveForward()
+            try expect(g.state.activatedTrapPositions == [trap], "踏んだ罠の位置だけを表示する: \(symbol)")
+        }
     }
 
     private static func testPoison() throws {

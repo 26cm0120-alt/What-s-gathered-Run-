@@ -7,6 +7,7 @@ struct AutoMapView: View {
     let player: Player
     let defeatedEnemies: Set<GridPos>
     let defeatedEnemyKinds: [GridPos: EnemyKind]
+    let activatedTrapPositions: Set<GridPos>
 
     var body: some View {
         Canvas { ctx, size in
@@ -31,7 +32,9 @@ struct AutoMapView: View {
                 case .sword:
                     floorColor = Color(red: 0.08, green: 0.24, blue: 0.38)
                 case .trap, .doubleFlickTrap, .hpDrainTrap, .warpToStartTrap, .randomWarpTrap, .keyFrontWarpTrap, .gameOverTrap, .unexplodedTrap:
-                    floorColor = Color(red: 0.42, green: 0.15, blue: 0.10)
+                    floorColor = activatedTrapPositions.contains(pos)
+                        ? Color(red: 0.42, green: 0.15, blue: 0.10)
+                        : Color(red: 0.055, green: 0.47, blue: 0.12)
                 case .key:
                     floorColor = Color(red: 0.48, green: 0.34, blue: 0.08)
                 case .enemy:
@@ -51,7 +54,8 @@ struct AutoMapView: View {
                 } else if map.cell(at: pos) == .sword {
                     let iconRect = r.insetBy(dx: cell * 0.20, dy: cell * 0.10)
                     drawPixelIcon(swordPixels, in: iconRect, context: &ctx, palette: swordPalette)
-                } else if let trapKind = TrapPixelArt.kind(at: pos, in: map) {
+                } else if activatedTrapPositions.contains(pos),
+                          let trapKind = TrapPixelArt.kind(at: pos, in: map) {
                     let iconRect = r.insetBy(dx: cell * 0.14, dy: cell * 0.14)
                     drawPixelIcon(
                         TrapPixelArt.pixels(for: trapKind),

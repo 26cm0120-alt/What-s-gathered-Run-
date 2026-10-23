@@ -147,7 +147,8 @@ struct CoreLogicTests {
             try expect(cells.filter { $0 == .enemy }.count == 2, "seed \(seed): enemy が2つ")
             try expect(cells.filter { $0.isTrap }.count == 2, "seed \(seed): trap が2つ")
             try expect(map.enemyKinds.count == 2, "seed \(seed): 敵の種類定義が2つ")
-            try expect(map.enemyKinds.values.contains(.gargoyle), "seed \(seed): gargoyle を含む")
+            try expect(map.enemyKinds.values.filter { $0 == .gargoyle }.count == 1, "seed \(seed): gargoyle は必ず1体")
+            try expect(map.enemyKinds.values.filter { $0 == .slime || $0 == .skeleton }.count == 1, "seed \(seed): もう1体は通常敵")
             try expect(map.trapKinds.count == 2, "seed \(seed): trap の種類定義が2つ")
             try expect(map.trapKinds.values.allSatisfy { $0.group == .a }, "seed \(seed): trap はグループA")
             if Set(map.trapKinds.values).count == 1 {

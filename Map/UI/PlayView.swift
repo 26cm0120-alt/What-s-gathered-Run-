@@ -316,7 +316,8 @@ struct PlayView: View {
                 explored: game.state.explored,
                 player: game.state.player,
                 defeatedEnemies: game.state.defeatedEnemies,
-                defeatedEnemyKinds: game.state.defeatedEnemyKinds
+                defeatedEnemyKinds: game.state.defeatedEnemyKinds,
+                activatedTrapPositions: game.state.activatedTrapPositions
             )
             .frame(maxWidth: .infinity)
             .frame(height: explorationMapHeight)
@@ -366,7 +367,8 @@ struct PlayView: View {
                         explored: game.state.explored,
                         player: game.state.player,
                         defeatedEnemies: game.state.defeatedEnemies,
-                defeatedEnemyKinds: game.state.defeatedEnemyKinds
+                        defeatedEnemyKinds: game.state.defeatedEnemyKinds,
+                        activatedTrapPositions: game.state.activatedTrapPositions
                     )
                     .padding(22)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
