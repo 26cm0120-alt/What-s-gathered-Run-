@@ -84,7 +84,8 @@ struct ContentView: View {
             guard !didOpenDebugClearScreen,
                   ProcessInfo.processInfo.arguments.contains("-debug-clear-screen") else { return }
             didOpenDebugClearScreen = true
-            flow.startGame(stage: Stages.trial)
+            let isTutorial = ProcessInfo.processInfo.arguments.contains("-debug-tutorial-clear")
+            flow.startGame(stage: isTutorial ? Stages.tutorial : Stages.trial)
             flow.presentDebugClearScreen()
         }
         #endif

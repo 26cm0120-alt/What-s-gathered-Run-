@@ -187,11 +187,11 @@ final class AppFlow: ObservableObject {
     #if DEBUG
     /// Simulatorでクリア画面とランキングを確認するためのDebug専用表示。
     func presentDebugClearScreen() {
-        guard game != nil, supportsReplayAndTiming else { return }
+        guard game != nil else { return }
         stopStageBackgroundMusic()
         stopEncounterBackgroundMusic()
         timerStartedAt = nil
-        currentRunTime = 42.6
+        currentRunTime = supportsReplayAndTiming ? 42.6 : nil
         screen = .cleared
     }
     #endif

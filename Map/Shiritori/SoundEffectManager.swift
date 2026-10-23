@@ -8,9 +8,15 @@
 import Foundation
 import AVFoundation
 import UIKit
+import OSLog
 
 /// 効果音とBGMの再生を一元管理するクラス
 final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
+
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "DungeonGame",
+        category: "ShiritoriBGM"
+    )
 
     /// しりとり画面のBGM・効果音をアプリ内音量50%で再生する。
     private let backgroundMusicVolume: Float = 0.5
@@ -168,7 +174,9 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
     /// しりとりゲーム中のBGMをBGM1から開始する
     /// BGM1終了後はBGM2、BGM2終了後はBGM1へ戻り、繰り返し再生する
     func startBGM() {
-        print("[ShiritoriBGM-DIAG] startBGM called")
+        #if DEBUG
+        Self.logger.debug("startBGM called")
+        #endif
         stopBGM()
         currentBGMNumber = 1
         playCurrentBGM()
@@ -177,7 +185,9 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
     /// 現在のBGMを停止する
     func stopBGM() {
         // 診断用：BGM停止がどのタイミングで呼ばれたかを確認する
-        print("[ShiritoriBGM-DIAG] stopBGM called; currentBGMNumber=\(currentBGMNumber), isPlaying=\(bgmPlayer?.isPlaying ?? false)")
+        #if DEBUG
+        Self.logger.debug("stopBGM called; currentBGMNumber=\(self.currentBGMNumber), isPlaying=\(self.bgmPlayer?.isPlaying ?? false)")
+        #endif
         // BGMを停止する際は、フェード処理と固定ループ設定も解除する
         bgmFadeTimer?.invalidate()
         bgmFadeTimer = nil
@@ -272,16 +282,22 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
             return
         }
 
-        print("[ShiritoriBGM-DIAG] requesting asset: \(assetName)")
+        #if DEBUG
+        Self.logger.debug("requesting asset: \(assetName, privacy: .public)")
+        #endif
         guard let asset = NSDataAsset(name: assetName) else {
-            print("[ShiritoriBGM-DIAG] ERROR: NSDataAsset not found: \(assetName)")
+            Self.logger.error("ERROR: NSDataAsset not found: \(assetName, privacy: .public)")
             return
         }
-        print("[ShiritoriBGM-DIAG] asset loaded: \(assetName), bytes=\(asset.data.count)")
+        #if DEBUG
+        Self.logger.debug("asset loaded: \(assetName, privacy: .public), bytes=\(asset.data.count)")
+        #endif
 
         do {
             let player = try AVAudioPlayer(data: asset.data)
-            print("[ShiritoriBGM-DIAG] AVAudioPlayer created: \(assetName), duration=\(player.duration)")
+            #if DEBUG
+            Self.logger.debug("AVAudioPlayer created: \(assetName, privacy: .public), duration=\(player.duration)")
+            #endif
             player.volume = backgroundMusicVolume
 
             // 切り替え条件成立後のBGM2は、音源終了時に戻らず無限ループさせる
@@ -297,25 +313,31 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
             
             player.delegate = self
             bgmPlayer = player
+            #if DEBUG
             let requestedBGMNumber = currentBGMNumber
+            #endif
             AudioPlayback.performOnPlaybackQueue {
+                #if DEBUG
                 let started = AudioPlayback.prepareAndPlayOnPlaybackQueue(
                     player,
                     assetName: assetName
                 )
-                print(
-                    "[ShiritoriBGM-DIAG] playback prepared and started=\(started), " +
-                    "number=\(requestedBGMNumber), isPlaying=\(player.isPlaying)"
-                )
+                Self.logger.debug("playback prepared and started=\(started), number=\(requestedBGMNumber), isPlaying=\(player.isPlaying)")
+                #else
+                AudioPlayback.prepareAndPlayOnPlaybackQueue(player, assetName: assetName)
+                #endif
             }
-            print("[ShiritoriBGM-DIAG] playback request queued: \(assetName), number=\(requestedBGMNumber)")
+            #if DEBUG
+            Self.logger.debug("playback request queued: \(assetName, privacy: .public), number=\(requestedBGMNumber)")
+            #endif
 
+            #if DEBUG
             // 診断専用：再生開始後も再生位置・音量・出力先が正常か確認する。
             // 再生処理やゲーム動作そのものは変更しない。
             for delay: TimeInterval in [2.0, 5.0] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak player] in
                     guard let self, let player else {
-                        print("[ShiritoriBGM-DIAG] after \(delay)s: player released")
+                        Self.logger.debug("after \(delay)s: player released")
                         return
                     }
 
@@ -325,18 +347,12 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
                         .map { "\($0.portType.rawValue):\($0.portName)" }
                         .joined(separator: ", ")
 
-                    print(
-                        "[ShiritoriBGM-DIAG] after \(delay)s: " +
-                        "currentTime=\(player.currentTime), duration=\(player.duration), " +
-                        "volume=\(player.volume), isPlaying=\(player.isPlaying), " +
-                        "managerOwnsPlayer=\(ownsPlayer), systemOutputVolume=\(session.outputVolume), " +
-                        "outputs=[\(outputs)]"
-                    )
+                    Self.logger.debug("after \(delay)s: currentTime=\(player.currentTime), duration=\(player.duration), volume=\(player.volume), isPlaying=\(player.isPlaying), managerOwnsPlayer=\(ownsPlayer), systemOutputVolume=\(session.outputVolume), outputs=[\(outputs, privacy: .private)]")
                 }
             }
-
+            #endif
         } catch {
-            print("[ShiritoriBGM-DIAG] ERROR creating BGM player for \(assetName): \(error)")
+            Self.logger.error("ERROR creating BGM player for \(assetName, privacy: .public): \(error.localizedDescription, privacy: .private)")
             bgmPlayer = nil
         }
     }
@@ -356,7 +372,9 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         _ player: AVAudioPlayer,
         successfully flag: Bool
     ) {
-        print("[ShiritoriBGM-DIAG] didFinishPlaying success=\(flag), currentNumber=\(currentBGMNumber), currentPlayerMatches=\(player === bgmPlayer)")
+        #if DEBUG
+        Self.logger.debug("didFinishPlaying success=\(flag), currentNumber=\(self.currentBGMNumber), currentPlayerMatches=\(player === self.bgmPlayer)")
+        #endif
         guard player === bgmPlayer else {
             return
         }

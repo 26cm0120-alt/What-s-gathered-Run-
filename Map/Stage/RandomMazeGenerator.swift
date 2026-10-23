@@ -86,9 +86,11 @@ enum RandomMazeGenerator {
         let firstEnemy = preKeyEnemyCandidates[random.nextInt(upperBound: preKeyEnemyCandidates.count)]
         let secondEnemy = postKeyEnemyCandidates[random.nextInt(upperBound: postKeyEnemyCandidates.count)]
         let enemies = [firstEnemy, secondEnemy]
+        // ガーゴイルは鍵の手前の1体だけ。2体目は通常敵に限定する。
+        let secondEnemyKind = EnemyKind.encounter(seed: seed ^ 0xA5A5A5A5, position: secondEnemy)
         let enemyKinds: [GridPos: EnemyKind] = [
             firstEnemy: .gargoyle,
-            secondEnemy: EnemyKind.encounter(seed: seed ^ 0xA5A5A5A5, position: secondEnemy)
+            secondEnemy: secondEnemyKind == .gargoyle ? .skeleton : secondEnemyKind
         ]
 
         let routeToGoal = Set(path)
