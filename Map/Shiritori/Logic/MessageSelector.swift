@@ -13,7 +13,8 @@ struct MessageSelector {
     // プレイヤーがカードを取得したときのリアクション
     static func playerMessage(
         for vocabulary: Vocabulary,
-        stage: ShiritoriStageType = .normal
+        stage: ShiritoriStageType = .normal,
+        isRandomStage: Bool = false
     ) -> String {
         if stage == .trial {
             switch vocabulary.type {
@@ -43,7 +44,8 @@ struct MessageSelector {
     // CPUがカードを取得したときのメッセージ候補
     static func cpuMessages(
         for vocabulary: Vocabulary,
-        stage: ShiritoriStageType = .normal
+        stage: ShiritoriStageType = .normal,
+        isRandomStage: Bool = false
     ) -> [String] {
         if stage == .trial {
             switch vocabulary.type {
@@ -93,9 +95,10 @@ struct MessageSelector {
     // CPUメッセージを候補からランダムに1つ選ぶ
     static func randomCPUMessage(
         for vocabulary: Vocabulary,
-        stage: ShiritoriStageType = .normal
+        stage: ShiritoriStageType = .normal,
+        isRandomStage: Bool = false
     ) -> String {
-        let messages = cpuMessages(for: vocabulary, stage: stage)
+        let messages = cpuMessages(for: vocabulary, stage: stage, isRandomStage: isRandomStage)
         return messages.randomElement() ?? ""
     }
 
@@ -106,7 +109,7 @@ struct MessageSelector {
         stage: ShiritoriStageType = .normal,
         isRandomStage: Bool = false
     ) -> String {
-        let baseMessage = randomCPUMessage(for: vocabulary, stage: stage)
+        let baseMessage = randomCPUMessage(for: vocabulary, stage: stage, isRandomStage: isRandomStage)
 
         guard let nextPrompt else {
             return baseMessage
