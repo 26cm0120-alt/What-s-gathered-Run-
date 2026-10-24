@@ -802,8 +802,11 @@ struct ShiritoriGameView: View {
             case .recognitionMessage:
                 return gameManager.currentMessage ?? "なんと・・・ん？"
             case .defeatMessage, .finished:
+                if isRandomStage {
+                    return gameManager.currentMessage ?? ""
+                }
                 return gameManager.isTrialStage
-                    ? "ん がついてるザンス！やーい、ミーの かちザマス！"
+                    ? "ん がついてるザマス！やーい、ミーの かちザマス！"
                     : "ん がついているではないか、お前の負けだ"
             case .inactive:
                 break
@@ -846,7 +849,9 @@ struct ShiritoriGameView: View {
                     : "フハハハ！時間切れだ！貴様の負けだ！"
 
             case .playerLoseN:
-                return "ちょっと待て、’ん’ で終わりではないか。貴様の負けだ"
+                return isRandomStage
+                    ? (gameManager.currentMessage ?? "")
+                    : "ちょっと待て、’ん’ で終わりではないか。貴様の負けだ"
             }
         }
 
