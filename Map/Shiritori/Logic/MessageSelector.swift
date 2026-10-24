@@ -103,7 +103,8 @@ struct MessageSelector {
     static func cpuMessageWithNextPrompt(
         for vocabulary: Vocabulary,
         nextPrompt: Character?,
-        stage: ShiritoriStageType = .normal
+        stage: ShiritoriStageType = .normal,
+        isRandomStage: Bool = false
     ) -> String {
         let baseMessage = randomCPUMessage(for: vocabulary, stage: stage)
 
@@ -114,6 +115,9 @@ struct MessageSelector {
         let promptText = KanaNormalizer.promptDisplayText(for: nextPrompt)
         if stage == .trial {
             return "\(baseMessage)\nさあ、『\(promptText)』から\nはじまるカードをえらぶザンス！"
+        }
+        if isRandomStage {
+            return "ほれ、「\(promptText)」やっ！"
         }
         return "\(baseMessage)\n「\(promptText)」から\nはじまるカードを選べ！"
     }
