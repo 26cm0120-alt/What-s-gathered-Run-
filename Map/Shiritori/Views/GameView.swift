@@ -562,7 +562,17 @@ struct ShiritoriGameView: View {
     private func randomStageCPUCharacterImage(at date: Date) -> String {
         let prefix = "character_cpu3"
 
-        // 特殊勝利の途中段階では、進行中イベントより専用の終了ポーズを優先する。
+        // 勝敗を最優先する。アニメーションはメッセージ進行・画面遷移を変更しない。
+        if let result = gameManager.gameResult {
+            switch result {
+            case .playerLoseTimeout, .playerLoseN:
+                return randomStageCPUWinAnimation(at: date)
+            case .playerWinAllCards, .playerWinNoCPUTarget, .playerWinCPUN, .playerWinTimeoutMercy:
+                return randomStageCPULowCardFailureAnimation(at: date)
+            }
+        }
+
+        // 結果確定前の専用メッセージ中は既存の専用ポーズを優先する。
         switch gameManager.timeoutMercyVictoryStage {
         case .hardFoughtMessage, .victoryConcession, .finished:
             return prefix
@@ -570,27 +580,11 @@ struct ShiritoriGameView: View {
             break
         }
 
-        // CPU最終カードの専用メッセージ以降は通常ポーズを維持する。
         switch gameManager.cpuFinalCardEndingStage {
         case .cardsExhaustedMessage, .victoryAcknowledgement, .finished:
             return prefix
         case .inactive, .normalCPUMessage:
             break
-        }
-
-        // ゲーム結果が確定したら通常イベントを中断し、終了側の表示を優先する。
-        if let result = gameManager.gameResult {
-            switch result {
-            case .playerWinAllCards, .playerWinNoCPUTarget, .playerWinCPUN:
-                return "\(prefix)_wrong1"
-            case .playerWinTimeoutMercy:
-                if gameManager.timeoutMercyVictoryStage == .defeatMessage {
-                    return randomStageCPUWinAnimation(at: date)
-                }
-                return prefix
-            case .playerLoseTimeout, .playerLoseN:
-                return randomStageCPUWinAnimation(at: date)
-            }
         }
 
         guard let event = gameManager.cpuAnimationEvent else {
@@ -600,31 +594,23 @@ struct ShiritoriGameView: View {
         let elapsed = max(0, date.timeIntervalSince(event.startedAt))
         switch event.kind {
         case .success:
-            // CPUがカードを取ったとき：win1→win2→win3を2周（合計4秒）。
-            if elapsed < 4.0 {
-                let frame = Int(elapsed / 0.5)
-                switch frame {
-                case 0, 1: return "\(prefix)_win1"
-                case 2: return "\(prefix)_win2"
-                case 3: return "\(prefix)_win3"
-                case 4, 5: return "\(prefix)_win1"
-                case 6: return "\(prefix)_win2"
-                default: return "\(prefix)_win3"
-                }
-            }
-            return randomStageCPUIdleImage(at: elapsed - 4.0)
-
+            // CPUの正解アニメーションは次のイベントまたは勝敗確定までループする。
+            return randomStageCPUWinAnimation(at: date)
         case .failure:
-            // 枚数はイベント開始時点で固定し、再生中のカード取得に影響されない。
-            let manyCards = event.remainingCardCountAtStart >= 13
-            let frames = manyCards
+            // イベント開始時点の残り枚数を固定して画像を選ぶ（13枚以上／12枚以下）。
+            let frames = event.remainingCardCountAtStart >= 13
                 ? ["wrong1", "wrong2", "wrong4"]
                 : ["wrong3", "wrong5", "wrong6"]
-            if elapsed < 3.0 {
-                return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
-            }
-            return randomStageCPUIdleImage(at: elapsed - 3.0)
+            return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
         }
+    }
+
+    /// プレイヤー勝利時のCPU反応。残り枚数12枚以下側の画像をループする。
+    private func randomStageCPULowCardFailureAnimation(at date: Date) -> String {
+        let frames = ["wrong3", "wrong5", "wrong6"]
+        let startDate = gameManager.cpuAnimationEvent?.startedAt ?? characterAnimationEpoch
+        let elapsed = max(0, date.timeIntervalSince(startDate))
+        return "character_cpu3_\(frames[Int(elapsed / 0.5) % frames.count])"
     }
 
     /// CPU3の通常待機ループ。基本画像1秒、各差分0.5秒の2.5秒周期。
@@ -636,7 +622,7 @@ struct ShiritoriGameView: View {
         return "character_cpu3_breath2"
     }
 
-    /// CPUが勝者となった終了演出では、win画像を繰り返し表示する。
+    /// CPUの勝利アニメーション。終了後もループし、画面遷移はメッセージ側に任せる。
     private func randomStageCPUWinAnimation(at date: Date) -> String {
         let startDate = gameManager.cpuAnimationEvent?.startedAt ?? characterAnimationEpoch
         let frame = Int(max(0, date.timeIntervalSince(startDate)) / 0.5) % 4
@@ -664,8 +650,24 @@ struct ShiritoriGameView: View {
             return Int(elapsed / 0.5) % 2 == 0 ? "\(prefix)_rose1" : "\(prefix)_rose2"
         }
 
-        // プレイヤーが時間切れ／「ん」で敗北：CPUの勝利ジャンプを指定順で2周し、最後にjump1を表示。
-        if gameManager.gameResult == .playerLoseTimeout || gameManager.gameResult == .playerLoseN {
+        // プレイヤー時間切れによるCPU特殊勝利：既存の勝利アニメーションをループする。
+        // メッセージ完了と画面遷移のタイミングには干渉しない。
+        if gameManager.gameResult == .playerLoseTimeout {
+            let sequence: [(String, TimeInterval)] = [
+                ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
+                ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5)
+            ]
+            let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
+            let cycleDuration = sequence.reduce(0) { $0 + $1.1 }
+            var cursor = elapsed.truncatingRemainder(dividingBy: cycleDuration)
+            for (frame, duration) in sequence {
+                if cursor < duration { return "\(prefix)_\(frame)" }
+                cursor -= duration
+            }
+        }
+
+        // プレイヤーが「ん」で敗北した場合は既存の勝利演出を維持する。
+        if gameManager.gameResult == .playerLoseN {
             let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
             let sequence: [(String, TimeInterval)] = [
                 ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
