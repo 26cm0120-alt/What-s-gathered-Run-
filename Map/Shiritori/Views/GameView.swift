@@ -77,7 +77,7 @@ struct ShiritoriGameView: View {
         if isRandomStage {
             return [
                 "カモがネギしょってやってきたぜェグヘヘヘヘヘ…\nバキッバキッ",
-                "我が名は姫龍。いつしか\"怪物を超えた怪物”と\n呼ばれるようになった。それがアタイさ。\n***ジャッジOK***！？***アーユーレディ***・・・",
+                "我が名は姫龍。いつしか\"怪物を超えた怪物”と\n呼ばれるようになった。それがアタイさ。\nジャッジOK！？アーユーレディ・・・",
                 "What's gathered? Run!\nワギャラン"
             ]
         }
@@ -802,8 +802,11 @@ struct ShiritoriGameView: View {
             case .recognitionMessage:
                 return gameManager.currentMessage ?? "なんと・・・ん？"
             case .defeatMessage, .finished:
+                if isRandomStage {
+                    return gameManager.currentMessage ?? ""
+                }
                 return gameManager.isTrialStage
-                    ? "ん がついてるザンス！やーい、ミーの かちザマス！"
+                    ? "ん がついてるザマス！やーい、ミーの かちザマス！"
                     : "ん がついているではないか、お前の負けだ"
             case .inactive:
                 break
@@ -838,12 +841,17 @@ struct ShiritoriGameView: View {
                     : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。")
 
             case .playerLoseTimeout:
+                if isRandomStage {
+                    return gameManager.currentMessage ?? ""
+                }
                 return gameManager.isTrialStage
                     ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
                     : "フハハハ！時間切れだ！貴様の負けだ！"
 
             case .playerLoseN:
-                return "ちょっと待て、’ん’ で終わりではないか。貴様の負けだ"
+                return isRandomStage
+                    ? (gameManager.currentMessage ?? "")
+                    : "ちょっと待て、’ん’ で終わりではないか。貴様の負けだ"
             }
         }
 

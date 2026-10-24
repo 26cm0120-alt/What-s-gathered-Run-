@@ -449,9 +449,11 @@ final class ShiritoriGameManager {
             startPlayerAnimation(.failure)
             startCPUAnimation(.success)
             // 気づきのセリフを先に表示し、完了後に敗北宣告へ進める。
-            currentMessage = stage == .trial
-                ? "えええっ、\(vocabulary.displayWord) ザンスか！？・・・って、ちょっと まつザマス！？"
-                : "なんと、\(vocabulary.displayWord) か！・・・ん？"
+            currentMessage = isRandomStage
+                ? "なにっ、\(vocabulary.displayWord)！？\nこの男の目的は・・・！？\n・・・ってこのクソボケがーっ！\nん が ついてるやんけ！"
+                : (stage == .trial
+                    ? "えええっ、\(vocabulary.displayWord) ザンスか！？・・・って、ちょっと まつザマス！？"
+                    : "なんと、\(vocabulary.displayWord) か！・・・ん？")
             playerLoseNEndingStage = .recognitionMessage
             gameResult = .playerLoseN
             SoundEffectManager.shared.stopBGM()
@@ -483,7 +485,8 @@ final class ShiritoriGameManager {
         // プレイヤー取得メッセージを作成する
         currentMessage = MessageSelector.playerMessage(
             for: vocabulary,
-            stage: stage
+            stage: stage,
+            isRandomStage: isRandomStage
         )
 
         // 正常な読みなのでカードを取得する
@@ -745,9 +748,11 @@ final class ShiritoriGameManager {
         clearSelection()
 
         // 最終メッセージはスキャン終了後に初めて設定する。
-        currentMessage = stage == .trial
-            ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
-            : "なんと、選べるカードがないではないか"
+        currentMessage = isRandomStage
+            ? "なにっ、\(KanaNormalizer.promptDisplayText(for: currentPrompt ?? "あ"))を継ぐ\(KanaNormalizer.promptDisplayText(for: currentPrompt ?? "あ"))が\n存在しないっ！・・・カード切れは\n仕方ない、本当に仕方ない。\n見事やな...(ﾆｺｯ)"
+            : (stage == .trial
+                ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
+                : "なんと、選べるカードがないではないか")
         noCPUTargetVictoryStage = .noCardsMessage
 
         cpuTargetCardID = nil
@@ -790,9 +795,11 @@ final class ShiritoriGameManager {
             clearSelection()
 
             // CPUが選択した実際の表示語をメッセージに使用する
-            currentMessage = stage == .trial
-                ? "・・・うぐっ、ゆだんしたザンス！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうザンス！ミーの まけザマス！"
-                : "・・・しまったいかん！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうではないか！私の負けだ"
+            currentMessage = isRandomStage
+                ? "\(targetVocabulary.displayWord)・・・。\nん が ついちまった・・・。\nククク…ひどい負け方だな。\nまぁ事実だからしょうがないけど。"
+                : (stage == .trial
+                    ? "・・・うぐっ、ゆだんしたザンス！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうザンス！ミーの まけザマス！"
+                    : "・・・しまったいかん！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうではないか！私の負けだ")
 
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
@@ -869,9 +876,11 @@ final class ShiritoriGameManager {
         case .normalCPUMessage:
             // 通常メッセージのあと、カードを使い切ったことに気づくセリフへ進む
             cpuFinalCardEndingStage = .cardsExhaustedMessage
-            currentMessage = stage == .trial
-                ? "・・・って、あら？ カードが もう ないザマスね？"
-                : "・・・といいたいところだが、なんと カードを つかいきって しまったではないか"
+            currentMessage = isRandomStage
+                ? "なにっ、カードを使い切っちまったっ！\n仕方ない、本当に仕方ない。\n見事やな...(ﾆｺｯ)"
+                : (stage == .trial
+                    ? "・・・って、あら？ カードが もう ないザマスね？"
+                    : "・・・といいたいところだが、なんと カードを つかいきって しまったではないか")
 
             // ここから先はCPUを通常ポーズ、PLAYERを勝利アニメーションにする
             startPlayerAnimation(.success)
@@ -879,9 +888,11 @@ final class ShiritoriGameManager {
         case .cardsExhaustedMessage:
             // 2秒保持後、CPUがPLAYERの勝利を認めるセリフへ進む
             cpuFinalCardEndingStage = .victoryAcknowledgement
-            currentMessage = stage == .trial
-                ? "ふふん、なかなかやるザンスね！ユーの かちってことにしてあげるザマス！"
-                : "みごとだ。きさまの しょうりを みとめよう。"
+            currentMessage = isRandomStage
+                ? "きみグッドファイターと認めるね\n勝ちを誇り、\n美学を持て・・・姫龍のように。"
+                : (stage == .trial
+                    ? "ふふん、なかなかやるザンスね！ユーの かちってことにしてあげるザマス！"
+                    : "みごとだ。きさまの しょうりを みとめよう.")
 
         case .victoryAcknowledgement:
             // 最後のセリフも2秒保持したら、ポーズとメッセージをそのまま維持する
@@ -903,16 +914,20 @@ final class ShiritoriGameManager {
             // 通常の時間切れセリフのあと、残り枚数を示して健闘を称える
             timeoutMercyVictoryStage = .hardFoughtMessage
             let remainingCardCount = cards.filter { !$0.isCleared }.count
-            currentMessage = stage == .trial
-                ? "でも、のこり まいすう \(remainingCardCount) まい ザンスか。この ミーを あいてに よくやったとほめてあげたいところザマス。"
-                : "だが、のこり まいすう \(remainingCardCount) まい か。この わたしを あいてに よくたたかった。"
+            currentMessage = isRandomStage
+                ? "だが、残り\(remainingCardCount)枚は好感が持てる。\n死闘を通したから尊いんだ、\n絆が深まるんだ。\n見事やな・・・(ﾆｺｯ)"
+                : (stage == .trial
+                    ? "でも、のこり まいすう \(remainingCardCount) まい ザンスか。この ミーを あいてに よくやったとほめてあげたいところザマス。"
+                    : "だが、のこり まいすう \(remainingCardCount) まい か。この わたしを あいてに よくたたかった.")
 
         case .hardFoughtMessage:
             // 健闘を称えるセリフのあと、CPUが勝利を譲る
             timeoutMercyVictoryStage = .victoryConcession
-            currentMessage = stage == .trial
-                ? "いいザンス、ユーの がんばりをみとめて、しょうりを ゆずってあげるザマス。"
-                : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。"
+            currentMessage = isRandomStage
+                ? "きみグッドファイターと認めるね\n健闘を誇り、\n美学を持て・・・姫龍のように。"
+                : (stage == .trial
+                    ? "いいザンス、ユーの がんばりをみとめて、しょうりを ゆずってあげるザマス。"
+                    : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう.")
 
         case .victoryConcession:
             // 最終セリフの保持が終わったら、メッセージとポーズをそのまま維持する
@@ -932,9 +947,11 @@ final class ShiritoriGameManager {
         case .noCardsMessage:
             // 最初のセリフを表示し終えたら、CPUが自分の負けを認める
             noCPUTargetVictoryStage = .defeatAcknowledgement
-            currentMessage = stage == .trial
-                ? "ううう・・・ミーの まけザマス・・・。"
-                : "ぐぬぬ・・・おみごと、わたしのまけだ。"
+            currentMessage = isRandomStage
+                ? "きみグッドファイターと認めるね\n勝ちを誇り、\n美学を持て・・・姫龍のように。"
+                : (stage == .trial
+                    ? "ううう・・・ミーの まけザマス・・・。"
+                    : "ぐぬぬ・・・おみごと、わたしのまけだ。")
 
         case .defeatAcknowledgement:
             // 最後のセリフはそのまま画面に残す
@@ -953,9 +970,11 @@ final class ShiritoriGameManager {
         switch playerLoseNEndingStage {
         case .recognitionMessage:
             playerLoseNEndingStage = .defeatMessage
-            currentMessage = stage == .trial
-                ? "ん がついてるザンス！やーい、ミーの かちザマス！"
-                : "ん がついているではないか、お前の負けだ"
+            currentMessage = isRandomStage
+                ? "貴様ーっ姫龍を愚弄する気かぁっ！\n愚か者めっ、弱い者は\n更に弱い者を見つけて闘いを挑めっ！"
+                : (stage == .trial
+                    ? "ん がついてるザンス！やーい、ミーの かちザマス！"
+                    : "ん がついているではないか、お前の負けだ")
 
         case .defeatMessage:
             playerLoseNEndingStage = .finished
@@ -1015,9 +1034,11 @@ final class ShiritoriGameManager {
         let remainingCardCount = cards.filter { !$0.isCleared }.count
         startPlayerAnimation(.failure)
         startCPUAnimation(.success)
-        currentMessage = stage == .trial
-            ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
-            : "フハハハ！時間切れだ！貴様の負けだ！"
+        currentMessage = isRandomStage
+            ? "相手がストイックに 時間と労力と\n金と愛情をかけて築き上げたものを\nグチャグチャに崩壊させるんだ、\nこれはもう交尾以上の快楽だッ！"
+            : (stage == .trial
+                ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
+                : "フハハハ！時間切れだ！貴様の負けだ！")
 
         if remainingCardCount <= timeoutMercyVictoryRemainingCardThreshold {
             // 残り7枚以下なら、時間切れの通常セリフを経て特別勝利の演出へ進む。
