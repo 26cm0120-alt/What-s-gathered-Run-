@@ -73,6 +73,13 @@ struct ShiritoriGameView: View {
                 "What's gathered? Run!\nワギャラン"
             ]
         }
+        if isRandomStage {
+            return [
+                "カモがネギしょってやってきたぜェグヘヘヘヘヘ…\nバキッバキッ",
+                "我が名は姫龍。いつしか\"怪物を超えた怪物”と\n呼ばれるようになった。それがアタイさ。\n***ジャッジOK***！？***アーユーレディ***・・・",
+                "What's gathered? Run!\nワギャラン"
+            ]
+        }
         return [
             "よくぞ　あのダンジョンをくぐりぬけた。\nほめてやろう。",
             "ふっふっふ・・・このカードのいみは、いうまでもあるまい。\nでは、いざ。",
@@ -594,14 +601,21 @@ struct ShiritoriGameView: View {
         let elapsed = max(0, date.timeIntervalSince(event.startedAt))
         switch event.kind {
         case .success:
-            // CPUの正解アニメーションは次のイベントまたは勝敗確定までループする。
-            return randomStageCPUWinAnimation(at: date)
+            // 通常の正解演出は3秒（2ループ）で終了し、CPU3の通常待機へ戻す。
+            if elapsed < 3.0 {
+                return randomStageCPUWinAnimation(at: date)
+            }
+            return randomStageCPUIdleImage(at: elapsed - 3.0)
         case .failure:
             // イベント開始時点の残り枚数を固定して画像を選ぶ（13枚以上／12枚以下）。
-            let frames = event.remainingCardCountAtStart >= 13
-                ? ["wrong1", "wrong2", "wrong4"]
-                : ["wrong3", "wrong5", "wrong6"]
-            return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
+            // 3枚を各0.5秒で2周したら通常待機へ戻す。
+            if elapsed < 3.0 {
+                let frames = event.remainingCardCountAtStart >= 13
+                    ? ["wrong1", "wrong2", "wrong4"]
+                    : ["wrong3", "wrong5", "wrong6"]
+                return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
+            }
+            return randomStageCPUIdleImage(at: elapsed - 3.0)
         }
     }
 
