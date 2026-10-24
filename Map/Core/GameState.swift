@@ -115,6 +115,8 @@ struct GameState {
     var trapActivationMessage: String?
     /// マップ上で実際に移動した歩数。向き変更や壁への衝突は含めない。
     var mapStepCount = 0
+    /// HP回復判定に使う、イベントなしで連続して前進した回数。旋回では維持する。
+    var consecutiveSafeForwardSteps = 0
     /// スケルトンの砂時計によるしりとり持ち時間加算。
     var shiritoriTimeBonusSeconds = 0
     /// 今回の探索タイムから差し引く秒数。
