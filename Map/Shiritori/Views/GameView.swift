@@ -17,6 +17,9 @@ struct ShiritoriGameView: View {
     /// 試練ステージだけCPU2専用画像・演出を使用する。
     private let isTrialStage: Bool
 
+    /// ランダムステージだけCPU3専用画像・演出を使用する。
+    private let isRandomStage: Bool
+
     // ゲーム進行を管理する
     @State private var gameManager: ShiritoriGameManager
 
@@ -26,6 +29,7 @@ struct ShiritoriGameView: View {
     init(
         cards: [Card] = CardData.cards,
         stage: ShiritoriStageType = .normal,
+        isRandomStage: Bool = false,
         initialPlayerTimeBonusSeconds: Int = 0,
         playerTimePenaltySeconds: Int = 0,
         playerTimeHPBonusSeconds: Int = 0,
@@ -33,6 +37,7 @@ struct ShiritoriGameView: View {
     ) {
         self.onGameFinished = onGameFinished
         self.isTrialStage = stage == .trial
+        self.isRandomStage = isRandomStage && stage != .trial
         self.stage = stage
         _gameManager = State(initialValue: ShiritoriGameManager(
             cards: cards,
@@ -426,6 +431,11 @@ struct ShiritoriGameView: View {
             return trialCPUCharacterImage(prefix: "character_cpu2", event: event, at: date)
         }
 
+        // ランダムステージは導入1段階目だけ従来CPUを使い、2段階目からCPU3専用演出へ切り替える。
+        if isRandomStage && !isPlayer && !(isShowingOpeningDialogue && openingDialogueIndex == 0) {
+            return randomStageCPUCharacterImage(at: date)
+        }
+
         // 時間切れ特別勝利の健闘セリフ以降は、CPUを通常画像、PLAYERをWrong画像に固定する。
         switch gameManager.timeoutMercyVictoryStage {
         case .hardFoughtMessage, .victoryConcession, .finished:
@@ -545,6 +555,95 @@ struct ShiritoriGameView: View {
         case "character_player_jump_02": return "PlayerMove2"
         case "character_player_jump_03": return "PlayerMove3"
         default: return sourceName
+        }
+    }
+
+    /// ランダムステージCPU3専用の画像・アニメーションを選択する。
+    private func randomStageCPUCharacterImage(at date: Date) -> String {
+        let prefix = "character_cpu3"
+
+        // 特殊勝利の途中段階では、進行中イベントより専用の終了ポーズを優先する。
+        switch gameManager.timeoutMercyVictoryStage {
+        case .hardFoughtMessage, .victoryConcession, .finished:
+            return prefix
+        case .inactive, .defeatMessage:
+            break
+        }
+
+        // CPU最終カードの専用メッセージ以降は通常ポーズを維持する。
+        switch gameManager.cpuFinalCardEndingStage {
+        case .cardsExhaustedMessage, .victoryAcknowledgement, .finished:
+            return prefix
+        case .inactive, .normalCPUMessage:
+            break
+        }
+
+        // ゲーム結果が確定したら通常イベントを中断し、終了側の表示を優先する。
+        if let result = gameManager.gameResult {
+            switch result {
+            case .playerWinAllCards, .playerWinNoCPUTarget, .playerWinCPUN:
+                return "\(prefix)_wrong1"
+            case .playerWinTimeoutMercy:
+                if gameManager.timeoutMercyVictoryStage == .defeatMessage {
+                    return randomStageCPUWinAnimation(at: date)
+                }
+                return prefix
+            case .playerLoseTimeout, .playerLoseN:
+                return randomStageCPUWinAnimation(at: date)
+            }
+        }
+
+        guard let event = gameManager.cpuAnimationEvent else {
+            return randomStageCPUIdleImage(at: date.timeIntervalSince(characterAnimationEpoch))
+        }
+
+        let elapsed = max(0, date.timeIntervalSince(event.startedAt))
+        switch event.kind {
+        case .success:
+            // CPUがカードを取ったとき：win1→win2→win3を2周（合計4秒）。
+            if elapsed < 4.0 {
+                let frame = Int(elapsed / 0.5)
+                switch frame {
+                case 0, 1: return "\(prefix)_win1"
+                case 2: return "\(prefix)_win2"
+                case 3: return "\(prefix)_win3"
+                case 4, 5: return "\(prefix)_win1"
+                case 6: return "\(prefix)_win2"
+                default: return "\(prefix)_win3"
+                }
+            }
+            return randomStageCPUIdleImage(at: elapsed - 4.0)
+
+        case .failure:
+            // 枚数はイベント開始時点で固定し、再生中のカード取得に影響されない。
+            let manyCards = event.remainingCardCountAtStart >= 13
+            let frames = manyCards
+                ? ["wrong1", "wrong2", "wrong4"]
+                : ["wrong3", "wrong5", "wrong6"]
+            if elapsed < 3.0 {
+                return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
+            }
+            return randomStageCPUIdleImage(at: elapsed - 3.0)
+        }
+    }
+
+    /// CPU3の通常待機ループ。基本画像1秒、各差分0.5秒の2.5秒周期。
+    private func randomStageCPUIdleImage(at elapsed: TimeInterval) -> String {
+        let phase = max(0, elapsed).truncatingRemainder(dividingBy: 2.5)
+        if phase < 1.0 { return "character_cpu3" }
+        if phase < 1.5 { return "character_cpu3_blink" }
+        if phase < 2.0 { return "character_cpu3_breath1" }
+        return "character_cpu3_breath2"
+    }
+
+    /// CPUが勝者となった終了演出では、win画像を繰り返し表示する。
+    private func randomStageCPUWinAnimation(at date: Date) -> String {
+        let startDate = gameManager.cpuAnimationEvent?.startedAt ?? characterAnimationEpoch
+        let frame = Int(max(0, date.timeIntervalSince(startDate)) / 0.5) % 4
+        switch frame {
+        case 0, 1: return "character_cpu3_win1"
+        case 2: return "character_cpu3_win2"
+        default: return "character_cpu3_win3"
         }
     }
 
