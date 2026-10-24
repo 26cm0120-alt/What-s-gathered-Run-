@@ -748,9 +748,11 @@ final class ShiritoriGameManager {
         clearSelection()
 
         // 最終メッセージはスキャン終了後に初めて設定する。
-        currentMessage = stage == .trial
-            ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
-            : "なんと、選べるカードがないではないか"
+        currentMessage = isRandomStage
+            ? "なにっ、\\(KanaNormalizer.promptDisplayText(for: currentPrompt ?? "あ"))を継ぐカードが存在しないっ！・・・カード切れは\n仕方ない、本当に仕方ない。\n見事やな...(ﾆｺｯ)"
+            : (stage == .trial
+                ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
+                : "なんと、選べるカードがないではないか")
         noCPUTargetVictoryStage = .noCardsMessage
 
         cpuTargetCardID = nil
@@ -946,10 +948,10 @@ final class ShiritoriGameManager {
             // 最初のセリフを表示し終えたら、CPUが自分の負けを認める
             noCPUTargetVictoryStage = .defeatAcknowledgement
             currentMessage = isRandomStage
-                ? "きみグッドファイターと認めるね\\n勝ちを誇り、\\n美学を持て・・・姫龍のように。"
+                ? "きみグッドファイターと認めるね\n勝ちを誇り、\n美学を持て・・・姫龍のように。"
                 : (stage == .trial
                     ? "ううう・・・ミーの まけザマス・・・。"
-                    : "ぐぬぬ・・・おみごと、わたしのまけだ.")
+                    : "ぐぬぬ・・・おみごと、わたしのまけだ。")
 
         case .defeatAcknowledgement:
             // 最後のセリフはそのまま画面に残す
@@ -969,10 +971,10 @@ final class ShiritoriGameManager {
         case .recognitionMessage:
             playerLoseNEndingStage = .defeatMessage
             currentMessage = isRandomStage
-                ? "貴様ーっ姫龍を愚弄する気かぁっ！\\n愚か者めっ、弱い者は\\n更に弱い者を見つけて闘いを挑めっ！"
+                ? "貴様ーっ姫龍を愚弄する気かぁっ！\n愚か者めっ、弱い者は\n更に弱い者を見つけて闘いを挑めっ！"
                 : (stage == .trial
                     ? "ん がついてるザンス！やーい、ミーの かちザマス！"
-                    : "ん がついているではないか、お前の負けだ)
+                    : "ん がついているではないか、お前の負けだ")
 
         case .defeatMessage:
             playerLoseNEndingStage = .finished
