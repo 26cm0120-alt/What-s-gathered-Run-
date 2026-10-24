@@ -449,9 +449,11 @@ final class ShiritoriGameManager {
             startPlayerAnimation(.failure)
             startCPUAnimation(.success)
             // 気づきのセリフを先に表示し、完了後に敗北宣告へ進める。
-            currentMessage = stage == .trial
-                ? "えええっ、\(vocabulary.displayWord) ザンスか！？・・・って、ちょっと まつザマス！？"
-                : "なんと、\(vocabulary.displayWord) か！・・・ん？"
+            currentMessage = isRandomStage
+                ? "なにっ、\(vocabulary.displayWord)！？\nこの男の目的は・・・！？\n・・・ってこのクソボケがーっ！\nん が ついてるやんけ！"
+                : (stage == .trial
+                    ? "えええっ、\(vocabulary.displayWord) ザンスか！？・・・って、ちょっと まつザマス！？"
+                    : "なんと、\(vocabulary.displayWord) か！・・・ん？")
             playerLoseNEndingStage = .recognitionMessage
             gameResult = .playerLoseN
             SoundEffectManager.shared.stopBGM()
@@ -791,9 +793,11 @@ final class ShiritoriGameManager {
             clearSelection()
 
             // CPUが選択した実際の表示語をメッセージに使用する
-            currentMessage = stage == .trial
-                ? "・・・うぐっ、ゆだんしたザンス！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうザンス！ミーの まけザマス！"
-                : "・・・しまったいかん！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうではないか！私の負けだ"
+            currentMessage = isRandomStage
+                ? "\(targetVocabulary.displayWord)・・・。\nん が ついちまった・・・。\nククク…ひどい負け方だな。\nまぁ事実だからしょうがないけど。"
+                : (stage == .trial
+                    ? "・・・うぐっ、ゆだんしたザンス！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうザンス！ミーの まけザマス！"
+                    : "・・・しまったいかん！ \(targetVocabulary.displayWord) では ’ん’ がついてしまうではないか！私の負けだ")
 
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
@@ -1020,9 +1024,11 @@ final class ShiritoriGameManager {
         let remainingCardCount = cards.filter { !$0.isCleared }.count
         startPlayerAnimation(.failure)
         startCPUAnimation(.success)
-        currentMessage = stage == .trial
-            ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
-            : "フハハハ！時間切れだ！貴様の負けだ！"
+        currentMessage = isRandomStage
+            ? "相手がストイックに 時間と労力と\n金と愛情をかけて築き上げたものを\nグチャグチャに崩壊させるんだ、\nこれはもう交尾以上の快楽だッ！"
+            : (stage == .trial
+                ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
+                : "フハハハ！時間切れだ！貴様の負けだ！")
 
         if remainingCardCount <= timeoutMercyVictoryRemainingCardThreshold {
             // 残り7枚以下なら、時間切れの通常セリフを経て特別勝利の演出へ進む。
