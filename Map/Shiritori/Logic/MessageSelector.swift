@@ -104,9 +104,9 @@ struct MessageSelector {
             case .english:
                 return ["ヤンケ、「シバクヤンケ」\n\(vocabulary.displayWord)！", "英語読みはリラックスできますね。\n\(vocabulary.displayWord)！"]
             case .surprise:
-                return ["その読みはやめろーっ、てか？\n\(vocabulary.displayWord)！", "「\(vocabulary.displayWord)」はルールで\n禁止ㇲよね、ってか？\nへっ、あまちゃんが。"]
+                return ["その読みはやめろーっ、てか？\n\(vocabulary.displayWord)！", "\(vocabulary.displayWord)はルールで\n禁止ㇲよね、ってか？\nへっ、あまちゃんが。"]
             case .rare:
-                return ["アタイってやつは結構鬼畜だな。\n\(vocabulary.displayWord)！", "「\(vocabulary.displayWord)」。この読みに\n一番戸惑っているのはアタイ\nなんだよね。すごくない?"]
+                return ["アタイってやつは結構鬼畜だな。\n\(vocabulary.displayWord)！", "\(vocabulary.displayWord)。この読みに\n一番戸惑っているのはアタイ\nなんだよね。すごくない?"]
             }
         }
 
