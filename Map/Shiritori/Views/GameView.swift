@@ -647,12 +647,14 @@ struct ShiritoriGameView: View {
         case .failure:
             // イベント開始時点の残り枚数を固定して画像を選ぶ（13枚以上／12枚以下）。
             if event.remainingCardCountAtStart >= 13 {
-                // wrong1・wrong2・wrong4は各0.5秒で2周（合計3秒）。
-                if elapsed < 3.0 {
-                    let frames = ["wrong1", "wrong2", "wrong4"]
-                    return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
+                // wrong1は0.5秒、wrong2は0.5秒、wrong4は1秒。2周後に通常待機へ戻す。
+                if elapsed < 4.0 {
+                    let phase = elapsed.truncatingRemainder(dividingBy: 2.0)
+                    if phase < 0.5 { return "\(prefix)_wrong1" }
+                    if phase < 1.0 { return "\(prefix)_wrong2" }
+                    return "\(prefix)_wrong4"
                 }
-                return randomStageCPUIdleImage(at: elapsed - 3.0)
+                return randomStageCPUIdleImage(at: elapsed - 4.0)
             } else {
                 // wrong3は0.5秒、wrong5は0.5秒、wrong6は1秒。2周後に通常待機へ戻す。
                 if elapsed < 4.0 {
