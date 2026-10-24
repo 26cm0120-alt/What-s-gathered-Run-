@@ -29,6 +29,33 @@ struct MessageSelector {
             }
         }
 
+        if isRandomStage {
+            let messages: [String]
+            switch vocabulary.type {
+            case .normal:
+                messages = [
+                    "なにっ、\\(vocabulary.displayWord)！？\\nふうん、そういうことか。\\nまぁこれくらい屁でもないとは\\nいわんけどなブヘヘヘヘ。",
+                    "はうっ、\\(vocabulary.displayWord)！？\\nしゃあけど、こんなん\\nあたりまえの読みやんけ、\\nたんしたことないのん。"
+                ]
+            case .english:
+                messages = [
+                    "あががっ、\\(vocabulary.displayWord)！？\\n・・・あいつ、おそらく\\n英語が読めると考えられる。",
+                    "なにいっ、\\(vocabulary.displayWord)！？\\n許せなかった…お前が本当は\\n英語を読めるだなんて・・・"
+                ]
+            case .surprise:
+                messages = [
+                    "\\(vocabulary.displayWord)！？あーー、\\n何言ってるかわかんねえよ！\\nお…お前変なクスリでも\\nやってるのか！？",
+                    "なにいっ、\\(vocabulary.displayWord)！？\\nいやちょっとまてよ、\\nううんどういうことだ。"
+                ]
+            case .rare:
+                messages = [
+                    "はうっ、\\(vocabulary.displayWord)！？\\nそれジョークか？\\n面白いことを言うなあ\\nこの蛆虫は。",
+                    "あががっ、\\(vocabulary.displayWord)！？\\n貴様ーっ、\\n姫龍を愚弄する気かぁっ！"
+                ]
+            }
+            return messages.randomElement() ?? ""
+        }
+
         switch vocabulary.type {
         case .normal:
             return "ふむ、\(vocabulary.displayWord) か"
@@ -67,6 +94,19 @@ struct MessageSelector {
                 return [
                     "ひらめいたザンス！\(vocabulary.displayWord) とも よめるザマス！"
                 ]
+            }
+        }
+
+        if isRandomStage {
+            switch vocabulary.type {
+            case .normal:
+                return ["しゃあっ、\\(vocabulary.displayWord)！", "あざーす（ｶﾞｼｯ\\n\\(vocabulary.displayWord)！"]
+            case .english:
+                return ["ヤンケ、「シバクヤンケ」\\n\\(vocabulary.displayWord)！", "英語読みはリラックスできますね。\\n\\(vocabulary.displayWord)！"]
+            case .surprise:
+                return ["その読みはやめろーっ、てか？\\n\\(vocabulary.displayWord)！", "「\\(vocabulary.displayWord)」はルールで\\n禁止ㇲよね、ってか？\\nへっ、あまちゃんが。"]
+            case .rare:
+                return ["アタイってやつは結構鬼畜だな。\\n\\(vocabulary.displayWord)！", "「\\(vocabulary.displayWord)」。この読みに\\n一番戸惑っているのはアタイ\\nなんだよね。すごくない?"]
             }
         }
 
