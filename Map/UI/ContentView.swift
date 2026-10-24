@@ -68,13 +68,13 @@ struct ContentView: View {
                 )
 
             case .shiritoriGame:
-                ShiritoriGameView(initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds) { playerWon in
+                ShiritoriGameView(initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
                     flow.finishShiritori(won: playerWon)
                 }
 
             case .trialShiritoriGame:
                 // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
-                ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds) { playerWon in
+                ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
                     flow.finishShiritori(won: playerWon)
                 }
             }
