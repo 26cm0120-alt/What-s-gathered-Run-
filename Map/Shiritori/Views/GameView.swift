@@ -27,6 +27,8 @@ struct ShiritoriGameView: View {
         cards: [Card] = CardData.cards,
         stage: ShiritoriStageType = .normal,
         initialPlayerTimeBonusSeconds: Int = 0,
+        playerTimePenaltySeconds: Int = 0,
+        playerTimeHPBonusSeconds: Int = 0,
         onGameFinished: @escaping (Bool) -> Void
     ) {
         self.onGameFinished = onGameFinished
@@ -35,7 +37,9 @@ struct ShiritoriGameView: View {
         _gameManager = State(initialValue: ShiritoriGameManager(
             cards: cards,
             stage: stage,
-            initialPlayerTimeBonusSeconds: initialPlayerTimeBonusSeconds
+            initialPlayerTimeBonusSeconds: initialPlayerTimeBonusSeconds,
+            playerTimePenaltySeconds: playerTimePenaltySeconds,
+            playerTimeHPBonusSeconds: playerTimeHPBonusSeconds
         ))
     }
 

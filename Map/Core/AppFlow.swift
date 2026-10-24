@@ -69,6 +69,10 @@ final class AppFlow: ObservableObject {
     }
     /// スケルトンのドロップで増えた、しりとりの初期持ち時間。
     @Published private(set) var shiritoriTimeBonusSeconds = 0
+    /// マップの歩数による、しりとり持ち時間の減少秒数。
+    @Published private(set) var shiritoriTimePenaltySeconds = 0
+    /// しりとり開始時の残りHPを、持ち時間へ加算する秒数。
+    @Published private(set) var shiritoriHPBonusSeconds = 0
     /// 選択中モードの端末内ランキング。
     @Published private(set) var leaderboardEntries: [LeaderboardEntry] = []
 
@@ -123,6 +127,8 @@ final class AppFlow: ObservableObject {
         currentRecordKey = StageTimingPolicy.recordKey(for: stage)
         supportsReplayAndTiming = StageTimingPolicy.startsTimer(for: stage)
         shiritoriTimeBonusSeconds = 0
+        shiritoriTimePenaltySeconds = 0
+        shiritoriHPBonusSeconds = 0
         currentLeaderboardMode = StageTimingPolicy.leaderboardMode(for: stage)
         leaderboardEntries = currentLeaderboardMode.map { LocalLeaderboard.load($0) } ?? []
         bestClearTime = currentRecordKey.flatMap { loadBestClearTime(for: $0) }
@@ -200,6 +206,8 @@ final class AppFlow: ObservableObject {
     func startShiritoriGame() {
         guard case .shiritoriPrologue = screen else { return }
         shiritoriTimeBonusSeconds = game?.state.shiritoriTimeBonusSeconds ?? 0
+        shiritoriTimePenaltySeconds = game?.state.mapStepCount ?? 0
+        shiritoriHPBonusSeconds = max(0, game?.state.playerHP ?? 0)
 
         if game?.stage.shiritoriStageKind == .trial {
             screen = .trialShiritoriGame
@@ -254,6 +262,8 @@ final class AppFlow: ObservableObject {
         currentRecordKey = nil
         supportsReplayAndTiming = false
         shiritoriTimeBonusSeconds = 0
+        shiritoriTimePenaltySeconds = 0
+        shiritoriHPBonusSeconds = 0
         leaderboardEntries = []
         currentLeaderboardMode = nil
         game = nil
