@@ -597,13 +597,22 @@ struct ShiritoriGameView: View {
     private func randomStageCPUCharacterImage(at date: Date) -> String {
         let prefix = "character_cpu3"
 
+        // 残り7枚以下の時間切れ特殊勝利は、CPUが勝ちを譲る演出のため通常待機を続ける。
+        // 勝敗結果より先に判定し、失敗アニメーションへ入らないようにする。
+        if gameManager.gameResult == .playerWinTimeoutMercy {
+            return randomStageCPUIdleImage(at: date.timeIntervalSince(characterAnimationEpoch))
+        }
+
         // 勝敗を最優先する。アニメーションはメッセージ進行・画面遷移を変更しない。
         if let result = gameManager.gameResult {
             switch result {
             case .playerLoseTimeout, .playerLoseN:
                 return randomStageCPUWinAnimation(at: date)
-            case .playerWinAllCards, .playerWinNoCPUTarget, .playerWinCPUN, .playerWinTimeoutMercy:
+            case .playerWinAllCards, .playerWinNoCPUTarget, .playerWinCPUN:
                 return randomStageCPULowCardFailureAnimation(at: date)
+            case .playerWinTimeoutMercy:
+                // 上で通常待機へ振り分け済み。
+                return randomStageCPUIdleImage(at: date.timeIntervalSince(characterAnimationEpoch))
             }
         }
 
