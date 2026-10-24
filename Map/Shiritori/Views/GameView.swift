@@ -838,6 +838,9 @@ struct ShiritoriGameView: View {
                     : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。")
 
             case .playerLoseTimeout:
+                if isRandomStage {
+                    return gameManager.currentMessage ?? ""
+                }
                 return gameManager.isTrialStage
                     ? "おほほほほ！たいむあっぷザンス！ミーの かちザマス！"
                     : "フハハハ！時間切れだ！貴様の負けだ！"
