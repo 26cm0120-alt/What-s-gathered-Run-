@@ -28,6 +28,7 @@ struct ShiritoriGameView: View {
         stage: ShiritoriStageType = .normal,
         initialPlayerTimeBonusSeconds: Int = 0,
         playerTimePenaltySeconds: Int = 0,
+        playerTimeHPBonusSeconds: Int = 0,
         onGameFinished: @escaping (Bool) -> Void
     ) {
         self.onGameFinished = onGameFinished
@@ -37,7 +38,8 @@ struct ShiritoriGameView: View {
             cards: cards,
             stage: stage,
             initialPlayerTimeBonusSeconds: initialPlayerTimeBonusSeconds,
-            playerTimePenaltySeconds: playerTimePenaltySeconds
+            playerTimePenaltySeconds: playerTimePenaltySeconds,
+            playerTimeHPBonusSeconds: playerTimeHPBonusSeconds
         ))
     }
 
