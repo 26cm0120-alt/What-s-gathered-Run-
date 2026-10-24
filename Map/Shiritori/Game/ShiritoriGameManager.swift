@@ -749,7 +749,7 @@ final class ShiritoriGameManager {
 
         // 最終メッセージはスキャン終了後に初めて設定する。
         currentMessage = isRandomStage
-            ? "なにっ、\\(KanaNormalizer.promptDisplayText(for: currentPrompt ?? "あ"))を継ぐカードが存在しないっ！・・・カード切れは\n仕方ない、本当に仕方ない。\n見事やな...(ﾆｺｯ)"
+            ? "なにっ、\(KanaNormalizer.promptDisplayText(for: currentPrompt ?? "あ"))を継ぐカードが存在しないっ！・・・カード切れは\n仕方ない、本当に仕方ない。\n見事やな...(ﾆｺｯ)"
             : (stage == .trial
                 ? "なんてことザンス、ミーが えらべるカードがないザマス・・・。"
                 : "なんと、選べるカードがないではないか")
