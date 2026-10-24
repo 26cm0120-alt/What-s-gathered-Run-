@@ -850,7 +850,7 @@ struct ShiritoriGameView: View {
         // ランダムステージのCPU初手案内だけ、姫龍専用セリフに差し替える。
         if isRandomStage,
            gameManager.currentMessage == "よし、まずは私から選ばせてもらうぞ" {
-            return "今から一方的にお前は殺されるんだ。\\n悔しいだろうが仕方ないんだ。"
+            return "今から一方的にお前は殺されるんだ。\n悔しいだろうが仕方ないんだ。"
         }
 
         // ゲーム中はShiritoriGameManagerが設定したメッセージを表示する
