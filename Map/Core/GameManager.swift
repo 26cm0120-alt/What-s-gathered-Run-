@@ -178,6 +178,7 @@ final class GameManager: ObservableObject {
         let slowWasActive = action == .moveForward && state.doubleFlickTrapActive
         var newState = state
         newState.player.position = next
+        newState.mapStepCount += 1
         newState.explored.insert(next)
         if cell.isTrap {
             newState.activatedTrapPositions.insert(next)
