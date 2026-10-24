@@ -874,9 +874,11 @@ final class ShiritoriGameManager {
         case .normalCPUMessage:
             // 通常メッセージのあと、カードを使い切ったことに気づくセリフへ進む
             cpuFinalCardEndingStage = .cardsExhaustedMessage
-            currentMessage = stage == .trial
-                ? "・・・って、あら？ カードが もう ないザマスね？"
-                : "・・・といいたいところだが、なんと カードを つかいきって しまったではないか"
+            currentMessage = isRandomStage
+                ? "なにっ、カードを使い切っちまったっ！\n仕方ない、本当に仕方ない。\n見事やな...(ﾆｺｯ)"
+                : (stage == .trial
+                    ? "・・・って、あら？ カードが もう ないザマスね？"
+                    : "・・・といいたいところだが、なんと カードを つかいきって しまったではないか")
 
             // ここから先はCPUを通常ポーズ、PLAYERを勝利アニメーションにする
             startPlayerAnimation(.success)
@@ -884,9 +886,11 @@ final class ShiritoriGameManager {
         case .cardsExhaustedMessage:
             // 2秒保持後、CPUがPLAYERの勝利を認めるセリフへ進む
             cpuFinalCardEndingStage = .victoryAcknowledgement
-            currentMessage = stage == .trial
-                ? "ふふん、なかなかやるザンスね！ユーの かちってことにしてあげるザマス！"
-                : "みごとだ。きさまの しょうりを みとめよう。"
+            currentMessage = isRandomStage
+                ? "きみグッドファイターと認めるね\n勝ちを誇り、\n美学を持て・・・姫龍のように。"
+                : (stage == .trial
+                    ? "ふふん、なかなかやるザンスね！ユーの かちってことにしてあげるザマス！"
+                    : "みごとだ。きさまの しょうりを みとめよう.")
 
         case .victoryAcknowledgement:
             // 最後のセリフも2秒保持したら、ポーズとメッセージをそのまま維持する
@@ -908,16 +912,20 @@ final class ShiritoriGameManager {
             // 通常の時間切れセリフのあと、残り枚数を示して健闘を称える
             timeoutMercyVictoryStage = .hardFoughtMessage
             let remainingCardCount = cards.filter { !$0.isCleared }.count
-            currentMessage = stage == .trial
-                ? "でも、のこり まいすう \(remainingCardCount) まい ザンスか。この ミーを あいてに よくやったとほめてあげたいところザマス。"
-                : "だが、のこり まいすう \(remainingCardCount) まい か。この わたしを あいてに よくたたかった。"
+            currentMessage = isRandomStage
+                ? "だが、残り\(remainingCardCount)枚は好感が持てる。\n死闘を通したから尊いんだ、\n絆が深まるんだ。\n見事やな・・・(ﾆｺｯ)"
+                : (stage == .trial
+                    ? "でも、のこり まいすう \(remainingCardCount) まい ザンスか。この ミーを あいてに よくやったとほめてあげたいところザマス。"
+                    : "だが、のこり まいすう \(remainingCardCount) まい か。この わたしを あいてに よくたたかった.")
 
         case .hardFoughtMessage:
             // 健闘を称えるセリフのあと、CPUが勝利を譲る
             timeoutMercyVictoryStage = .victoryConcession
-            currentMessage = stage == .trial
-                ? "いいザンス、ユーの がんばりをみとめて、しょうりを ゆずってあげるザマス。"
-                : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう。"
+            currentMessage = isRandomStage
+                ? "きみグッドファイターと認めるね\n健闘を誇り、\n美学を持て・・・姫龍のように。"
+                : (stage == .trial
+                    ? "いいザンス、ユーの がんばりをみとめて、しょうりを ゆずってあげるザマス。"
+                    : "よかろう、おまえの けんとうを たたえ、しょうりを ゆずってやろう.")
 
         case .victoryConcession:
             // 最終セリフの保持が終わったら、メッセージとポーズをそのまま維持する
