@@ -483,7 +483,8 @@ final class ShiritoriGameManager {
         // プレイヤー取得メッセージを作成する
         currentMessage = MessageSelector.playerMessage(
             for: vocabulary,
-            stage: stage
+            stage: stage,
+            isRandomStage: isRandomStage
         )
 
         // 正常な読みなのでカードを取得する
