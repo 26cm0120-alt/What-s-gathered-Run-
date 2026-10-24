@@ -42,6 +42,7 @@ struct ShiritoriGameView: View {
         _gameManager = State(initialValue: ShiritoriGameManager(
             cards: cards,
             stage: stage,
+            isRandomStage: isRandomStage && stage != .trial,
             initialPlayerTimeBonusSeconds: initialPlayerTimeBonusSeconds,
             playerTimePenaltySeconds: playerTimePenaltySeconds,
             playerTimeHPBonusSeconds: playerTimeHPBonusSeconds
