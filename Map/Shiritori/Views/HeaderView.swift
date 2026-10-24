@@ -40,7 +40,7 @@ struct HeaderView: View {
             return "-"
         }
 
-        return KanaNormalizer.promptDisplayText(for: currentPrompt)
+        return "『\(KanaNormalizer.promptDisplayText(for: currentPrompt))』"
     }
 }
 
