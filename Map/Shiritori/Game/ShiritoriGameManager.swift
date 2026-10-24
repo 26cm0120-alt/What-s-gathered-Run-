@@ -470,9 +470,8 @@ final class ShiritoriGameManager {
 
         // しりとり接続に成功したので正解音を再生する
         SoundEffectManager.shared.playSuccess()
-        // PLAYERは成功ジャンプ、CPUは悔しがる失敗表情を開始する
+        // PLAYERの成功ジャンプを開始する。CPUの失敗演出はカード取得後の残り枚数を保存して開始する。
         startPlayerAnimation(.success)
-        startCPUAnimation(.failure)
 
         // 正解したカードの取得時にPLAYER TIMEを5秒回復する
         // 持ち時間の上限は90秒とする
@@ -486,6 +485,7 @@ final class ShiritoriGameManager {
 
         // 正常な読みなのでカードを取得する
         cards[cardIndex].isCleared = true
+        startCPUAnimation(.failure)
         updateBGMForRemainingCardCount()
 
         // 成功した読みの正規化後の末尾を次の要求文字にする
