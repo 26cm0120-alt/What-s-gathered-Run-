@@ -601,11 +601,11 @@ struct ShiritoriGameView: View {
         let elapsed = max(0, date.timeIntervalSince(event.startedAt))
         switch event.kind {
         case .success:
-            // 通常の正解演出は3秒（2ループ）で終了し、CPU3の通常待機へ戻す。
-            if elapsed < 3.0 {
+            // win1（1秒）→win2（0.5秒）→win3（0.5秒）を2周し、4秒後に通常待機へ戻す。
+            if elapsed < 4.0 {
                 return randomStageCPUWinAnimation(at: date)
             }
-            return randomStageCPUIdleImage(at: elapsed - 3.0)
+            return randomStageCPUIdleImage(at: elapsed - 4.0)
         case .failure:
             // イベント開始時点の残り枚数を固定して画像を選ぶ（13枚以上／12枚以下）。
             // 3枚を各0.5秒で2周したら通常待機へ戻す。
