@@ -126,6 +126,8 @@ final class GameManager: ObservableObject {
         let cell = map.cell(at: next)
         if cell.isWall {
             var newState = state
+            // 壁への衝突は連続前進を中断する。
+            newState.consecutiveSafeForwardSteps = 0
             var isGameOverFromWallDamage = false
             if wallCollisionDamageEnabled {
                 wallCollisionCount += 1
@@ -169,6 +171,8 @@ final class GameManager: ObservableObject {
         }
         if let reason = event?.blockReason(state: state) {
             var newState = state
+            // イベントにより進行できなかった場合も、連続前進を中断する。
+            newState.consecutiveSafeForwardSteps = 0
             newState.message = reason
             state = newState
             return
@@ -221,6 +225,33 @@ final class GameManager: ObservableObject {
                 newState.message = "トラップの影響でHPが0になり、力尽きた……"
             }
         }
+        // 何事もなく前進した場合だけ連続歩数を数える。旋回は別処理なのでカウントを維持する。
+        let isUneventfulForwardStep = action == .moveForward
+            && event == nil
+            && !cell.isTrap
+            && cell != .key
+            && cell != .goal
+            && cell != .sword
+            && cell != .enemy
+            && newState.message.isEmpty
+            && !hpDrainWasActive
+            && !newState.hpDrainTrapActive
+            && !newState.isGameOver
+
+        if isUneventfulForwardStep {
+            newState.consecutiveSafeForwardSteps += 1
+            if newState.consecutiveSafeForwardSteps >= 5 {
+                newState.consecutiveSafeForwardSteps = 0
+                if newState.playerHP < GameState.playerMaxHP {
+                    newState.playerHP += 1
+                    newState.message = "５歩歩いたので、HPが１回復した"
+                }
+            }
+        } else {
+            // 罠・敵・アイテムなどのイベントが起きた歩行では、HPを回復せず連続数をリセットする。
+            newState.consecutiveSafeForwardSteps = 0
+        }
+
         // UI側のonChangeが動く前から移動を止め、取得演出の開始漏れを防ぐ。
         let acquiredKey = !state.hasKey && newState.hasKey
         let acquiredSword = !state.hasSword && newState.hasSword
