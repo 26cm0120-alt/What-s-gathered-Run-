@@ -18,6 +18,8 @@ enum CharacterAnimationKind {
 struct CharacterAnimationEvent {
     let kind: CharacterAnimationKind
     let startedAt: Date
+    /// 演出開始時点の未取得カード枚数。再生中にカード状態が変わっても固定する。
+    let remainingCardCountAtStart: Int
 }
 
 // CPUが最後のカードを取得した場合のエンディング進行段階
@@ -204,12 +206,20 @@ final class ShiritoriGameManager {
 
     // CPUのアニメーションイベントを開始する
     private func startCPUAnimation(_ kind: CharacterAnimationKind) {
-        cpuAnimationEvent = CharacterAnimationEvent(kind: kind, startedAt: Date())
+        cpuAnimationEvent = CharacterAnimationEvent(
+            kind: kind,
+            startedAt: Date(),
+            remainingCardCountAtStart: cards.filter { !$0.isCleared }.count
+        )
     }
 
     // PLAYERのアニメーションイベントを開始する
     private func startPlayerAnimation(_ kind: CharacterAnimationKind) {
-        playerAnimationEvent = CharacterAnimationEvent(kind: kind, startedAt: Date())
+        playerAnimationEvent = CharacterAnimationEvent(
+            kind: kind,
+            startedAt: Date(),
+            remainingCardCountAtStart: cards.filter { !$0.isCleared }.count
+        )
     }
 
     private var initialCPUMessage: String {
