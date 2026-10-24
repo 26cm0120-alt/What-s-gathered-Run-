@@ -34,23 +34,23 @@ struct MessageSelector {
             switch vocabulary.type {
             case .normal:
                 messages = [
-                    "なにっ、\(vocabulary.displayWord)！？\nふうん、そういうことか。\nまぁこれくらい屁でもないとは\nいわんけどなブヘヘヘヘ。",
-                    "はうっ、\(vocabulary.displayWord)！？\nしゃあけど、こんなん\nあたりまえの読みやんけ、\nたんしたことないのん。"
+                    "なにっ、「\(vocabulary.displayWord)」！？\nふうん、そういうことか。\nまぁこれくらい屁でもないとは\nいわんけどなブヘヘヘヘ。",
+                    "はうっ、「\(vocabulary.displayWord)」！？\nしゃあけど、こんなん\nあたりまえの読みやんけ、\nたんしたことないのん。"
                 ]
             case .english:
                 messages = [
-                    "あががっ、\(vocabulary.displayWord)！？\n・・・あいつ、おそらく\n英語が読めると考えられる。",
-                    "なにいっ、\(vocabulary.displayWord)！？\n許せなかった…お前が本当は\n英語を読めるだなんて・・・"
+                    "あががっ、「\(vocabulary.displayWord)」！？\n・・・あいつ、おそらく\n英語が読めると考えられる。",
+                    "なにいっ、「\(vocabulary.displayWord)」！？\n許せなかった…お前が本当は\n英語を読めるだなんて・・・"
                 ]
             case .surprise:
                 messages = [
-                    "\(vocabulary.displayWord)！？あーー、\n何言ってるかわかんねえよ！\nお…お前変なクスリでも\nやってるのか！？",
-                    "なにいっ、\(vocabulary.displayWord)！？\nいやちょっとまてよ、\nううんどういうことだ。"
+                    "「\(vocabulary.displayWord)」！？あーー、\n何言ってるかわかんねえよ！\nお…お前変なクスリでも\nやってるのか！？",
+                    "なにいっ、「\(vocabulary.displayWord)」！？\nいやちょっとまてよ、\nううんどういうことだ。"
                 ]
             case .rare:
                 messages = [
-                    "はうっ、\(vocabulary.displayWord)！？\nそれジョークか？\n面白いことを言うなあ\nこの蛆虫は。",
-                    "あががっ、\(vocabulary.displayWord)！？\n貴様ーっ、\n姫龍を愚弄する気かぁっ！"
+                    "はうっ、「\(vocabulary.displayWord)」！？\nそれジョークか？\n面白いことを言うなあ\nこの蛆虫は。",
+                    "あががっ、「\(vocabulary.displayWord)」！？\n貴様ーっ、\n姫龍を愚弄する気かぁっ！"
                 ]
             }
             return messages.randomElement() ?? ""
@@ -100,13 +100,13 @@ struct MessageSelector {
         if isRandomStage {
             switch vocabulary.type {
             case .normal:
-                return ["しゃあっ、\(vocabulary.displayWord)！", "あざーす（ｶﾞｼｯ\n\(vocabulary.displayWord)！"]
+                return ["しゃあっ、「\(vocabulary.displayWord)」！", "あざーす（ｶﾞｼｯ\n「\(vocabulary.displayWord)」！"]
             case .english:
-                return ["ヤンケ、「シバクヤンケ」\n\(vocabulary.displayWord)！", "英語読みはリラックスできますね。\n\(vocabulary.displayWord)！"]
+                return ["ヤンケ、「シバクヤンケ」\n「\(vocabulary.displayWord)」！", "英語読みはリラックスできますね。\n「\(vocabulary.displayWord)」！"]
             case .surprise:
-                return ["その読みはやめろーっ、てか？\n\(vocabulary.displayWord)！", "\(vocabulary.displayWord)はルールで\n禁止ㇲよね、ってか？\nへっ、あまちゃんが。"]
+                return ["その読みはやめろーっ、てか？\n「\(vocabulary.displayWord)」！", "「\(vocabulary.displayWord)」はルールで\n禁止ㇲよね、ってか？\nへっ、あまちゃんが。"]
             case .rare:
-                return ["アタイってやつは結構鬼畜だな。\n\(vocabulary.displayWord)！", "\(vocabulary.displayWord)。この読みに\n一番戸惑っているのはアタイ\nなんだよね。すごくない?"]
+                return ["アタイってやつは結構鬼畜だな。\n「\(vocabulary.displayWord)」！", "「\(vocabulary.displayWord)」。この読みに\n一番戸惑っているのはアタイ\nなんだよね。すごくない?"]
             }
         }
 
@@ -160,7 +160,7 @@ struct MessageSelector {
             return "\(baseMessage)\nさあ、『\(promptText)』から\nはじまるカードをえらぶザンス！"
         }
         if isRandomStage {
-            return "\(baseMessage)\nほれ、「\(promptText)」やっ！"
+            return "\(baseMessage)\nほれ、「\(promptText)」からはじまるカードを選べ！"
         }
         return "\(baseMessage)\n「\(promptText)」から\nはじまるカードを選べ！"
     }
