@@ -72,14 +72,16 @@ final class ShiritoriGameManager {
     private let stage: ShiritoriStageType
     private let initialPlayerTimeBonusSeconds: Int
     private let playerTimePenaltySeconds: Int
+    private let playerTimeHPBonusSeconds: Int
 
     var isTrialStage: Bool { stage == .trial }
 
-    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0) {
+    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
         self.initialCards = cards
         self.stage = stage
         self.initialPlayerTimeBonusSeconds = max(0, initialPlayerTimeBonusSeconds)
         self.playerTimePenaltySeconds = max(0, playerTimePenaltySeconds)
+        self.playerTimeHPBonusSeconds = max(0, playerTimeHPBonusSeconds)
     }
 
     // 現在のゲーム状態
@@ -251,7 +253,7 @@ final class ShiritoriGameManager {
         self.currentPrompt = nil
         self.selectedCardID = nil
         self.confirmedCardID = nil
-        self.playerTime = max(30, 90 + initialPlayerTimeBonusSeconds - playerTimePenaltySeconds)
+        self.playerTime = max(30, 90 + initialPlayerTimeBonusSeconds + playerTimeHPBonusSeconds - playerTimePenaltySeconds)
 
         // CPU先攻状態を設定する。導入会話中は初期案内文を後回しにする
         self.turn = .cpu
