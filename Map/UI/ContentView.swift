@@ -68,7 +68,12 @@ struct ContentView: View {
                 )
 
             case .shiritoriGame:
-                ShiritoriGameView(initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
+                ShiritoriGameView(
+                    isRandomStage: flow.game?.stage.seed != nil,
+                    initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds,
+                    playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds,
+                    playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds
+                ) { playerWon in
                     flow.finishShiritori(won: playerWon)
                 }
 

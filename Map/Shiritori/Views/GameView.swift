@@ -17,6 +17,9 @@ struct ShiritoriGameView: View {
     /// 試練ステージだけCPU2専用画像・演出を使用する。
     private let isTrialStage: Bool
 
+    /// ランダムステージだけCPU3専用画像・演出を使用する。
+    private let isRandomStage: Bool
+
     // ゲーム進行を管理する
     @State private var gameManager: ShiritoriGameManager
 
@@ -26,6 +29,7 @@ struct ShiritoriGameView: View {
     init(
         cards: [Card] = CardData.cards,
         stage: ShiritoriStageType = .normal,
+        isRandomStage: Bool = false,
         initialPlayerTimeBonusSeconds: Int = 0,
         playerTimePenaltySeconds: Int = 0,
         playerTimeHPBonusSeconds: Int = 0,
@@ -33,10 +37,12 @@ struct ShiritoriGameView: View {
     ) {
         self.onGameFinished = onGameFinished
         self.isTrialStage = stage == .trial
+        self.isRandomStage = isRandomStage && stage != .trial
         self.stage = stage
         _gameManager = State(initialValue: ShiritoriGameManager(
             cards: cards,
             stage: stage,
+            isRandomStage: isRandomStage && stage != .trial,
             initialPlayerTimeBonusSeconds: initialPlayerTimeBonusSeconds,
             playerTimePenaltySeconds: playerTimePenaltySeconds,
             playerTimeHPBonusSeconds: playerTimeHPBonusSeconds
@@ -65,6 +71,13 @@ struct ShiritoriGameView: View {
             return [
                 "ほっほっほ・・・おみごとザンス。\nよく ミーのところまで たどりつけたと\nほめてあげたいところザマス。",
                 "では、おフランスりゅうがく がえりの\nこの ミーが きょうようというものを\nたたきこんでやるザマス。よごザンスね！？",
+                "What's gathered? Run!\nワギャラン"
+            ]
+        }
+        if isRandomStage {
+            return [
+                "カモがネギしょってやってきたぜェグヘヘヘヘヘ…\nバキッバキッ",
+                "我が名は姫龍。いつしか\"怪物を超えた怪物”と\n呼ばれるようになった。それがアタイさ。\n***ジャッジOK***！？***アーユーレディ***・・・",
                 "What's gathered? Run!\nワギャラン"
             ]
         }
@@ -107,6 +120,34 @@ struct ShiritoriGameView: View {
                 "とんねる は せんろ も みえるザマス。てつどうとんねる、こうどうザマスね。",
                 "びすけっと くっきー さぶれ がれっと・・・？みわけが つかないザマスねえ。",
                 "え？せんすで ぜんぜん あおいで いないって？きょうは すずしいザマスから。"
+            ]
+        }
+        if isRandomStage {
+            return [
+                "やめろっ　裏読みが出てくるとややこしいことになるから",
+                "おとな、あだると、すーつ、ねくたい、びじねすまん・・・ぬっ、いかんいかん。",
+                "めいろ、まよいみち、るーと、すたーと・・・はた に いけがき も みえるな。",
+                "りんご は あかりんごか。ふるーつ、きのみ、くだもの と いっても いいだろう。",
+                "まど ういんどう がらす・・・かーてん も あるな。なら なかまど とも いえるか。",
+                "どあ、のぶ・・・いりぐち、でぐち・・・げんかん・・・おっと、いかんな。",
+                "これは こども か。ひとり とも よめるな。きっず、おとこのこ・・・ぶつぶつ。",
+                "こま、すぴん、おもちゃ、いと、ひも・・・くるくる、かいてんか。",
+                "まくら、ぴろー、しんぐ、すいみん・・・おやすみもあるか、ふむ。",
+                "なす、えっぐぷらんと、やさい、むらさき・・・つけものもあるか。",
+                "だるま、ごうかく、おきもの、えんぎもの・・・がんかけもあるか、ふむ。",
+                "ろうそく、あかり、ともしび、しょくだい・・・ほのお、ひ・・・なるほど。",
+                "くつ、しゅーず、はきもの、すにーかー・・・どれもおなじものか、ふむ。",
+                "りす、きのみ、しっぽ、どうぶつ・・・ぬいぐるみもありか、ぶつぶつ。",
+                "りょうり、ちょうり、しょくじ、ごちそう・・・めだまやきにふらいぱんか。",
+                "つき、まんげつ、おつきみ、じゅうごや・・・よぞらもみえるな、なるほど。",
+                "らじお、でんぱ、ほうそう、おんがく、にゅーす・・・ばんぐみもあるか。",
+                "裏読みは欺瞞だ、すべてが欺瞞に満ちている・・・。",
+                "裏読みを言ったら殺されても文句は言えねぇぞ！",
+                "その読みはやめろーっ！裏読みはルールで禁止ㇲよね。",
+                "やっぱ怖いㇲね裏読みは。でもしりとりはルール無用だろ。",
+                "でも…ひとつだけ言いたいことがあるんです。裏読みはクソだ。",
+                "えっ なにっ なにこれ? ねーっなんなのこの読み！",
+                "裏読み（それ）はだめだろ。忌憚の無い意見ってやつっス。"
             ]
         }
         return [
@@ -426,6 +467,11 @@ struct ShiritoriGameView: View {
             return trialCPUCharacterImage(prefix: "character_cpu2", event: event, at: date)
         }
 
+        // ランダムステージは導入1段階目だけ従来CPUを使い、2段階目からCPU3専用演出へ切り替える。
+        if isRandomStage && !isPlayer && !(isShowingOpeningDialogue && openingDialogueIndex == 0) {
+            return randomStageCPUCharacterImage(at: date)
+        }
+
         // 時間切れ特別勝利の健闘セリフ以降は、CPUを通常画像、PLAYERをWrong画像に固定する。
         switch gameManager.timeoutMercyVictoryStage {
         case .hardFoughtMessage, .victoryConcession, .finished:
@@ -548,6 +594,108 @@ struct ShiritoriGameView: View {
         }
     }
 
+    /// ランダムステージCPU3専用の画像・アニメーションを選択する。
+    private func randomStageCPUCharacterImage(at date: Date) -> String {
+        let prefix = "character_cpu3"
+
+        // 残り7枚以下の時間切れ特殊勝利は、CPUが勝ちを譲る演出のため通常待機を続ける。
+        // 勝敗結果より先に判定し、失敗アニメーションへ入らないようにする。
+        if gameManager.gameResult == .playerWinTimeoutMercy {
+            return randomStageCPUIdleImage(at: date.timeIntervalSince(characterAnimationEpoch))
+        }
+
+        // 勝敗を最優先する。アニメーションはメッセージ進行・画面遷移を変更しない。
+        if let result = gameManager.gameResult {
+            switch result {
+            case .playerLoseTimeout, .playerLoseN:
+                return randomStageCPUWinAnimation(at: date)
+            case .playerWinAllCards, .playerWinNoCPUTarget, .playerWinCPUN:
+                return randomStageCPULowCardFailureAnimation(at: date)
+            case .playerWinTimeoutMercy:
+                // 上で通常待機へ振り分け済み。
+                return randomStageCPUIdleImage(at: date.timeIntervalSince(characterAnimationEpoch))
+            }
+        }
+
+        // 結果確定前の専用メッセージ中は既存の専用ポーズを優先する。
+        switch gameManager.timeoutMercyVictoryStage {
+        case .hardFoughtMessage, .victoryConcession, .finished:
+            return prefix
+        case .inactive, .defeatMessage:
+            break
+        }
+
+        switch gameManager.cpuFinalCardEndingStage {
+        case .cardsExhaustedMessage, .victoryAcknowledgement, .finished:
+            return prefix
+        case .inactive, .normalCPUMessage:
+            break
+        }
+
+        guard let event = gameManager.cpuAnimationEvent else {
+            return randomStageCPUIdleImage(at: date.timeIntervalSince(characterAnimationEpoch))
+        }
+
+        let elapsed = max(0, date.timeIntervalSince(event.startedAt))
+        switch event.kind {
+        case .success:
+            // win1（1秒）→win2（0.5秒）→win3（0.5秒）を2周し、4秒後に通常待機へ戻す。
+            if elapsed < 4.0 {
+                return randomStageCPUWinAnimation(at: date)
+            }
+            return randomStageCPUIdleImage(at: elapsed - 4.0)
+        case .failure:
+            // イベント開始時点の残り枚数を固定して画像を選ぶ（13枚以上／12枚以下）。
+            if event.remainingCardCountAtStart >= 13 {
+                // wrong1・wrong2・wrong4は各0.5秒で2周（合計3秒）。
+                if elapsed < 3.0 {
+                    let frames = ["wrong1", "wrong2", "wrong4"]
+                    return "\(prefix)_\(frames[Int(elapsed / 0.5) % frames.count])"
+                }
+                return randomStageCPUIdleImage(at: elapsed - 3.0)
+            } else {
+                // wrong3・wrong6は各1秒、wrong5は0.5秒。2周後に通常待機へ戻す。
+                if elapsed < 5.0 {
+                    let phase = elapsed.truncatingRemainder(dividingBy: 2.5)
+                    if phase < 1.0 { return "\(prefix)_wrong3" }
+                    if phase < 1.5 { return "\(prefix)_wrong5" }
+                    return "\(prefix)_wrong6"
+                }
+                return randomStageCPUIdleImage(at: elapsed - 5.0)
+            }
+        }
+    }
+
+    /// プレイヤー勝利時のCPU反応。wrong3・wrong6を各1秒、wrong5を0.5秒で連続ループする。
+    private func randomStageCPULowCardFailureAnimation(at date: Date) -> String {
+        let startDate = gameManager.cpuAnimationEvent?.startedAt ?? characterAnimationEpoch
+        let elapsed = max(0, date.timeIntervalSince(startDate))
+        let phase = elapsed.truncatingRemainder(dividingBy: 2.5)
+        if phase < 1.0 { return "character_cpu3_wrong3" }
+        if phase < 1.5 { return "character_cpu3_wrong5" }
+        return "character_cpu3_wrong6"
+    }
+
+    /// CPU3の通常待機ループ。基本画像1秒、各差分0.5秒の2.5秒周期。
+    private func randomStageCPUIdleImage(at elapsed: TimeInterval) -> String {
+        let phase = max(0, elapsed).truncatingRemainder(dividingBy: 2.5)
+        if phase < 1.0 { return "character_cpu3" }
+        if phase < 1.5 { return "character_cpu3_blink" }
+        if phase < 2.0 { return "character_cpu3_breath1" }
+        return "character_cpu3_breath2"
+    }
+
+    /// CPUの勝利アニメーション。終了後もループし、画面遷移はメッセージ側に任せる。
+    private func randomStageCPUWinAnimation(at date: Date) -> String {
+        let startDate = gameManager.cpuAnimationEvent?.startedAt ?? characterAnimationEpoch
+        let frame = Int(max(0, date.timeIntervalSince(startDate)) / 0.5) % 4
+        switch frame {
+        case 0, 1: return "character_cpu3_win1"
+        case 2: return "character_cpu3_win2"
+        default: return "character_cpu3_win3"
+        }
+    }
+
     /// 試練CPU専用の表示だけを切り替える。イベント発生条件・勝敗判定・メッセージ進行は共通処理を使う。
     private func trialCPUCharacterImage(
         prefix: String,
@@ -565,8 +713,24 @@ struct ShiritoriGameView: View {
             return Int(elapsed / 0.5) % 2 == 0 ? "\(prefix)_rose1" : "\(prefix)_rose2"
         }
 
-        // プレイヤーが時間切れ／「ん」で敗北：CPUの勝利ジャンプを指定順で2周し、最後にjump1を表示。
-        if gameManager.gameResult == .playerLoseTimeout || gameManager.gameResult == .playerLoseN {
+        // プレイヤー時間切れによるCPU特殊勝利：既存の勝利アニメーションをループする。
+        // メッセージ完了と画面遷移のタイミングには干渉しない。
+        if gameManager.gameResult == .playerLoseTimeout {
+            let sequence: [(String, TimeInterval)] = [
+                ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
+                ("jump4", 0.5), ("jump5", 0.5), ("jump6", 0.5)
+            ]
+            let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
+            let cycleDuration = sequence.reduce(0) { $0 + $1.1 }
+            var cursor = elapsed.truncatingRemainder(dividingBy: cycleDuration)
+            for (frame, duration) in sequence {
+                if cursor < duration { return "\(prefix)_\(frame)" }
+                cursor -= duration
+            }
+        }
+
+        // プレイヤーが「ん」で敗北した場合は既存の勝利演出を維持する。
+        if gameManager.gameResult == .playerLoseN {
             let elapsed = max(0, date.timeIntervalSince(event?.startedAt ?? characterAnimationEpoch))
             let sequence: [(String, TimeInterval)] = [
                 ("jump1", 0.7), ("jump2", 1.0), ("jump3", 0.5),
@@ -681,6 +845,12 @@ struct ShiritoriGameView: View {
             case .playerLoseN:
                 return "ちょっと待て、’ん’ で終わりではないか。貴様の負けだ"
             }
+        }
+
+        // ランダムステージのCPU初手案内だけ、姫龍専用セリフに差し替える。
+        if isRandomStage,
+           gameManager.currentMessage == "よし、まずは私から選ばせてもらうぞ" {
+            return "今から一方的にお前は殺されるんだ。\n悔しいだろうが仕方ないんだ。"
         }
 
         // ゲーム中はShiritoriGameManagerが設定したメッセージを表示する

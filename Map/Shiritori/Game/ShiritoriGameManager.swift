@@ -18,6 +18,8 @@ enum CharacterAnimationKind {
 struct CharacterAnimationEvent {
     let kind: CharacterAnimationKind
     let startedAt: Date
+    /// 演出開始時点の未取得カード枚数。再生中にカード状態が変わっても固定する。
+    let remainingCardCountAtStart: Int
 }
 
 // CPUが最後のカードを取得した場合のエンディング進行段階
@@ -70,15 +72,18 @@ final class ShiritoriGameManager {
     /// このゲームで使うカードデータ。通常版と試練版でデータだけを独立させる。
     private let initialCards: [Card]
     private let stage: ShiritoriStageType
+    /// ランダムステージ専用メッセージを選択するためのフラグ。
+    private let isRandomStage: Bool
     private let initialPlayerTimeBonusSeconds: Int
     private let playerTimePenaltySeconds: Int
     private let playerTimeHPBonusSeconds: Int
 
     var isTrialStage: Bool { stage == .trial }
 
-    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
+    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, isRandomStage: Bool = false, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
         self.initialCards = cards
         self.stage = stage
+        self.isRandomStage = isRandomStage && stage != .trial
         self.initialPlayerTimeBonusSeconds = max(0, initialPlayerTimeBonusSeconds)
         self.playerTimePenaltySeconds = max(0, playerTimePenaltySeconds)
         self.playerTimeHPBonusSeconds = max(0, playerTimeHPBonusSeconds)
@@ -204,12 +209,20 @@ final class ShiritoriGameManager {
 
     // CPUのアニメーションイベントを開始する
     private func startCPUAnimation(_ kind: CharacterAnimationKind) {
-        cpuAnimationEvent = CharacterAnimationEvent(kind: kind, startedAt: Date())
+        cpuAnimationEvent = CharacterAnimationEvent(
+            kind: kind,
+            startedAt: Date(),
+            remainingCardCountAtStart: cards.filter { !$0.isCleared }.count
+        )
     }
 
     // PLAYERのアニメーションイベントを開始する
     private func startPlayerAnimation(_ kind: CharacterAnimationKind) {
-        playerAnimationEvent = CharacterAnimationEvent(kind: kind, startedAt: Date())
+        playerAnimationEvent = CharacterAnimationEvent(
+            kind: kind,
+            startedAt: Date(),
+            remainingCardCountAtStart: cards.filter { !$0.isCleared }.count
+        )
     }
 
     private var initialCPUMessage: String {
@@ -460,9 +473,8 @@ final class ShiritoriGameManager {
 
         // しりとり接続に成功したので正解音を再生する
         SoundEffectManager.shared.playSuccess()
-        // PLAYERは成功ジャンプ、CPUは悔しがる失敗表情を開始する
+        // PLAYERの成功ジャンプを開始する。CPUの失敗演出はカード取得後の残り枚数を保存して開始する。
         startPlayerAnimation(.success)
-        startCPUAnimation(.failure)
 
         // 正解したカードの取得時にPLAYER TIMEを5秒回復する
         // 持ち時間の上限は90秒とする
@@ -476,6 +488,7 @@ final class ShiritoriGameManager {
 
         // 正常な読みなのでカードを取得する
         cards[cardIndex].isCleared = true
+        startCPUAnimation(.failure)
         updateBGMForRemainingCardCount()
 
         // 成功した読みの正規化後の末尾を次の要求文字にする
@@ -808,7 +821,8 @@ final class ShiritoriGameManager {
         currentMessage = MessageSelector.cpuMessageWithNextPrompt(
             for: targetVocabulary,
             nextPrompt: nextPrompt,
-            stage: stage
+            stage: stage,
+            isRandomStage: isRandomStage
         )
 
         // 「ん」でない場合はカードを取得する
