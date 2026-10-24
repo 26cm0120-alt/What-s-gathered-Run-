@@ -933,9 +933,11 @@ final class ShiritoriGameManager {
         case .noCardsMessage:
             // 最初のセリフを表示し終えたら、CPUが自分の負けを認める
             noCPUTargetVictoryStage = .defeatAcknowledgement
-            currentMessage = stage == .trial
-                ? "ううう・・・ミーの まけザマス・・・。"
-                : "ぐぬぬ・・・おみごと、わたしのまけだ。"
+            currentMessage = isRandomStage
+                ? "きみグッドファイターと認めるね\\n勝ちを誇り、\\n美学を持て・・・姫龍のように。"
+                : (stage == .trial
+                    ? "ううう・・・ミーの まけザマス・・・。"
+                    : "ぐぬぬ・・・おみごと、わたしのまけだ.")
 
         case .defeatAcknowledgement:
             // 最後のセリフはそのまま画面に残す
@@ -954,9 +956,11 @@ final class ShiritoriGameManager {
         switch playerLoseNEndingStage {
         case .recognitionMessage:
             playerLoseNEndingStage = .defeatMessage
-            currentMessage = stage == .trial
-                ? "ん がついてるザンス！やーい、ミーの かちザマス！"
-                : "ん がついているではないか、お前の負けだ"
+            currentMessage = isRandomStage
+                ? "貴様ーっ姫龍を愚弄する気かぁっ！\\n愚か者めっ、弱い者は\\n更に弱い者を見つけて闘いを挑めっ！"
+                : (stage == .trial
+                    ? "ん がついてるザンス！やーい、ミーの かちザマス！"
+                    : "ん がついているではないか、お前の負けだ)
 
         case .defeatMessage:
             playerLoseNEndingStage = .finished
