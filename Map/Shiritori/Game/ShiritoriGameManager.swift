@@ -72,15 +72,18 @@ final class ShiritoriGameManager {
     /// このゲームで使うカードデータ。通常版と試練版でデータだけを独立させる。
     private let initialCards: [Card]
     private let stage: ShiritoriStageType
+    /// ランダムステージ専用メッセージを選択するためのフラグ。
+    private let isRandomStage: Bool
     private let initialPlayerTimeBonusSeconds: Int
     private let playerTimePenaltySeconds: Int
     private let playerTimeHPBonusSeconds: Int
 
     var isTrialStage: Bool { stage == .trial }
 
-    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
+    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, isRandomStage: Bool = false, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
         self.initialCards = cards
         self.stage = stage
+        self.isRandomStage = isRandomStage && stage != .trial
         self.initialPlayerTimeBonusSeconds = max(0, initialPlayerTimeBonusSeconds)
         self.playerTimePenaltySeconds = max(0, playerTimePenaltySeconds)
         self.playerTimeHPBonusSeconds = max(0, playerTimeHPBonusSeconds)
@@ -818,7 +821,8 @@ final class ShiritoriGameManager {
         currentMessage = MessageSelector.cpuMessageWithNextPrompt(
             for: targetVocabulary,
             nextPrompt: nextPrompt,
-            stage: stage
+            stage: stage,
+            isRandomStage: isRandomStage
         )
 
         // 「ん」でない場合はカードを取得する
