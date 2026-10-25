@@ -81,7 +81,7 @@ final class ShiritoriGameManager {
     var isTrialStage: Bool { stage == .trial }
 
     init(cards: [Card]? = nil, stage: ShiritoriStageType = .normal, isRandomStage: Bool = false, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
-        self.initialCards = cards ?? ((stage == .trial || isRandomStage) ? CardData2.cards : CardData.cards)
+        self.initialCards = cards ?? (stage == .trial ? CardData2.cards : CardData.cards)
         self.stage = stage
         self.isRandomStage = isRandomStage && stage != .trial
         self.initialPlayerTimeBonusSeconds = max(0, initialPlayerTimeBonusSeconds)
@@ -275,8 +275,8 @@ final class ShiritoriGameManager {
             ? nil
             : initialCPUMessage
 
-        // 試練・ランダムは共通ロジック、通常ステージは従来ロジックで初手を選ぶ。
-        if stage == .trial || isRandomStage {
+        // 試練だけ共通ロジックを使い、通常・ランダムは従来ロジックで初手を選ぶ。
+        if stage == .trial {
             prepareInitialSharedCPUTarget()
         } else {
             prepareInitialCPUTarget()
@@ -613,7 +613,7 @@ final class ShiritoriGameManager {
 
         // 試練・ランダムは共通のCPU選択ロジック、通常ステージは従来ロジック。
         let selectedResult: (card: Card, vocabulary: Vocabulary)?
-        if stage == .trial || isRandomStage {
+        if stage == .trial {
             selectedResult = selectSharedCPUTarget(currentPrompt: currentPrompt)
         } else {
             selectedResult = CPUSelector.select(from: cards, currentPrompt: currentPrompt)
