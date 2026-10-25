@@ -6,6 +6,7 @@ import OSLog
 enum AudioResource: Hashable {
     case titleBGM
     case explorationBGM
+    case trialBGM
     case templeBGM
     case caveBGM
     case hellBGM
@@ -31,6 +32,7 @@ enum AudioResource: Hashable {
         switch self {
         case .titleBGM: return "タイトルBGM"
         case .explorationBGM: return "探索BGM"
+        case .trialBGM: return "試練の迷宮BGM"
         case .templeBGM: return "古代神殿BGM"
         case .caveBGM: return "水晶洞窟BGM"
         case .hellBGM: return "地獄の回廊BGM"
@@ -58,7 +60,7 @@ enum AudioResource: Hashable {
         switch self {
         case .titleBGM, .explorationBGM, .normalBattleBGM, .gargoyleBattleBGM:
             return "m4a"
-        case .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen,
+        case .trialBGM, .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen,
              .battleAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack:
             return "mp3"
         case .gameOver, .shiritoriEnemyFall, .movement, .wallCollision, .enemyDefeat,
@@ -72,11 +74,11 @@ enum AudioResource: Hashable {
 
 /// ゲーム音声の端末設定と再生失敗の記録をまとめる。
 enum AudioPlayback {
-    /// 通常のゲーム内BGMと効果音の音量。
-    static let backgroundMusicVolume: Float = 0.5
-    static let soundEffectVolume: Float = 0.5
-    /// 戦闘BGM専用の音量。
-    static let encounterMusicVolume: Float = 0.3
+    /// 通常のゲーム内BGMと効果音の音量。設定画面のスライダーで変更でき、未設定時は0.5。
+    static var backgroundMusicVolume: Float { AudioVolumeSettings.backgroundMusic }
+    static var soundEffectVolume: Float { AudioVolumeSettings.soundEffect }
+    /// 戦闘BGM専用の音量。BGM音量に連動する(未設定時は0.3)。
+    static var encounterMusicVolume: Float { AudioVolumeSettings.encounterMusic }
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "DungeonGame",
@@ -250,6 +252,8 @@ final class SoundEffectController {
             if let retainedPlayer = self.players[resource] {
                 retainedPlayer.stop()
                 retainedPlayer.currentTime = 0
+                // 設定画面で変更された効果音の音量を、再利用するプレイヤーにも反映する。
+                retainedPlayer.volume = AudioPlayback.soundEffectVolume
                 player = retainedPlayer
             } else {
                 guard let newPlayer = AudioPlayback.makePlayer(for: resource) else { return }

@@ -12,6 +12,7 @@ xcrun swiftc \
   -default-isolation MainActor \
   -D DEBUG \
   -o "$TEST_BINARY" \
+  "$REPO_ROOT/Map/Core/AudioVolumeSettings.swift" \
   "$REPO_ROOT/Map/Core/Direction.swift" \
   "$REPO_ROOT/Map/Core/GridPos.swift" \
   "$REPO_ROOT/Map/Core/Leaderboard.swift" \

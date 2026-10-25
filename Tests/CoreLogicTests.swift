@@ -31,6 +31,9 @@ struct CoreLogicTests {
         try testLeaderboardNameUpdate()
         print("PASS: 名前更新時の記録情報維持")
 
+        try testAudioVolumeSettings()
+        print("PASS: 音量設定の初期値・範囲補正・保存")
+
         assertionCount += try ShiritoriLogicTests.run()
         assertionCount += try ShiritoriGameManagerTests.run()
         assertionCount += try await GameManagerTests.run()
@@ -261,6 +264,23 @@ struct CoreLogicTests {
             try expect(updated.recordedAt == original.recordedAt, "登録日時を維持")
             try expect(updated.seed == original.seed, "seedを維持")
         }
+    }
+
+    private static func testAudioVolumeSettings() throws {
+        try withIsolatedDefaults { defaults in
+            let key = AudioVolumeSettings.backgroundMusicKey
+            try expect(AudioVolumeSettings.load(forKey: key, defaults: defaults) == 0.5, "未設定時は従来の音量0.5")
+            AudioVolumeSettings.save(0.8, forKey: key, defaults: defaults)
+            try expect(AudioVolumeSettings.load(forKey: key, defaults: defaults) == 0.8, "保存した音量を読み込む")
+            AudioVolumeSettings.save(0, forKey: key, defaults: defaults)
+            try expect(AudioVolumeSettings.load(forKey: key, defaults: defaults) == 0, "0(消音)を保存できる")
+            AudioVolumeSettings.save(5, forKey: key, defaults: defaults)
+            try expect(AudioVolumeSettings.load(forKey: key, defaults: defaults) == 1, "上限1に補正")
+            AudioVolumeSettings.save(-1, forKey: key, defaults: defaults)
+            try expect(AudioVolumeSettings.load(forKey: key, defaults: defaults) == 0, "下限0に補正")
+            try expect(AudioVolumeSettings.clamped(.nan) == 0.5, "数値でない値は初期値に戻す")
+        }
+        try expect(abs(AudioVolumeSettings.defaultVolume * AudioVolumeSettings.encounterMusicRatio - 0.3) < 0.0001, "戦闘BGMの初期音量は従来の0.3")
     }
 
     private static func withIsolatedDefaults(_ body: (UserDefaults) throws -> Void) throws {

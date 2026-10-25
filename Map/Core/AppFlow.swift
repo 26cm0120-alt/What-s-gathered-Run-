@@ -344,10 +344,37 @@ final class AppFlow: ObservableObject {
         }
     }
 
+    /// 設定画面で音量が変わったとき、再生中のBGMへ新しい音量を反映する。
+    func applyAudioVolumes() {
+        if let player = titleBackgroundAudioPlayer {
+            AudioPlayback.setVolume(AudioPlayback.backgroundMusicVolume, on: player)
+        }
+        if let player = stageBackgroundAudioPlayer {
+            AudioPlayback.setVolume(AudioPlayback.backgroundMusicVolume, on: player)
+        }
+        if let player = encounterBackgroundAudioPlayer {
+            AudioPlayback.setVolume(AudioPlayback.encounterMusicVolume, on: player)
+        }
+    }
+
     /// ステージ中のBGMをループ再生する。
     private func playStageBackgroundMusic(for stage: Stage) {
-        let resource = stage.dungeonTheme?.backgroundMusic ?? .explorationBGM
-        guard let player = AudioPlayback.makePlayer(for: resource) else { return }
+        // ランダムステージはテーマ別BGM、試練の迷宮は専用BGM、それ以外(チュートリアル)は探索BGM。
+        let preferredResource: AudioResource = stage.dungeonTheme?.backgroundMusic
+            ?? (stage.shiritoriStageKind == .trial ? .trialBGM : .explorationBGM)
+        // 試練の迷宮BGMが見つからない場合は、従来の探索BGMで代用する。
+        let resource: AudioResource
+        let player: AVAudioPlayer
+        if let preferredPlayer = AudioPlayback.makePlayer(for: preferredResource) {
+            resource = preferredResource
+            player = preferredPlayer
+        } else if preferredResource == .trialBGM,
+                  let fallbackPlayer = AudioPlayback.makePlayer(for: .explorationBGM) {
+            resource = .explorationBGM
+            player = fallbackPlayer
+        } else {
+            return
+        }
 
         player.volume = AudioPlayback.backgroundMusicVolume
         player.numberOfLoops = -1

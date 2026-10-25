@@ -20,7 +20,8 @@ struct ContentView: View {
                     lastRandomSeed: flow.lastRandomSeed,
                     onSelect: flow.startGame,
                     onRandomStage: flow.startRandomGame,
-                    onReplayRandomStage: flow.replayRandomGame
+                    onReplayRandomStage: flow.replayRandomGame,
+                    onAudioVolumeChanged: flow.applyAudioVolumes
                 )
 
             case .playing, .cleared, .gameOver:
@@ -43,6 +44,7 @@ struct ContentView: View {
                                     leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
                                     leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
                                     leaderboardEntries: flow.leaderboardEntries,
+                                    theme: game.stage.dungeonTheme,
                                     onSaveName: flow.saveLeaderboardEntry,
                                     onUpdateName: flow.updateLeaderboardEntryName,
                                     onNextStage: flow.startNextStage,
@@ -99,14 +101,52 @@ struct ContentView: View {
 }
 
 /// タイトル・プレイ・クリア画面で共通して使う、深い青から紫黒、ワインレッドへの背景。
+/// themeを渡すと、ランダムステージのテーマ(森の洋館・古代神殿・地獄の回廊・水晶洞窟)ごとの配色になる。
 struct DungeonBackground: View {
-    var body: some View {
-        LinearGradient(
-            colors: [
+    var theme: DungeonTheme? = nil
+
+    private var colors: [Color] {
+        switch theme {
+        case .forestMansion:
+            // 深い緑から黒緑、古い木材のような茶色へ
+            return [
+                Color(red: 0.07, green: 0.22, blue: 0.13),
+                Color(red: 0.015, green: 0.06, blue: 0.035),
+                Color(red: 0.22, green: 0.14, blue: 0.06)
+            ]
+        case .temple:
+            // 砂岩の金茶から暗い石色、琥珀色へ
+            return [
+                Color(red: 0.34, green: 0.24, blue: 0.09),
+                Color(red: 0.075, green: 0.052, blue: 0.03),
+                Color(red: 0.32, green: 0.17, blue: 0.05)
+            ]
+        case .hell:
+            // 燃える赤から黒、溶岩のオレンジへ
+            return [
+                Color(red: 0.38, green: 0.05, blue: 0.025),
+                Color(red: 0.07, green: 0.008, blue: 0.01),
+                Color(red: 0.58, green: 0.13, blue: 0.015)
+            ]
+        case .cave:
+            // 水晶の青緑から深い藍、紫水晶へ
+            return [
+                Color(red: 0.05, green: 0.31, blue: 0.42),
+                Color(red: 0.012, green: 0.035, blue: 0.10),
+                Color(red: 0.22, green: 0.12, blue: 0.42)
+            ]
+        case nil:
+            return [
                 Color(red: 0.12, green: 0.18, blue: 0.32),
                 Color(red: 0.035, green: 0.025, blue: 0.09),
                 Color(red: 0.25, green: 0.065, blue: 0.16)
-            ],
+            ]
+        }
+    }
+
+    var body: some View {
+        LinearGradient(
+            colors: colors,
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )

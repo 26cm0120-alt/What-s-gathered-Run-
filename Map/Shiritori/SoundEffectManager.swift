@@ -18,9 +18,9 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
         category: "ShiritoriBGM"
     )
 
-    /// しりとり画面のBGM・効果音をアプリ内音量50%で再生する。
-    private let backgroundMusicVolume: Float = 0.5
-    private let soundEffectVolume: Float = 0.5
+    /// しりとり画面のBGM・効果音は、設定画面で決めた音量(初期値50%)で再生する。
+    private var backgroundMusicVolume: Float { AudioPlayback.backgroundMusicVolume }
+    private var soundEffectVolume: Float { AudioPlayback.soundEffectVolume }
 
     /// アプリ全体で共通して使用する効果音管理インスタンス
     static let shared = SoundEffectManager()
