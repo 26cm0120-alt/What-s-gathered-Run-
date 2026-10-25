@@ -275,9 +275,11 @@ final class ShiritoriGameManager {
             ? nil
             : initialCPUMessage
 
-        // 通常版の先攻ルールは維持し、試練版だけ専用優先順位で選ぶ
+        // 通常版・試練版の先攻ルールを維持し、ランダム版は専用ルールで選ぶ。
         if stage == .trial {
             prepareInitialTrialCPUTarget()
+        } else if isRandomStage {
+            prepareInitialRandomCPUTarget()
         } else {
             prepareInitialCPUTarget()
         }
@@ -324,6 +326,24 @@ final class ShiritoriGameManager {
         }
 
         guard let result = candidates.randomElement() else {
+            cpuTargetCardID = nil
+            cpuTargetVocabulary = nil
+            return
+        }
+
+        cpuTargetCardID = result.card.id
+        cpuTargetVocabulary = result.vocabulary
+    }
+
+    // ランダムステージの初手は、読みの種類を限定せず候補全体から選ぶ。
+    private func prepareInitialRandomCPUTarget() {
+        let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
+            .filter { !$0.isCleared }
+            .flatMap { card in
+                card.vocabularies.map { (card: card, vocabulary: $0) }
+            }
+
+        guard let result = selectRandomStageCandidate(from: candidates) else {
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
             return
@@ -545,6 +565,56 @@ final class ShiritoriGameManager {
         gameState = .playerTurn
     }
 
+    // ランダムステージ専用の選択。
+    // 読みの種類や次の候補数では順位付けせず、候補群からランダムに選ぶ。
+    // CPU自身の「ん」終わりと、プレイヤーが「ん」終わりしか選べない展開は避ける。
+    private func selectRandomStageCandidate(
+        from candidates: [(card: Card, vocabulary: Vocabulary)]
+    ) -> (card: Card, vocabulary: Vocabulary)? {
+        guard !candidates.isEmpty else { return nil }
+
+        let nonNEndingCandidates = candidates.filter {
+            !KanaNormalizer.endsWithN($0.vocabulary.word)
+        }
+        let cpuCandidates = nonNEndingCandidates.isEmpty
+            ? candidates
+            : nonNEndingCandidates
+
+        func playerHasOnlyNEndingOptions(
+            for candidate: (card: Card, vocabulary: Vocabulary)
+        ) -> Bool {
+            guard let nextPrompt = KanaNormalizer.lastCharacter(
+                of: candidate.vocabulary.word
+            ) else {
+                return false
+            }
+
+            let playerOptions = cards
+                .filter { !$0.isCleared && $0.id != candidate.card.id }
+                .flatMap { card in
+                    card.vocabularies.filter {
+                        KanaNormalizer.firstCharacter(of: $0.word) == nextPrompt
+                    }
+                }
+
+            // プレイヤーが選べるカード自体がない場合は、「ん」しか選べない状況と区別する。
+            guard !playerOptions.isEmpty else { return false }
+
+            return playerOptions.allSatisfy {
+                KanaNormalizer.endsWithN($0.word)
+            }
+        }
+
+        let rallyCandidates = cpuCandidates.filter {
+            !playerHasOnlyNEndingOptions(for: $0)
+        }
+
+        // ラリーを続けやすい候補があれば、その中からランダムに選ぶ。
+        // 候補数やVocabulary.typeによる順位付けはしない。
+        return (rallyCandidates.isEmpty ? cpuCandidates : rallyCandidates)
+            .randomElement()
+    }
+
     // 試練版の候補を優先順位で並べる。
     // 1)「ん」で終わらない 2) 英語読み 3) 次にプレイヤーが選べるカード数
     // 4) 同条件では既存の種類順。通常ステージには適用しない。
@@ -622,10 +692,21 @@ final class ShiritoriGameManager {
             return
         }
 
-        // 通常版は既存の選択規則を維持。試練版だけカタカナ英語読みを優先する。
+        // 通常版・試練版・ランダム版のCPU選択を分離する。
         let selectedResult: (card: Card, vocabulary: Vocabulary)?
         if stage == .trial {
             selectedResult = selectTrialCPUTarget(currentPrompt: currentPrompt)
+        } else if isRandomStage {
+            let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
+                .filter { !$0.isCleared }
+                .flatMap { card in
+                    card.vocabularies.compactMap { vocabulary in
+                        KanaNormalizer.firstCharacter(of: vocabulary.word) == currentPrompt
+                            ? (card: card, vocabulary: vocabulary)
+                            : nil
+                    }
+                }
+            selectedResult = selectRandomStageCandidate(from: candidates)
         } else {
             selectedResult = CPUSelector.select(from: cards, currentPrompt: currentPrompt)
         }
