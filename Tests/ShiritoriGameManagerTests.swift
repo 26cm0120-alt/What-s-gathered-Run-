@@ -365,45 +365,24 @@ enum ShiritoriGameManagerTests {
         try expect(started(deck).cpuTargetVocabulary?.type == .normal, "通常の初手は通常読み")
     }
 
-    // MARK: - ランダムステージ専用CPU選択
+    // MARK: - ランダムステージのCPU選択
 
     private static func testRandomStageSelection() throws {
-        // 初手は通常読み限定ではなく、カードに登録された読み全体から選ぶ。
+        // ランダムの初手もチュートリアルと同じく、通常読みがないカードは選ばない。
         let rareOnly = card([vocab("あさ", .rare)])
         let initial = started([rareOnly], isRandomStage: true)
-        try expect(initial.cpuTargetCardID == rareOnly.id, "ランダムステージの初手は未取得カードから選ぶ")
-        try expect(initial.cpuTargetVocabulary?.type == .rare, "ランダムステージの初手は通常読み以外も選べる")
+        try expect(initial.cpuTargetCardID == nil, "ランダムステージの初手は従来ロジックを使う")
+        try expect(initial.cpuTargetVocabulary == nil, "ランダムステージの初手は通常読みが必要")
 
-        // CPUが「ん」で終わらない候補を選べるなら、「ん」終わりを避ける。
-        let nEnding = card([vocab("あん")])
-        let safe = card([vocab("あさ", .rare)])
-        let safeNext = card([vocab("さる")])
-        let nAvoidance = started([nEnding, safe, safeNext], isRandomStage: true)
-        runCPUTurn(nAvoidance, prompt: "あ")
-        try expect(isCleared(nAvoidance, safe) && nAvoidance.currentPrompt == "さ", "ランダムCPUは非「ん」終わりを優先")
-
-        // プレイヤーが「ん」終わりしか選べない展開より、ラリー可能な展開を優先する。
-        let deadRally = card([vocab("あさ", .rare)])
-        let goodRally = card([vocab("あめ", .english)])
-        let nOnlyResponse = card([vocab("さかん")])
-        let nonNResponse = card([vocab("めだか")])
-        let rally = started(
-            [deadRally, goodRally, nOnlyResponse, nonNResponse],
-            isRandomStage: true
-        )
-        runCPUTurn(rally, prompt: "あ")
+        // 通常ターンもチュートリアルと同じ従来ロジックで、通常読みの候補を選ぶ。
+        let x = card([vocab("あん"), vocab("あさ", .rare)])
+        let y = card([vocab("あめ", .english)])
+        let z = card([vocab("あお")])
+        let randomStage = started([x, y, z], isRandomStage: true)
+        runCPUTurn(randomStage, prompt: "あ")
         try expect(
-            isCleared(rally, goodRally) && rally.currentPrompt == "め",
-            "プレイヤーが「ん」終わりしか選べない候補は優先度を下げる"
-        )
-
-        // CPU側に非「ん」終わりが存在しない場合は、「ん」終わりを選択可能な候補として残す。
-        let onlyN = card([vocab("あん")])
-        let fallback = started([onlyN, card([vocab("いぬ")])], isRandomStage: true)
-        runCPUTurn(fallback, prompt: "あ")
-        try expect(
-            fallback.gameResult == .playerWinCPUN && !isCleared(fallback, onlyN),
-            "非「ん」終わり候補がなければ「ん」終わりへフォールバック"
+            isCleared(randomStage, z) && randomStage.currentPrompt == "お",
+            "ランダムCPUはチュートリアルと同じ従来ロジックを使う"
         )
     }
 }
