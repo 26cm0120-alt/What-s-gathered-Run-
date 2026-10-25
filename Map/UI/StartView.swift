@@ -12,6 +12,10 @@ struct StartView: View {
     let onRandomStage: () -> Void
     /// 前回のseedで同じランダムステージを始める処理
     let onReplayRandomStage: (UInt64) -> Void
+    /// 音量設定が変わったときの処理(再生中のBGMへ反映する)
+    var onAudioVolumeChanged: () -> Void = {}
+
+    @State private var isShowingAudioSettings = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -134,12 +138,38 @@ struct StartView: View {
                     .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
                     .allowsHitTesting(false)
                 }
+
+                // 右上の音量設定ボタン
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            isShowingAudioSettings = true
+                        } label: {
+                            Image(systemName: "speaker.wave.2.fill")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
+                                .frame(width: 44, height: 44)
+                                .background(Color.white.opacity(0.06), in: Circle())
+                                .overlay {
+                                    Circle().stroke(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.55), lineWidth: 1)
+                                }
+                        }
+                        .accessibilityLabel("音量設定")
+                    }
+                    Spacer()
+                }
+                .padding(.top, 14)
+                .padding(.trailing, 18)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .clipped()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $isShowingAudioSettings) {
+            AudioSettingsView(onChange: onAudioVolumeChanged)
+        }
     }
 
     private func modeButton(

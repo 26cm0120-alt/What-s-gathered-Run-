@@ -12,6 +12,8 @@ struct ClearView: View {
     let leaderboardTitle: String
     let leaderboardMode: LeaderboardMode
     let leaderboardEntries: [LeaderboardEntry]
+    /// ランダムステージのテーマ。背景色の切り替えに使う(試練の迷宮・チュートリアルはnil)。
+    var theme: DungeonTheme? = nil
     /// TOP100へ保存できた場合は、更新後の記録IDを返す。
     let onSaveName: (String) -> UUID?
     /// 登録済み記録の名前だけを更新する。
@@ -57,7 +59,7 @@ struct ClearView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                DungeonBackground()
+                DungeonBackground(theme: theme)
                 VictoryBurst()
                     .opacity(0.42)
                     .ignoresSafeArea()
