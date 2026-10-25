@@ -333,15 +333,15 @@ final class ShiritoriGameManager {
         cpuTargetVocabulary = result.vocabulary
     }
 
-    // ランダムステージの初手は、読みの種類を限定せず候補全体から選ぶ。
-    private func prepareInitialRandomCPUTarget() {
+    // 試練・ランダム共通の初手：全読みから共通優先順位で選ぶ。
+    private func prepareInitialSharedCPUTarget() {
         let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
             .filter { !$0.isCleared }
             .flatMap { card in
                 card.vocabularies.map { (card: card, vocabulary: $0) }
             }
 
-        guard let result = selectRandomStageCandidate(from: candidates) else {
+        guard let result = selectSharedCandidate(from: candidates) else {
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
             return
