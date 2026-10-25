@@ -80,8 +80,8 @@ final class ShiritoriGameManager {
 
     var isTrialStage: Bool { stage == .trial }
 
-    init(cards: [Card] = CardData.cards, stage: ShiritoriStageType = .normal, isRandomStage: Bool = false, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
-        self.initialCards = cards
+    init(cards: [Card]? = nil, stage: ShiritoriStageType = .normal, isRandomStage: Bool = false, initialPlayerTimeBonusSeconds: Int = 0, playerTimePenaltySeconds: Int = 0, playerTimeHPBonusSeconds: Int = 0) {
+        self.initialCards = cards ?? ((stage == .trial || isRandomStage) ? CardData2.cards : CardData.cards)
         self.stage = stage
         self.isRandomStage = isRandomStage && stage != .trial
         self.initialPlayerTimeBonusSeconds = max(0, initialPlayerTimeBonusSeconds)
@@ -275,11 +275,9 @@ final class ShiritoriGameManager {
             ? nil
             : initialCPUMessage
 
-        // 通常版・試練版の先攻ルールを維持し、ランダム版は専用ルールで選ぶ。
-        if stage == .trial {
-            prepareInitialTrialCPUTarget()
-        } else if isRandomStage {
-            prepareInitialRandomCPUTarget()
+        // 試練・ランダムは共通ロジック、通常ステージは従来ロジックで初手を選ぶ。
+        if stage == .trial || isRandomStage {
+            prepareInitialSharedCPUTarget()
         } else {
             prepareInitialCPUTarget()
         }
@@ -335,15 +333,15 @@ final class ShiritoriGameManager {
         cpuTargetVocabulary = result.vocabulary
     }
 
-    // ランダムステージの初手は、読みの種類を限定せず候補全体から選ぶ。
-    private func prepareInitialRandomCPUTarget() {
+    // 試練・ランダム共通の初手：全読みから共通優先順位で選ぶ。
+    private func prepareInitialSharedCPUTarget() {
         let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
             .filter { !$0.isCleared }
             .flatMap { card in
                 card.vocabularies.map { (card: card, vocabulary: $0) }
             }
 
-        guard let result = selectRandomStageCandidate(from: candidates) else {
+        guard let result = selectSharedCandidate(from: candidates) else {
             cpuTargetCardID = nil
             cpuTargetVocabulary = nil
             return
@@ -565,72 +563,12 @@ final class ShiritoriGameManager {
         gameState = .playerTurn
     }
 
-    // ランダムステージ専用の選択。
-    // 読みの種類や次の候補数では順位付けせず、候補群からランダムに選ぶ。
-    // CPU自身の「ん」終わりと、プレイヤーが「ん」終わりしか選べない展開は避ける。
-    private func selectRandomStageCandidate(
+    // 試練・ランダム共通の候補選択。
+    // 1) 「ん」で終わらない読み 2) 英語読み 3) 読みの種類順。
+    // プレイヤーが次に選べる候補数は評価しない。
+    private func selectSharedCandidate(
         from candidates: [(card: Card, vocabulary: Vocabulary)]
     ) -> (card: Card, vocabulary: Vocabulary)? {
-        guard !candidates.isEmpty else { return nil }
-
-        let nonNEndingCandidates = candidates.filter {
-            !KanaNormalizer.endsWithN($0.vocabulary.word)
-        }
-        let cpuCandidates = nonNEndingCandidates.isEmpty
-            ? candidates
-            : nonNEndingCandidates
-
-        func playerHasOnlyNEndingOptions(
-            for candidate: (card: Card, vocabulary: Vocabulary)
-        ) -> Bool {
-            guard let nextPrompt = KanaNormalizer.lastCharacter(
-                of: candidate.vocabulary.word
-            ) else {
-                return false
-            }
-
-            let playerOptions = cards
-                .filter { !$0.isCleared && $0.id != candidate.card.id }
-                .flatMap { card in
-                    card.vocabularies.filter {
-                        KanaNormalizer.firstCharacter(of: $0.word) == nextPrompt
-                    }
-                }
-
-            // プレイヤーが選べるカード自体がない場合は、「ん」しか選べない状況と区別する。
-            guard !playerOptions.isEmpty else { return false }
-
-            return playerOptions.allSatisfy {
-                KanaNormalizer.endsWithN($0.word)
-            }
-        }
-
-        let rallyCandidates = cpuCandidates.filter {
-            !playerHasOnlyNEndingOptions(for: $0)
-        }
-
-        // ラリーを続けやすい候補があれば、その中からランダムに選ぶ。
-        // 候補数やVocabulary.typeによる順位付けはしない。
-        return (rallyCandidates.isEmpty ? cpuCandidates : rallyCandidates)
-            .randomElement()
-    }
-
-    // 試練版の候補を優先順位で並べる。
-    // 1)「ん」で終わらない 2) 英語読み 3) 次にプレイヤーが選べるカード数
-    // 4) 同条件では既存の種類順。通常ステージには適用しない。
-    private func selectTrialCandidate(
-        from candidates: [(card: Card, vocabulary: Vocabulary)]
-    ) -> (card: Card, vocabulary: Vocabulary)? {
-        func nextMoveCount(for candidate: (card: Card, vocabulary: Vocabulary)) -> Int {
-            guard let nextPrompt = KanaNormalizer.lastCharacter(of: candidate.vocabulary.word) else { return 0 }
-            return cards.filter { !$0.isCleared && $0.id != candidate.card.id }
-                .reduce(0) { count, card in
-                    count + (card.vocabularies.contains {
-                        KanaNormalizer.firstCharacter(of: $0.word) == nextPrompt
-                    } ? 1 : 0)
-                }
-        }
-
         let typePriority: [WordType] = [.normal, .surprise, .rare, .english]
         return candidates.sorted { lhs, rhs in
             let lhsEndsN = KanaNormalizer.endsWithN(lhs.vocabulary.word)
@@ -641,33 +579,14 @@ final class ShiritoriGameManager {
             let rhsEnglish = rhs.vocabulary.type == .english
             if lhsEnglish != rhsEnglish { return lhsEnglish }
 
-            let lhsOptions = nextMoveCount(for: lhs)
-            let rhsOptions = nextMoveCount(for: rhs)
-            if lhsOptions != rhsOptions { return lhsOptions > rhsOptions }
-
             let lhsType = typePriority.firstIndex(of: lhs.vocabulary.type) ?? typePriority.count
             let rhsType = typePriority.firstIndex(of: rhs.vocabulary.type) ?? typePriority.count
             return lhsType < rhsType
         }.first
     }
 
-    // 試練版の初手：英語読みを優先し、次にプレイヤーの選択肢数を比較し、「ん」終端は最後にする。
-    private func prepareInitialTrialCPUTarget() {
-        let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
-            .filter { !$0.isCleared }
-            .flatMap { card in card.vocabularies.map { (card: card, vocabulary: $0) } }
-
-        guard let result = selectTrialCandidate(from: candidates) else {
-            cpuTargetCardID = nil
-            cpuTargetVocabulary = nil
-            return
-        }
-        cpuTargetCardID = result.card.id
-        cpuTargetVocabulary = result.vocabulary
-    }
-
-    // 試練版の通常CPUターンも、初手と同じ優先順位で選ぶ。
-    private func selectTrialCPUTarget(currentPrompt: Character) -> (card: Card, vocabulary: Vocabulary)? {
+    // 試練・ランダム共通：要求文字につながる候補から共通優先順位で選ぶ。
+    private func selectSharedCPUTarget(currentPrompt: Character) -> (card: Card, vocabulary: Vocabulary)? {
         let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
             .filter { !$0.isCleared }
             .flatMap { card in
@@ -677,7 +596,7 @@ final class ShiritoriGameManager {
                         : nil
                 }
             }
-        return selectTrialCandidate(from: candidates)
+        return selectSharedCandidate(from: candidates)
     }
 
     // CPUの対象カードとVocabularyを事前に決定する
@@ -692,21 +611,10 @@ final class ShiritoriGameManager {
             return
         }
 
-        // 通常版・試練版・ランダム版のCPU選択を分離する。
+        // 試練・ランダムは共通のCPU選択ロジック、通常ステージは従来ロジック。
         let selectedResult: (card: Card, vocabulary: Vocabulary)?
-        if stage == .trial {
-            selectedResult = selectTrialCPUTarget(currentPrompt: currentPrompt)
-        } else if isRandomStage {
-            let candidates: [(card: Card, vocabulary: Vocabulary)] = cards
-                .filter { !$0.isCleared }
-                .flatMap { card in
-                    card.vocabularies.compactMap { vocabulary in
-                        KanaNormalizer.firstCharacter(of: vocabulary.word) == currentPrompt
-                            ? (card: card, vocabulary: vocabulary)
-                            : nil
-                    }
-                }
-            selectedResult = selectRandomStageCandidate(from: candidates)
+        if stage == .trial || isRandomStage {
+            selectedResult = selectSharedCPUTarget(currentPrompt: currentPrompt)
         } else {
             selectedResult = CPUSelector.select(from: cards, currentPrompt: currentPrompt)
         }
