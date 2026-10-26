@@ -35,7 +35,9 @@ struct MapApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if CommandLine.arguments.contains("--enemy-motion-preview") {
+            if CommandLine.arguments.contains("--enemy-remains-preview") {
+                EnemyRemainsPreview()
+            } else if CommandLine.arguments.contains("--enemy-motion-preview") {
                 EnemyMotionPreview()
             } else {
                 ContentView()

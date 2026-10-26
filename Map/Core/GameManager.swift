@@ -165,7 +165,14 @@ final class GameManager: ObservableObject {
             let kind = map.enemyKinds[next] ?? EnemyKind.encounter(seed: stage.seed, position: next)
             event = EnemyEvent(kind: kind)
         } else if cell == .enemy {
-            event = nil
+            // 倒したスライムの死体は、踏むたびに「1歩ごとにHPが減る」罠(毒)として働く。
+            // 探索マップ・ダンジョン画面での死体の表示は変えない(罠の発見済み表示にも加えない)。
+            // ほかの敵の死体は、これまでどおり通過するだけ。
+            if state.defeatedEnemyKinds[next] == .slime {
+                event = TrapEvent(kind: .hpDrain, map: map)
+            } else {
+                event = nil
+            }
         } else {
             event = TileEvents.event(for: cell, map: map, position: next)
         }
@@ -201,6 +208,17 @@ final class GameManager: ObservableObject {
             }
         }
         event?.onEnter(state: &newState, from: state.player.position)
+        // グループAの罠を踏んだ時の効果音(罠マス・スライムの死体のどちらも同じ)
+        let activatedTrap = event as? TrapEvent
+        if let activatedTrap {
+            playGroupATrapSound(for: activatedTrap.kind)
+        }
+        // スライムの死体が原因の毒は、罠マスと区別できるメッセージにする(Trap.swiftは変更しない)。
+        if cell == .enemy, activatedTrap != nil {
+            let message = "スライムの死体にふれた！ 1歩ごとにHPが\(max(0, TrapEvent.poisonDamagePerStep))減る。\(max(1, TrapEvent.poisonDurationSteps))歩で解除"
+            newState.message = message
+            newState.trapActivationMessage = message
+        }
         if newState.hpDrainTrapActive && !newState.isGameOver {
             let poisonDamage = max(0, TrapEvent.poisonDamagePerStep)
             newState.playerHP = max(0, newState.playerHP - poisonDamage)
@@ -264,7 +282,8 @@ final class GameManager: ObservableObject {
             onBattleStateChanged?(battle.kind)
             enemyEncounterID += 1
         }
-        if cell.isTrap {
+        // 罠マスと、罠として働くスライムの死体のどちらも、罠の発動演出を出す。
+        if cell.isTrap || activatedTrap != nil {
             trapActivationID += 1
         }
         if newState.isGameOver {
@@ -278,6 +297,17 @@ final class GameManager: ObservableObject {
         // クリア状態になったら、画面を切り替えるために知らせる
         if newState.isCleared {
             onCleared?()
+        }
+    }
+
+    /// グループAの罠(A1 向きの変化・A2 前進フリック入力・A3 1歩ごとのHP減少)を踏んだ時の効果音。
+    /// グループB・Cの罠は、今のところ専用の効果音を持たない。
+    private func playGroupATrapSound(for kind: TrapKind) {
+        switch kind {
+        case .turnRight: soundEffects.play(.trapTurn)
+        case .doubleFlick: soundEffects.play(.trapSlowFlick)
+        case .hpDrain: soundEffects.play(.trapPoison)
+        default: break
         }
     }
 

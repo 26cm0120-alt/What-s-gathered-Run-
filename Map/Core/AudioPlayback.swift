@@ -27,6 +27,12 @@ enum AudioResource: Hashable {
     case skeletonCounterattack
     case gargoyleCounterattack
     case battleEscape
+    /// グループAの罠: 向きの変化(A1)
+    case trapTurn
+    /// グループAの罠: 前進フリック入力(遅行)(A2)
+    case trapSlowFlick
+    /// グループAの罠: 1歩ごとのHP減少(毒)(A3)
+    case trapPoison
 
     var name: String {
         switch self {
@@ -53,6 +59,9 @@ enum AudioResource: Hashable {
         case .skeletonCounterattack: return "スケルトン反撃"
         case .gargoyleCounterattack: return "ガーゴイル反撃"
         case .battleEscape: return "戦闘逃走"
+        case .trapTurn: return "トラップA1"
+        case .trapSlowFlick: return "トラップA2"
+        case .trapPoison: return "トラップA3"
         }
     }
 
@@ -61,7 +70,8 @@ enum AudioResource: Hashable {
         case .titleBGM, .explorationBGM, .normalBattleBGM, .gargoyleBattleBGM:
             return "m4a"
         case .trialBGM, .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen,
-             .battleAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack:
+             .battleAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack,
+             .trapTurn, .trapSlowFlick, .trapPoison:
             return "mp3"
         case .gameOver, .shiritoriEnemyFall, .movement, .wallCollision, .enemyDefeat,
              .battleEscape:

@@ -5,7 +5,8 @@ import SwiftUI
 struct EnemyMotionPreview: View {
     @State private var phase = 0
     @State private var cycle = 0
-    private let kinds: [EnemyKind] = [.imp, .ghost, .cyclops, .mimic]
+    private let kinds: [EnemyKind] = CommandLine.arguments.contains("--legacy-enemies")
+        ? [.slime, .skeleton, .gargoyle, .dragon] : [.imp, .ghost, .cyclops, .mimic]
     private let labels = ["待機・遭遇", "反撃", "被弾", "撃破"]
 
     var body: some View {
@@ -49,6 +50,11 @@ private struct EnemyMotionPreviewCard: View {
     @State private var counterID = 0
     @State private var defeatID = 0
 
+    private var remainsMap: MapData {
+        MapData(cells: [[.start, .enemy, .floor]], startPosition: GridPos(x: 0, y: 0),
+                initialDirection: .east, enemyKinds: [GridPos(x: 1, y: 0): kind])
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             Text(kind.name).font(DungeonTypography.maruMonica(size: 16))
@@ -64,7 +70,14 @@ private struct EnemyMotionPreviewCard: View {
                 playerHP: 20, playerAttackAnimationID: 0,
                 counterAttackAnimationID: counterID, defeatRecoilAnimationID: defeatID
             )
-            .frame(height: IPadLayoutMetrics.isPad ? 240 : 175)
+            .frame(height: IPadLayoutMetrics.isPad ? 240 : 140)
+            AutoMapView(map: remainsMap, explored: Set((0..<3).map { GridPos(x: $0, y: 0) }),
+                        player: Player(position: GridPos(x: 0, y: 0), direction: .east),
+                        defeatedEnemies: phase == 3 ? [GridPos(x: 1, y: 0)] : [],
+                        defeatedEnemyKinds: phase == 3 ? [GridPos(x: 1, y: 0): kind] : [:],
+                        activatedTrapPositions: [])
+                .frame(height: 32)
+                .accessibilityLabel("撃破後のマップ表示")
         }
         .padding(8)
         .background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))

@@ -190,19 +190,7 @@ struct AutoMapView: View {
             width: fittedSize.width,
             height: fittedSize.height
         )
-        if defeated && kind.usesProceduralMotion {
-            let defeatedOpacity: Double = switch kind { case .ghost: 0.3; default: 0.65 }
-            context.drawLayer { layer in
-                layer.opacity = defeatedOpacity
-                layer.translateBy(x: fittedRect.midX, y: fittedRect.midY)
-                layer.scaleBy(x: 1, y: 0.45)
-                layer.rotate(by: .degrees(15))
-                layer.draw(image, in: CGRect(x: -fittedRect.width / 2, y: -fittedRect.height / 2,
-                                             width: fittedRect.width, height: fittedRect.height))
-            }
-        } else {
-            context.draw(image, in: fittedRect)
-        }
+        context.draw(image, in: fittedRect)
     }
 
     private var swordPalette: [Character: Color] {

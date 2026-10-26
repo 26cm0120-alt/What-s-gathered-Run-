@@ -194,13 +194,13 @@ struct EnemyEncounterSpeechOverlay: View {
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 72, height: 72)
+                    .frame(width: IPadLayoutMetrics.isPad ? 120 : 72, height: IPadLayoutMetrics.isPad ? 120 : 72)
                     .shadow(color: .black.opacity(0.8), radius: 5, y: 3)
                     .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, 8)
+        .padding(.top, IPadLayoutMetrics.isPad ? 14 : 8)
         .transition(.move(edge: .top).combined(with: .opacity))
         .allowsHitTesting(false)
     }
@@ -215,7 +215,7 @@ struct EnemyDefeatSpeechOverlay: View {
                 .padding(.horizontal, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, 8)
+        .padding(.top, IPadLayoutMetrics.isPad ? 14 : 8)
         .transition(.scale.combined(with: .opacity))
         .allowsHitTesting(false)
     }
@@ -224,23 +224,21 @@ struct EnemyDefeatSpeechOverlay: View {
 private struct EnemySpeechBubbleView: View {
     let text: String
 
-    /// 敵のセリフは最大3行・1行14文字前後。読みやすさ優先で文字と枠を大きめにする。
-    private var fontSize: CGFloat { IPadLayoutMetrics.isPad ? 20 : 18 }
+    /// iPadでは、ダンジョン画面が大きいぶん、セリフを読みやすく大きく表示する。
+    private var isPad: Bool { IPadLayoutMetrics.isPad }
 
     var body: some View {
         Text(text)
-            .font(DungeonTypography.maruMonica(size: fontSize))
+            .font(DungeonTypography.maruMonica(size: isPad ? 22 : 14))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
-            .lineLimit(4)
-            .minimumScaleFactor(0.75)
-            .lineSpacing(5)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity)
-            .background(Color.black.opacity(0.94), in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(red: 0.78, green: 0.66, blue: 0.38), lineWidth: 2))
+            .lineLimit(3)
+            .minimumScaleFactor(0.82)
+            .lineSpacing(isPad ? 4 : 2)
+            .padding(.horizontal, isPad ? 18 : 10)
+            .padding(.vertical, isPad ? 12 : 8)
+            .background(Color.black.opacity(0.94), in: RoundedRectangle(cornerRadius: isPad ? 12 : 8))
+            .overlay(RoundedRectangle(cornerRadius: isPad ? 12 : 8).stroke(Color(red: 0.78, green: 0.66, blue: 0.38), lineWidth: isPad ? 2 : 1.5))
             .shadow(color: .black.opacity(0.75), radius: 6, y: 3)
     }
 }
