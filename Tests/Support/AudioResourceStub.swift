@@ -10,6 +10,11 @@ enum AudioResource {
     case slimeCounterattack
     case skeletonCounterattack
     case gargoyleCounterattack
+    // グループAのトラップ効果音
+    case trapTurn
+    case trapSlowFlick
+    case trapPoison
+}
 }
 
 /// ゲームロジックのテストでは端末の音声出力だけを省略する。
