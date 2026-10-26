@@ -13,6 +13,8 @@ struct CoreLogicTests {
             return
         }
 
+        try testNewEnemyEncounters()
+
         try testTrapSelection()
         print("PASS: 罠抽選の境界値・除外・発生率補正")
 
@@ -39,6 +41,23 @@ struct CoreLogicTests {
         assertionCount += try await GameManagerTests.run()
 
         print("完了: \(assertionCount) assertions")
+    }
+
+    private static func testNewEnemyEncounters() throws {
+        var seen: [EnemyKind] = []
+        for seed in 0..<500 {
+            let map = RandomMazeGenerator.generate(seed: UInt64(seed))
+            for kind in map.enemyKinds.values where !seen.contains(kind) { seen.append(kind) }
+        }
+        for kind in EnemyKind.randomEncounterKinds {
+            try expect(seen.contains(kind), "ランダム迷宮で \(kind.name) が出現する")
+            try expect(kind.maxHP > 0 && kind.attackDamage > 0, "\(kind.name) の能力値が有効")
+            for text in [kind.encounterDialogue, kind.defeatDialogue] {
+                try expect(!text.isEmpty && text.split(separator: "\n").count <= 3, "\(kind.name) のセリフが3行以内")
+            }
+        }
+        try expect(!seen.contains(.dragon), "ランダム迷宮にラスボスが混ざらない")
+        print("PASS: 新敵の出現・能力値・セリフ")
     }
 
     private static func testTrapSelection() throws {
@@ -151,7 +170,7 @@ struct CoreLogicTests {
             try expect(cells.filter { $0.isTrap }.count == 2, "seed \(seed): trap が2つ")
             try expect(map.enemyKinds.count == 2, "seed \(seed): 敵の種類定義が2つ")
             try expect(map.enemyKinds.values.filter { $0 == .gargoyle }.count == 1, "seed \(seed): gargoyle は必ず1体")
-            try expect(map.enemyKinds.values.filter { $0 == .slime || $0 == .skeleton }.count == 1, "seed \(seed): もう1体は通常敵")
+            try expect(map.enemyKinds.values.filter { EnemyKind.randomEncounterKinds.contains($0) }.count == 1, "seed \(seed): もう1体は通常敵")
             try expect(map.trapKinds.count == 2, "seed \(seed): trap の種類定義が2つ")
             try expect(map.trapKinds.values.allSatisfy { $0.group == .a }, "seed \(seed): trap はグループA")
             if Set(map.trapKinds.values).count == 1 {

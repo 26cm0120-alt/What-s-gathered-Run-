@@ -25,6 +25,14 @@ struct EnemyBattleView: View {
         return battle.kind.imageName
     }
 
+    /// 敵の表示サイズ。iPadでは動きが見やすいよう大きくする(下端の操作ボタンと重ならない範囲)。
+    private func enemySize(in size: CGSize) -> CGSize {
+        if IPadLayoutMetrics.isPad {
+            return CGSize(width: min(size.width * 0.62, 340), height: min(size.height * 0.60, 340))
+        }
+        return CGSize(width: min(size.width * 0.62, 190), height: min(size.height * 0.76, 190))
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -32,19 +40,13 @@ struct EnemyBattleView: View {
                     .interpolation(.none)
                     .resizable()
                     .scaledToFit()
-                    .frame(
-                        width: min(geometry.size.width * 0.62, 190),
-                        height: min(geometry.size.height * 0.76, 190)
-                    )
+                    .frame(width: enemySize(in: geometry.size).width, height: enemySize(in: geometry.size).height)
                     .overlay {
                         Image(enemyImage)
                             .interpolation(.none)
                             .resizable()
                             .scaledToFit()
-                            .frame(
-                                width: min(geometry.size.width * 0.62, 190),
-                                height: min(geometry.size.height * 0.76, 190)
-                            )
+                            .frame(width: enemySize(in: geometry.size).width, height: enemySize(in: geometry.size).height)
                             .colorMultiply(Color(red: 1.0, green: 0.08, blue: 0.06))
                             .opacity(isHit ? 0.98 : 0)
                             .animation(.easeOut(duration: 0.06), value: isHit)
@@ -58,7 +60,7 @@ struct EnemyBattleView: View {
                         y: 6
                     )
                     .animation(.easeOut(duration: 0.08), value: isHit)
-                    .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.57)
+                    .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57))
                     .accessibilityLabel(battle.kind.name)
 
                 if let damageLabel {
@@ -68,7 +70,7 @@ struct EnemyBattleView: View {
                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 12)
-                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.82)
+                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.70 : 0.82))
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
                 }
@@ -222,18 +224,23 @@ struct EnemyDefeatSpeechOverlay: View {
 private struct EnemySpeechBubbleView: View {
     let text: String
 
+    /// 敵のセリフは最大3行・1行14文字前後。読みやすさ優先で文字と枠を大きめにする。
+    private var fontSize: CGFloat { IPadLayoutMetrics.isPad ? 20 : 18 }
+
     var body: some View {
         Text(text)
-            .font(DungeonTypography.maruMonica(size: 14))
+            .font(DungeonTypography.maruMonica(size: fontSize))
             .foregroundStyle(.white)
             .multilineTextAlignment(.center)
-            .lineLimit(3)
-            .minimumScaleFactor(0.82)
-            .lineSpacing(2)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.94), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(red: 0.78, green: 0.66, blue: 0.38), lineWidth: 1.5))
+            .lineLimit(4)
+            .minimumScaleFactor(0.75)
+            .lineSpacing(5)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .background(Color.black.opacity(0.94), in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(red: 0.78, green: 0.66, blue: 0.38), lineWidth: 2))
             .shadow(color: .black.opacity(0.75), radius: 6, y: 3)
     }
 }

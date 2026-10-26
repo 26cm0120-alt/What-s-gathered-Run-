@@ -41,7 +41,7 @@ struct AnimatedTitleDragonTitleRow: View {
             }
             .padding(.horizontal, 4)
         }
-        .frame(maxWidth: 360)
+        .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
         .frame(height: compact ? 42 : 70)
     }
 }

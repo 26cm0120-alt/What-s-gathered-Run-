@@ -120,15 +120,22 @@ struct DungeonView: View {
                 let imageWidth = min(min(farWidth, nearWidth) * 0.72, tileDepth * aspectRatio * 0.72)
                 let imageHeight = imageWidth / aspectRatio
                 let center = surfacePoint(0.5, 0.52, corners: corners)
-                ctx.draw(
-                    defeatedImage,
-                    in: CGRect(
-                        x: center.x - CGFloat(imageWidth / 2),
-                        y: center.y - CGFloat(imageHeight / 2),
-                        width: CGFloat(imageWidth),
-                        height: CGFloat(imageHeight)
-                    )
-                )
+                let rect = CGRect(x: center.x - CGFloat(imageWidth / 2),
+                                  y: center.y - CGFloat(imageHeight / 2),
+                                  width: CGFloat(imageWidth), height: CGFloat(imageHeight))
+                if kind.usesProceduralMotion {
+                    let defeatedOpacity: Double = switch kind { case .ghost: 0.3; default: 0.65 }
+                    ctx.drawLayer { layer in
+                        layer.opacity = defeatedOpacity
+                        layer.translateBy(x: rect.midX, y: rect.midY)
+                        layer.scaleBy(x: 1, y: 0.45)
+                        layer.rotate(by: .degrees(15))
+                        layer.draw(defeatedImage, in: CGRect(x: -rect.width / 2, y: -rect.height / 2,
+                                                            width: rect.width, height: rect.height))
+                    }
+                } else {
+                    ctx.draw(defeatedImage, in: rect)
+                }
             }
 
             /// 発動済みトラップの既存ドット絵を、床面の透視投影に沿って残す。

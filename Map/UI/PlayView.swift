@@ -85,7 +85,7 @@ struct PlayView: View {
 
     private func finishFlick(in direction: MovementFlickDirection) {
         activeFlickDirection = direction
-        UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.55)
+        Haptics.impact(.light, intensity: 0.55)
     }
 
     /// 取得演出を閉じるフェードが終わるまでモデル側の移動ロックを保つ。
@@ -144,11 +144,15 @@ struct PlayView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let isPad = IPadLayoutMetrics.isPad
             let isCompact = geometry.size.height < 700
-            let dungeonHeight = min(geometry.size.height * (isCompact ? 0.38 : 0.41), geometry.size.width * 0.98)
+            // iPadでは、ダンジョン画面(正方形)を横幅いっぱいに近い大きさまで広げ、残りの縦幅をほかの段に割り当てる。
+            let dungeonHeight = isPad
+                ? max(300, min(geometry.size.width - 24, geometry.size.height - IPadLayoutMetrics.playViewNonDungeonHeight))
+                : min(geometry.size.height * (isCompact ? 0.38 : 0.41), geometry.size.width * 0.98)
             let explorationMapHeight = max(geometry.size.height * (isCompact ? 0.14 : 0.18), isCompact ? 100 : 135)
 
-            VStack(spacing: isCompact ? 6 : 10) {
+            VStack(spacing: isPad ? 8 : (isCompact ? 6 : 10)) {
             // ① ダンジョン画面
             DungeonView(
                 map: game.map,
@@ -285,73 +289,64 @@ struct PlayView: View {
                 .clipped()
             }
 
-            // ステージと鍵の状態は、イベントメッセージが変わっても常に確認できる
-            statusBar
-                .contentShape(Rectangle())
-                .simultaneousGesture(movementFlickGesture)
+            .overlay(alignment: .bottom) {
+                // iPadの戦闘中だけ、こうげき・にげる・ギブアップをダンジョン画面の下端に置く。
+                if isPad, game.state.enemyBattle != nil {
+                    iPadBattleCommandBar
+                        .frame(width: dungeonHeight)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 12)
+                        .transition(.opacity)
+                        .zIndex(8)
+                }
+            }
 
-            // ② メッセージ(段階案内と状況メッセージを固定の高さに表示する)
-            MonsterMessageView(
-                message: displayedMessage,
-                reactionID: monsterReactionID,
-                surpriseReactionID: game.surpriseReactionID,
-                isTrapReactionActive: isTrapReactionActive,
-                trapAnimationFrame: trapAnimationFrame,
-                trapAnimationOffset: trapAnimationOffset,
-                trapAnimationTilt: trapAnimationTilt,
-                wallCollisionID: game.wallCollisionID,
-                playerAttackAnimationID: playerAttackAnimationID,
-                playerDamageAnimationID: game.playerDamageAnimationID,
-                playerDamageAmount: game.playerDamageAmount,
-                battle: game.state.enemyBattle,
-                playerHP: game.state.playerHP,
-                isTutorial: game.stage.isStepByStepTutorial
-            )
-                .contentShape(Rectangle())
-                .simultaneousGesture(movementFlickGesture)
+            if isPad {
+                // iPad: ダンジョン画面の下を3列にする。戦闘中も同じ構成のまま使う。
+                //   左  = キャラクター
+                //   中央 = ステージ名 / 状況とHP / フリック案内
+                //   右  = 鍵の状態 / 探索マップ
+                HStack(alignment: .top, spacing: 8) {
+                    monsterMessageView
 
-            // ③ 探索マップ
-            AutoMapView(
-                map: game.map,
-                explored: game.state.explored,
-                player: game.state.player,
-                defeatedEnemies: game.state.defeatedEnemies,
-                defeatedEnemyKinds: game.state.defeatedEnemyKinds,
-                activatedTrapPositions: game.state.activatedTrapPositions
-            )
-            .frame(maxWidth: .infinity)
-            .frame(height: explorationMapHeight)
-            .highPriorityGesture(
-                MagnificationGesture()
-                    .onChanged { scale in
-                        suppressMovementDuringMapPinch()
-                        if scale >= 1.12 {
-                            let wasExpanded = isMapExpanded
-                            withAnimation(.spring(response: 0.32)) { isMapExpanded = true }
-                            if !wasExpanded { game.recordTutorialMapZoom() }
-                        }
+                    VStack(spacing: 8) {
+                        keyStatusLabel
+                            .padding(.horizontal, 8)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: IPadLayoutMetrics.stageTitleHeight)
+                            .dungeonPanel(cornerRadius: 6)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(statusAccessibilityLabel)
+                            .contentShape(Rectangle())
+                            .simultaneousGesture(movementFlickGesture)
+
+                        explorationMapView
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-            )
-            .contentShape(Rectangle())
-            .simultaneousGesture(movementFlickGesture)
+                    .frame(width: IPadLayoutMetrics.mapColumnWidth)
+                    .frame(height: IPadLayoutMetrics.infoPanelHeight)
+                }
+                .frame(height: IPadLayoutMetrics.infoPanelHeight)
 
-            // ④ コマンド
-            CommandView(
-                onTurnLeft: game.turnLeft,
-                onForward: game.moveForward,
-                onTurnRight: game.turnRight,
-                onTurnAround: game.turnAround,
-                activeFlickDirection: $activeFlickDirection,
-                onFlickEnded: { finishFlick(in: $0) },
-                onGiveUp: { isConfirmingGiveUp = true },   // まず確認を表示する
-                isBattling: game.state.enemyBattle != nil,
-                isMovementDisabled: !isInputEnabled || isAcquisitionAnimationActive || game.isInputLocked || game.state.isGameOver,
-                isBattleActionDisabled: isBattleActionLocked || game.state.isGameOver,
-                onBattleAttack: performBattleAttack,
-                onBattleFlee: performBattleFlee,
-                timerStartedAt: timerStartedAt,
-                timerReductionSeconds: game.state.runTimeReductionSeconds
-            )
+                // タイマーとギブアップ(戦闘中のボタンはダンジョン画面の下端にある)
+                commandView(style: .iPadFooter)
+            } else {
+                // ステージと鍵の状態は、イベントメッセージが変わっても常に確認できる
+                statusBar
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(movementFlickGesture)
+
+                // ② メッセージ(段階案内と状況メッセージを固定の高さに表示する)
+                monsterMessageView
+
+                // ③ 探索マップ
+                explorationMapView
+                    .frame(maxWidth: .infinity)
+                    .frame(height: explorationMapHeight)
+
+                // ④ コマンド
+                commandView(style: .standard)
+            }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -447,11 +442,11 @@ struct PlayView: View {
             monsterReactionID += 1
         }
         .onChangeCompat(of: game.wallCollisionID) { _, _ in
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
+            Haptics.impact(.heavy, intensity: 1.0)
             playWallCollisionAnimation()
         }
         .onChangeCompat(of: game.trapActivationID) { _, _ in
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
+            Haptics.impact(.heavy, intensity: 1.0)
             showEventCutIn(
                 title: "TRAP!",
                 message: game.state.trapActivationMessage ?? "滑った、、",
@@ -460,7 +455,7 @@ struct PlayView: View {
             )
         }
         .onChangeCompat(of: game.enemyEncounterID) { _, _ in
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            Haptics.notification(.warning)
             showEventCutIn(title: "ENCOUNTER", message: "敵が現れた！", style: .encounter)
         }
         .onChangeCompat(of: game.defeatedEnemySpeech) { oldSpeech, newSpeech in
@@ -534,7 +529,7 @@ struct PlayView: View {
     private func performBattleAttack() {
         guard !isBattleActionLocked,
               let battleBeforeAttack = game.state.enemyBattle else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.8)
+        Haptics.impact(.medium, intensity: 0.8)
         isBattleActionLocked = true
         battleActionTask?.cancel()
         battleActionTask = Task { @MainActor in
@@ -599,7 +594,7 @@ struct PlayView: View {
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             triggerBattleScreenFlash(color: .red, expands: true)
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1.0)
+            Haptics.impact(.heavy, intensity: 1.0)
             game.counterattackEnemy()
 
             try? await Task.sleep(nanoseconds: 300_000_000)
@@ -752,65 +747,174 @@ struct PlayView: View {
         }
     }
 
-    private var statusBar: some View {
-        let keyText: String
-        if !game.state.requiresKey {
-            keyText = "不要"
-        } else {
-            keyText = game.state.hasKey ? "所持" : "未取得"
-        }
+    private var monsterMessageView: some View {
+        MonsterMessageView(
+            message: displayedMessage,
+            reactionID: monsterReactionID,
+            surpriseReactionID: game.surpriseReactionID,
+            isTrapReactionActive: isTrapReactionActive,
+            trapAnimationFrame: trapAnimationFrame,
+            trapAnimationOffset: trapAnimationOffset,
+            trapAnimationTilt: trapAnimationTilt,
+            wallCollisionID: game.wallCollisionID,
+            playerAttackAnimationID: playerAttackAnimationID,
+            playerDamageAnimationID: game.playerDamageAnimationID,
+            playerDamageAmount: game.playerDamageAmount,
+            battle: game.state.enemyBattle,
+            playerHP: game.state.playerHP,
+            isTutorial: game.stage.isStepByStepTutorial,
+            iPadHeader: IPadLayoutMetrics.isPad ? AnyView(stageTitleLabel) : nil,
+            // 戦闘中はフリックを使わないため案内を出さず、状況欄を広げてHPバーを読みやすくする。
+            iPadFooter: (IPadLayoutMetrics.isPad && game.state.enemyBattle == nil)
+                ? AnyView(commandView(style: .iPadFlickPanel))
+                : nil
+        )
+            .contentShape(Rectangle())
+            .simultaneousGesture(movementFlickGesture)
+    }
 
-        return HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(game.stage.title)
-                    .font(DungeonTypography.maruMonica(size: 13))
-                    .foregroundColor(Color(red: 0.88, green: 0.84, blue: 0.73))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                if let seed = game.stage.seed {
-                    Text("SEED \(String(format: "%016llX", seed))")
-                        .font(DungeonTypography.maruMonica(size: 9))
-                        .foregroundColor(.white.opacity(0.6))
-                        .accessibilityLabel("seed \(seed)")
+    private var explorationMapView: some View {
+        AutoMapView(
+            map: game.map,
+            explored: game.state.explored,
+            player: game.state.player,
+            defeatedEnemies: game.state.defeatedEnemies,
+            defeatedEnemyKinds: game.state.defeatedEnemyKinds,
+            activatedTrapPositions: game.state.activatedTrapPositions
+        )
+        .highPriorityGesture(
+            MagnificationGesture()
+                .onChanged { scale in
+                    suppressMovementDuringMapPinch()
+                    if scale >= 1.12 {
+                        let wasExpanded = isMapExpanded
+                        withAnimation(.spring(response: 0.32)) { isMapExpanded = true }
+                        if !wasExpanded { game.recordTutorialMapZoom() }
+                    }
                 }
+        )
+        .contentShape(Rectangle())
+        .simultaneousGesture(movementFlickGesture)
+    }
+
+    /// iPadの戦闘中に、ダンジョン画面の下端へ重ねる操作ボタン。
+    /// 画面下端のボタンは親指が届きにくいため、視線の先の戦闘画面に置く。
+    private var iPadBattleCommandBar: some View {
+        HStack(spacing: 8) {
+            iPadBattleButton(title: "こうげき", isDisabled: isBattleActionLocked || game.state.isGameOver) {
+                performBattleAttack()
             }
+            iPadBattleButton(title: "にげる", isDisabled: isBattleActionLocked || game.state.isGameOver) {
+                performBattleFlee()
+            }
+            iPadBattleButton(title: "ギブアップ", isDisabled: false) {
+                isConfirmingGiveUp = true   // まず確認を表示する
+            }
+        }
+    }
+
+    private func iPadBattleButton(title: String, isDisabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(DungeonTypography.maruMonica(size: 17))
+                .frame(maxWidth: .infinity, minHeight: 58)
+        }
+        .buttonStyle(DungeonPressButtonStyle())
+        .disabled(isDisabled)
+    }
+
+    private var keyText: String {
+        if !game.state.requiresKey { return "不要" }
+        return game.state.hasKey ? "所持" : "未取得"
+    }
+
+    private var statusAccessibilityLabel: String {
+        "\(game.stage.title)\(game.stage.seed.map { "。seed \($0)" } ?? "")。\(game.stage.requiresSwordForKey ? "剣：\(game.state.hasSword ? "所持" : "未所持")。" : "")鍵：\(keyText)"
+    }
+
+    /// ステージ名(とシード値)。iPadでは中央列の最上段に置く。
+    private var stageTitleLabel: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(game.stage.title)
+                .font(DungeonTypography.maruMonica(size: IPadLayoutMetrics.isPad ? 17 : 13))
+                .foregroundColor(Color(red: 0.88, green: 0.84, blue: 0.73))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            if let seed = game.stage.seed {
+                Text("SEED \(String(format: "%016llX", seed))")
+                    .font(DungeonTypography.maruMonica(size: IPadLayoutMetrics.isPad ? 11 : 9))
+                    .foregroundColor(.white.opacity(0.6))
+                    .accessibilityLabel("seed \(seed)")
+            }
+        }
+    }
+
+    /// 剣・鍵の所持状況。iPadでは右列の最上段に置く。
+    private var keyStatusLabel: some View {
+        let isPad = IPadLayoutMetrics.isPad
+        return HStack(spacing: 5) {
+            if game.stage.requiresSwordForKey {
+                Text("⚔")
+                    .font(DungeonTypography.maruMonica(size: isPad ? 17 : 14))
+                    .foregroundStyle(game.state.hasSword ? Color(red: 1.0, green: 0.79, blue: 0.25) : .white.opacity(0.35))
+                Text(game.state.hasSword ? "剣：所持" : "剣：未所持")
+                    .font(DungeonTypography.maruMonica(size: isPad ? 13 : 10))
+                    .foregroundStyle(game.state.hasSword ? Color(red: 1.0, green: 0.79, blue: 0.25) : .white.opacity(0.68))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+            Image("key")
+                .resizable()
+                .scaledToFit()
+                .frame(width: isPad ? 24 : 19, height: isPad ? 24 : 19)
+                .opacity(game.state.hasKey ? 1 : 0.34)
+
+            Text("鍵：\(keyText)")
+                .font(DungeonTypography.maruMonica(size: isPad ? 17 : 13))
+                .foregroundColor(
+                    game.state.hasKey
+                        ? Color(red: 1.0, green: 0.83, blue: 0.36)
+                        : Color.white.opacity(0.84)
+                )
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+    }
+
+    /// iPhone用: ステージ名と鍵の状態を1行にまとめた欄。
+    private var statusBar: some View {
+        HStack(spacing: 8) {
+            stageTitleLabel
 
             Spacer(minLength: 8)
 
-            HStack(spacing: 5) {
-                if game.stage.requiresSwordForKey {
-                    Text("⚔")
-                        .font(DungeonTypography.maruMonica(size: 14))
-                        .foregroundStyle(game.state.hasSword ? Color(red: 1.0, green: 0.79, blue: 0.25) : .white.opacity(0.35))
-                    Text(game.state.hasSword ? "剣：所持" : "剣：未所持")
-                        .font(DungeonTypography.maruMonica(size: 10))
-                        .foregroundStyle(game.state.hasSword ? Color(red: 1.0, green: 0.79, blue: 0.25) : .white.opacity(0.68))
-                }
-                Image("key")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 19, height: 19)
-                    .opacity(game.state.hasKey ? 1 : 0.34)
-
-                Text("鍵：\(keyText)")
-                    .font(DungeonTypography.maruMonica(size: 13))
-                    .foregroundColor(
-                        game.state.hasKey
-                            ? Color(red: 1.0, green: 0.83, blue: 0.36)
-                            : Color.white.opacity(0.84)
-                    )
-            }
+            keyStatusLabel
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 34)
-        .background(Color(red: 0.075, green: 0.07, blue: 0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(red: 0.42, green: 0.39, blue: 0.32), lineWidth: 1)
-        }
+        .dungeonPanel(cornerRadius: 6)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(game.stage.title)\(game.stage.seed.map { "。seed \($0)" } ?? "")。\(game.stage.requiresSwordForKey ? "剣：\(game.state.hasSword ? "所持" : "未所持")。" : "")鍵：\(keyText)")
+        .accessibilityLabel(statusAccessibilityLabel)
+    }
+
+    private func commandView(style: CommandView.Style) -> some View {
+        CommandView(
+            onTurnLeft: game.turnLeft,
+            onForward: game.moveForward,
+            onTurnRight: game.turnRight,
+            onTurnAround: game.turnAround,
+            activeFlickDirection: $activeFlickDirection,
+            onFlickEnded: { finishFlick(in: $0) },
+            onGiveUp: { isConfirmingGiveUp = true },   // まず確認を表示する
+            isBattling: game.state.enemyBattle != nil,
+            isMovementDisabled: !isInputEnabled || isAcquisitionAnimationActive || game.isInputLocked || game.state.isGameOver,
+            isBattleActionDisabled: isBattleActionLocked || game.state.isGameOver,
+            onBattleAttack: performBattleAttack,
+            onBattleFlee: performBattleFlee,
+            timerStartedAt: timerStartedAt,
+            timerReductionSeconds: game.state.runTimeReductionSeconds,
+            style: style
+        )
     }
 }
 

@@ -59,7 +59,7 @@ struct StartView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
-                    .frame(maxWidth: 360)
+                    .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
                     .padding(.horizontal, compact ? 8 : 14)
                     .padding(.vertical, compact ? 6 : 9)
                     .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
@@ -73,7 +73,7 @@ struct StartView: View {
                     Text("探索モードを選ぶ")
                         .font(DungeonTypography.maruMonica(size: compact ? 17 : 19))
                         .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
-                        .frame(maxWidth: 360, alignment: .leading)
+                        .frame(maxWidth: IPadLayoutMetrics.startContentWidth, alignment: .leading)
                         .padding(.top, compact ? 0 : 2)
 
                     VStack(spacing: compact ? 5 : 8) {
@@ -111,14 +111,14 @@ struct StartView: View {
                             }
                         }
                     }
-                    .frame(maxWidth: 360)
+                    .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
 
                     Text("上フリックで前進、左右で旋回、下で反転。\n鍵を手に入れてゴールへ。")
                         .font(DungeonTypography.maruMonica(size: compact ? 12 : 14))
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.white.opacity(0.76))
-                        .frame(maxWidth: 360)
+                        .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
                         .padding(.horizontal, 4)
                         .padding(.bottom, compact ? 3 : 8)
                 }
@@ -139,7 +139,7 @@ struct StartView: View {
                     .allowsHitTesting(false)
                 }
 
-                // 右上の音量設定ボタン
+                // 右上の音量・振動設定ボタン
                 VStack {
                     HStack {
                         Spacer()
@@ -155,7 +155,7 @@ struct StartView: View {
                                     Circle().stroke(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.55), lineWidth: 1)
                                 }
                         }
-                        .accessibilityLabel("音量設定")
+                        .accessibilityLabel("音量・振動設定")
                     }
                     Spacer()
                 }

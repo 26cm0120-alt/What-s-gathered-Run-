@@ -186,14 +186,25 @@ struct ShiritoriGameView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let isPad = IPadLayoutMetrics.isPad
             // 端末の縦幅に合わせて上下の余白とヒント行を詰め、5×5盤面の最大幅を優先する。
             let isCompactHeight = geometry.size.height < 760
             let isVeryCompactHeight = geometry.size.height < 700
             let verticalSpacing: CGFloat = isVeryCompactHeight ? 1 : (isCompactHeight ? 4 : 6)
             let verticalPadding: CGFloat = isVeryCompactHeight ? 0 : (isCompactHeight ? 4 : 8)
-            let hintRowHeight: CGFloat = isVeryCompactHeight ? 14 : (isCompactHeight ? 16 : 20)
+            let hintRowHeight: CGFloat = isPad ? 26 : (isVeryCompactHeight ? 14 : (isCompactHeight ? 16 : 20))
             let messageWindowHeight: CGFloat = 72
-            let boardSize = max(0, geometry.size.width - 16)
+            // iPadでは、キャラクターを大きく見せるため盤面を正方形のまま少し小さくし、
+            // 上段(CPU+残り枚数+メッセージ)と下段(ヒント+残り時間+PLAYER)に縦幅を割り当てる。
+            let padCPUSize = min(geometry.size.width * 0.36, geometry.size.height * 0.24)
+            let padPlayerSize = min(geometry.size.width * 0.32, geometry.size.height * 0.19)
+            let boardSize = isPad
+                ? max(0, min(
+                    geometry.size.width - 16,
+                    geometry.size.height - padCPUSize - padPlayerSize - hintRowHeight
+                        - verticalSpacing * 3 - verticalPadding * 2 - 6
+                ))
+                : max(0, geometry.size.width - 16)
             let preferredCPUCharacterSize = min(geometry.size.width * 0.36, geometry.size.height * 0.19)
             let preferredPlayerCharacterSize = min(geometry.size.width * 0.30, geometry.size.height * 0.15)
             let nonCharacterHeight = boardSize
@@ -206,11 +217,11 @@ struct ShiritoriGameView: View {
             let characterLayoutScale = preferredCharacterHeight > 0
                 ? min(1, availableCharacterHeight / preferredCharacterHeight)
                 : 1
-            let characterDisplayScale = characterLayoutScale > 0
+            let characterDisplayScale = isPad ? 1 : characterLayoutScale > 0
                 ? min(1.12, 1 / characterLayoutScale)
                 : 1
-            let cpuCharacterSize = preferredCPUCharacterSize * characterLayoutScale
-            let characterSize = preferredPlayerCharacterSize * characterLayoutScale
+            let cpuCharacterSize = isPad ? padCPUSize : preferredCPUCharacterSize * characterLayoutScale
+            let characterSize = isPad ? padPlayerSize : preferredPlayerCharacterSize * characterLayoutScale
 
             TimelineView(.periodic(from: Date(), by: 0.05)) { timeline in
                 let now = timeline.date
@@ -241,14 +252,20 @@ struct ShiritoriGameView: View {
                             VStack(spacing: 8) {
                                 HeaderView(
                                     remainingCardCount: remainingCardCount,
-                                    currentPrompt: gameManager.currentPrompt
+                                    currentPrompt: gameManager.currentPrompt,
+                                    fontScale: isPad ? 1.4 : 1
                                 )
                                 .frame(maxWidth: .infinity)
 
                                 Text("CPU")
-                                    .font(DungeonTypography.maruMonica(size: 14))
+                                    .font(DungeonTypography.maruMonica(size: isPad ? 18 : 14))
                                     .foregroundStyle(.white)
                                     .fixedSize()
+
+                                // iPadでは、メッセージをCPUの横に置いて縦幅を節約する。
+                                if isPad {
+                                    messageWindow
+                                }
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -258,29 +275,11 @@ struct ShiritoriGameView: View {
                         HintLineView(text: bossHintMessages[upperHintIndex])
                             .frame(height: hintRowHeight)
 
-                        // MARK: - メッセージウィンドウ
+                        // MARK: - メッセージウィンドウ(iPadでは上段のCPUの横に表示する)
 
-                        MessageWindowView(
-                            message: isShowingOpeningDialogue
-                                ? openingDialogueMessages[openingDialogueIndex]
-                                : messageText,
-                            typingDuration: isShowingOpeningDialogue && openingDialogueIndex < 2
-                                ? 3.0
-                                : nil,
-                            displayImmediately: isShowingOpeningDialogue && openingDialogueIndex == 2,
-                            // 導入会話と途中の特殊セリフは既存時間を維持し、最終セリフ後は統合用に3秒待機する
-                            holdDuration: isShowingOpeningDialogue
-                                ? (openingDialogueIndex < 2 ? 2.0 : 5.0)
-                            : (playerLoseNMessageHoldDuration
-                                ?? noCPUTargetVictoryMessageHoldDuration
-                                ?? cpuFinalCardMessageHoldDuration
-                                ?? timeoutMercyVictoryMessageHoldDuration),
-                            // 最後の英語・署名メッセージだけ、2行とも中央揃えにする
-                            centerText: isShowingOpeningDialogue && openingDialogueIndex == 2,
-                            onCompleted: { completedMessage in
-                                handleMessageDisplayCompleted(completedMessage)
-                            }
-                        )
+                        if !isPad {
+                            messageWindow
+                        }
 
                         // MARK: - 中央：25枚のカード
 
@@ -301,16 +300,28 @@ struct ShiritoriGameView: View {
                         .frame(maxWidth: .infinity)
 
                         // PLAYER向けヒントも1行分の高さで表示し、情報表示と重ならないようにする。
-                        HintLineView(text: systemHintMessages[lowerHintIndex])
-                            .frame(height: hintRowHeight)
+                        // iPadでは下段のPLAYER情報の上(同じ列)に置く。
+                        if !isPad {
+                            HintLineView(text: systemHintMessages[lowerHintIndex])
+                                .frame(height: hintRowHeight)
+                        }
 
                         // MARK: - 下部：PLAYER情報・PLAYER画像
 
                         HStack(alignment: .center, spacing: 8) {
                             // PLAYERと残り時間を画像の左側に表示する
-                            PlayerStatusView(
-                                playerTime: gameManager.playerTime
-                            )
+                            VStack(spacing: 6) {
+                                if isPad {
+                                    // 左の列は幅に余裕があるため、ヒントを2行にして文字を大きくする。
+                                    HintLineView(text: systemHintMessages[lowerHintIndex], lineCount: 2)
+                                        .frame(height: hintRowHeight * 1.7)
+                                }
+                                PlayerStatusView(
+                                    playerTime: gameManager.playerTime,
+                                    fontScale: isPad ? 1.4 : 1,
+                                    groupsTimeTogether: isPad
+                                )
+                            }
                             .frame(maxWidth: .infinity)
 
                             // 画面右側に向く配置に合わせ、PLAYER画像を水平方向に反転する
@@ -350,6 +361,32 @@ struct ShiritoriGameView: View {
                 hintRotationTimer = nil
             }
         }
+    }
+
+    private var messageWindow: some View {
+        MessageWindowView(
+            message: isShowingOpeningDialogue
+                ? openingDialogueMessages[openingDialogueIndex]
+                : messageText,
+            typingDuration: isShowingOpeningDialogue && openingDialogueIndex < 2
+                ? 3.0
+                : nil,
+            displayImmediately: isShowingOpeningDialogue && openingDialogueIndex == 2,
+            // 導入会話と途中の特殊セリフは既存時間を維持し、最終セリフ後は統合用に3秒待機する
+            holdDuration: isShowingOpeningDialogue
+                ? (openingDialogueIndex < 2 ? 2.0 : 5.0)
+            : (playerLoseNMessageHoldDuration
+                ?? noCPUTargetVictoryMessageHoldDuration
+                ?? cpuFinalCardMessageHoldDuration
+                ?? timeoutMercyVictoryMessageHoldDuration),
+            // 最後の英語・署名メッセージだけ、2行とも中央揃えにする
+            centerText: isShowingOpeningDialogue && openingDialogueIndex == 2,
+            onCompleted: { completedMessage in
+                handleMessageDisplayCompleted(completedMessage)
+            },
+            // iPadでは文字と枠を大きくして読みやすくする
+            scale: IPadLayoutMetrics.isPad ? 1.45 : 1
+        )
     }
 
     // 上段・下段のヒントを独立して5秒ごとに切り替える
@@ -938,17 +975,21 @@ struct ShiritoriGameView: View {
 // ヒントは常に1行で表示し、長い文は端末幅に合わせて文字を縮小する。
 private struct HintLineView: View {
     let text: String
+    /// 表示する行数。iPadでは文字を読みやすくするため、下段のヒントを2行で表示する。
+    var lineCount: Int = 1
 
     var body: some View {
         GeometryReader { geometry in
             let availableWidth = max(1, geometry.size.width - 8)
             let characterCount = CGFloat(max(1, text.count))
-            let fontSize = min(11, max(7, availableWidth / characterCount))
+            // 複数行のときは、行数分の幅(折り返しの余裕を見て85%)を使って文字の大きさを決める。
+            let widthBudget = lineCount > 1 ? availableWidth * CGFloat(lineCount) * 0.85 : availableWidth
+            let fontSize = min(IPadLayoutMetrics.isPad ? 15 : 11, max(7, widthBudget / characterCount))
 
             Text(text)
                 .font(DungeonTypography.maruMonica(size: fontSize))
                 .foregroundStyle(.white)
-                .lineLimit(1)
+                .lineLimit(lineCount)
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.65)
                 .fixedSize(horizontal: false, vertical: true)

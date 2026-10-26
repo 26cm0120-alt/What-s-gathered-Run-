@@ -68,7 +68,50 @@ struct CommandView: View {
     let timerStartedAt: TimeInterval?
     let timerReductionSeconds: Int
 
+    /// 表示のしかた。iPhoneは従来の1つのまとまり、iPadは3列の構成に合わせて部品ごとに分けて置く。
+    enum Style {
+        /// iPhone: フリック操作・戦闘コマンド・ギブアップを縦に並べる。
+        case standard
+        /// iPad: 中央列の下に置くフリック案内(操作は画面全体のフリックで受けるため、表示だけ)。戦闘中は使わない。
+        case iPadFlickPanel
+        /// iPad: 3列の下に置くタイマーとギブアップ。戦闘中のボタンはダンジョン画面の下端にある。
+        case iPadFooter
+    }
+    var style: Style = .standard
+
     var body: some View {
+        switch style {
+        case .standard:
+            commandStack
+        case .iPadFlickPanel:
+            flickControlView(height: nil, isCompact: true, acceptsTouch: false)
+                .opacity(isMovementDisabled ? 0.55 : 1)
+        case .iPadFooter:
+            iPadFooter
+        }
+    }
+
+    /// iPadの最下段。探索中は左にタイマー、右にギブアップを置く。戦闘中は高さだけ残し、画面が跳ねないようにする。
+    private var iPadFooter: some View {
+        HStack(spacing: 8) {
+            if !isBattling {
+                if let timerStartedAt {
+                    DungeonRunTimer(startedAt: timerStartedAt, reductionSeconds: timerReductionSeconds, scale: 1.25)
+                }
+                Spacer(minLength: 0)
+                Button(action: onGiveUp) {
+                    Text("ギブアップ")
+                        .font(DungeonTypography.maruMonica(size: 16))
+                        .frame(width: 168, height: IPadLayoutMetrics.footerRowHeight)
+                }
+                .buttonStyle(DungeonPressButtonStyle())
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: IPadLayoutMetrics.footerRowHeight)
+    }
+
+    private var commandStack: some View {
         VStack(spacing: 8) {
             if !isBattling {
                 flickControl
@@ -113,6 +156,13 @@ struct CommandView: View {
     }
 
     private var flickControl: some View {
+        flickControlView(height: 72, isCompact: false, acceptsTouch: true)
+    }
+
+    /// フリック案内の枠。
+    /// - isCompact: 幅の狭い枠(iPadの中央列)向けに、案内を2段に分けて大きめの文字で表示する。
+    /// - acceptsTouch: falseのときは表示だけにして、操作は親のフリックで受ける。
+    private func flickControlView(height: CGFloat?, isCompact: Bool, acceptsTouch: Bool) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color(red: 0.075, green: 0.07, blue: 0.06))
@@ -121,55 +171,81 @@ struct CommandView: View {
                         .stroke(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.8), lineWidth: 1.5)
                 }
 
-            HStack(spacing: 10) {
-                Text("フリック")
-                    .font(DungeonTypography.maruMonica(size: 13))
-                    .foregroundColor(Color(red: 0.89, green: 0.78, blue: 0.49))
+            if isCompact {
+                VStack(spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text("フリック")
+                            .font(DungeonTypography.maruMonica(size: 15))
+                            .foregroundColor(Color(red: 0.89, green: 0.78, blue: 0.49))
 
-                Image(systemName: "arrow.up")
-                    .font(DungeonTypography.maruMonica(size: 24))
-                    .foregroundColor(Color(red: 0.93, green: 0.75, blue: 0.29))
-                    .frame(width: 32, height: 32)
-                    .rotationEffect(.degrees(activeFlickDirection?.rotationDegrees ?? 0))
-                    .animation(.easeOut(duration: 0.12), value: activeFlickDirection)
+                        flickArrow(size: 24, frame: 28)
+                    }
 
-                Text("上：前進　下：反対を向く\n左右：向きを変える")
-                    .font(DungeonTypography.maruMonica(size: 12))
-                    .foregroundColor(.white.opacity(0.82))
+                    Text("上：前進　下：反対を向く\n左右：向きを変える")
+                        .font(DungeonTypography.maruMonica(size: 13))
+                        .foregroundColor(.white.opacity(0.82))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                }
+                .padding(.horizontal, 6)
+            } else {
+                HStack(spacing: 10) {
+                    Text("フリック")
+                        .font(DungeonTypography.maruMonica(size: 13))
+                        .foregroundColor(Color(red: 0.89, green: 0.78, blue: 0.49))
+
+                    flickArrow(size: 24, frame: 32)
+
+                    Text("上：前進　下：反対を向く\n左右：向きを変える")
+                        .font(DungeonTypography.maruMonica(size: 12))
+                        .foregroundColor(.white.opacity(0.82))
+                }
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 72)
+        .frame(height: height)
         .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 10)
-                .onChanged { value in
-                    guard !isMovementDisabled else { return }
-                    if let direction = MovementFlickDirection.classify(
-                        horizontal: value.translation.width,
-                        vertical: value.translation.height,
-                        threshold: 16
-                    ) {
-                        activeFlickDirection = direction
-                    }
-                }
-                .onEnded { value in
-                    guard !isMovementDisabled,
-                          let direction = MovementFlickDirection.classify(
-                        horizontal: value.translation.width,
-                        vertical: value.translation.height,
-                        threshold: 16
-                    ) else { return }
+        .gesture(flickDragGesture, including: acceptsTouch ? .all : .none)
+    }
 
-                    onFlickEnded(direction)
-                    switch direction {
-                    case .left: onTurnLeft()
-                    case .forward: onForward()
-                    case .right: onTurnRight()
-                    case .backward: onTurnAround()
-                    }
+    private func flickArrow(size: CGFloat, frame: CGFloat) -> some View {
+        Image(systemName: "arrow.up")
+            .font(DungeonTypography.maruMonica(size: size))
+            .foregroundColor(Color(red: 0.93, green: 0.75, blue: 0.29))
+            .frame(width: frame, height: frame)
+            .rotationEffect(.degrees(activeFlickDirection?.rotationDegrees ?? 0))
+            .animation(.easeOut(duration: 0.12), value: activeFlickDirection)
+    }
+
+    private var flickDragGesture: some Gesture {
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                guard !isMovementDisabled else { return }
+                if let direction = MovementFlickDirection.classify(
+                    horizontal: value.translation.width,
+                    vertical: value.translation.height,
+                    threshold: 16
+                ) {
+                    activeFlickDirection = direction
                 }
-        )
+            }
+            .onEnded { value in
+                guard !isMovementDisabled,
+                      let direction = MovementFlickDirection.classify(
+                    horizontal: value.translation.width,
+                    vertical: value.translation.height,
+                    threshold: 16
+                ) else { return }
+
+                onFlickEnded(direction)
+                switch direction {
+                case .left: onTurnLeft()
+                case .forward: onForward()
+                case .right: onTurnRight()
+                case .backward: onTurnAround()
+                }
+            }
     }
 }
 
@@ -177,6 +253,8 @@ struct CommandView: View {
 private struct DungeonRunTimer: View {
     let startedAt: TimeInterval
     let reductionSeconds: Int
+    /// 文字・枠の倍率(iPadで大きく表示するときに使う)
+    var scale: CGFloat = 1
 
     var body: some View {
         TimelineView(.periodic(from: Date(), by: 0.1)) { _ in
@@ -185,14 +263,14 @@ private struct DungeonRunTimer: View {
             )
             HStack(spacing: 5) {
                 Image(systemName: "stopwatch")
-                    .font(DungeonTypography.maruMonica(size: 12))
+                    .font(DungeonTypography.maruMonica(size: 12 * scale))
                 Text(elapsedText)
-                .font(DungeonTypography.maruMonica(size: 13))
+                .font(DungeonTypography.maruMonica(size: 13 * scale))
                 .monospacedDigit()
             }
             .foregroundColor(Color(red: 1.0, green: 0.84, blue: 0.45))
-            .padding(.horizontal, 9)
-            .frame(height: 36)
+            .padding(.horizontal, 9 * scale)
+            .frame(height: 36 * scale)
             .background(Color.black.opacity(0.42), in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
