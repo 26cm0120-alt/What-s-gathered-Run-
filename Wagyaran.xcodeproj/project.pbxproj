@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 7F560A07306A388200A76BAC /* Build configuration list for PBXProject "What's gathered? Run!" */;
+			buildConfigurationList = 7F560A07306A388200A76BAC /* Build configuration list for PBXProject "Wagyaran" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -315,7 +315,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		7F560A07306A388200A76BAC /* Build configuration list for PBXProject "What's gathered? Run!" */ = {
+		7F560A07306A388200A76BAC /* Build configuration list for PBXProject "Wagyaran" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7F560A2B306A388300A76BAC /* Debug */,
