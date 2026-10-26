@@ -6,6 +6,7 @@ enum GameManagerTests {
     private static var count = 0
 
     static func run() async throws -> Int {
+        try testNewEnemyBattles()
         try testTrapDiscovery()
         try testPoison()
         try testSlow()
@@ -36,6 +37,30 @@ enum GameManagerTests {
         let stage = Stage(title: "テスト", map: map, requiresKey: false, isStepByStepTutorial: false,
                           seed: nil, shiritoriStageKind: .standard, dungeonTheme: nil, requiresSwordForKey: false)
         return GameManager(stage: stage, wallCollisionDamageEnabled: false)
+    }
+
+    private static func testNewEnemyBattles() throws {
+        for kind in [EnemyKind.imp, .ghost, .cyclops, .mimic] {
+            let position = GridPos(x: 1, y: 0)
+            let map = MapData(cells: [[.start, .enemy, .floor]], startPosition: GridPos(x: 0, y: 0),
+                              initialDirection: .east, enemyKinds: [position: kind])
+            let stage = Stage(title: "新敵テスト", map: map, requiresKey: false, isStepByStepTutorial: false,
+                              seed: nil, shiritoriStageKind: .standard, dungeonTheme: nil, requiresSwordForKey: false)
+            let g = GameManager(stage: stage, wallCollisionDamageEnabled: false)
+            g.moveForward()
+            try expect(g.state.enemyBattle?.kind == kind, "\(kind.name) と遭遇")
+            try expect(g.state.enemyBattle?.enemyHP == kind.maxHP, "\(kind.name) の初期HP")
+            g.attackEnemy()
+            try expect(g.state.enemyBattle?.enemyHP == kind.maxHP - 5, "\(kind.name) の被弾")
+            g.counterattackEnemy()
+            try expect(g.state.playerHP == 20 - kind.attackDamage, "\(kind.name) の反撃")
+            for _ in 0..<4 { g.attackEnemy() }
+            try expect(g.state.enemyBattle == nil, "\(kind.name) の戦闘終了")
+            try expect(g.state.defeatedEnemyKinds[position] == kind, "\(kind.name) の撃破表示を記録")
+            let hp = g.state.playerHP
+            g.counterattackEnemy()
+            try expect(g.state.playerHP == hp, "撃破後は反撃しない")
+        }
     }
 
     private static func testTrapDiscovery() throws {

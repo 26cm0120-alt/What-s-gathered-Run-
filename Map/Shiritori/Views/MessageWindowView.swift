@@ -22,12 +22,14 @@ struct MessageWindowView: View {
     var holdDuration: TimeInterval? = nil
     var centerText: Bool = false
     var onCompleted: ((String) -> Void)? = nil
+    /// 文字と枠の倍率(iPadで文字を読みやすく大きく表示するときに使う)
+    var scale: CGFloat = 1
 
     @State private var displayedMessage = ""
     @State private var measuredTextHeight: CGFloat = 0
 
     private let typingInterval: TimeInterval = 0.06
-    private let estimatedLineHeight: CGFloat = 16
+    private var estimatedLineHeight: CGFloat { 16 * scale }
 
     private var visibleLineCount: Int {
         guard measuredTextHeight > 0 else { return 1 }
@@ -37,8 +39,8 @@ struct MessageWindowView: View {
     private var topInset: CGFloat {
         if centerText { return 0 }
         switch visibleLineCount {
-        case 1: return 26
-        case 2: return 16
+        case 1: return 26 * scale
+        case 2: return 16 * scale
         default: return 3
         }
     }
@@ -52,7 +54,7 @@ struct MessageWindowView: View {
             }
 
             Text(displayedMessage)
-                .font(DungeonTypography.maruMonica(size: 13))
+                .font(DungeonTypography.maruMonica(size: 13 * scale))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(centerText ? .center : .leading)
                 .lineSpacing(1)
@@ -71,7 +73,7 @@ struct MessageWindowView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 72, alignment: centerText ? .center : .topLeading)
+        .frame(height: 72 * scale, alignment: centerText ? .center : .topLeading)
         .padding(.horizontal, 8)
         .background(Color.black)
         .overlay(

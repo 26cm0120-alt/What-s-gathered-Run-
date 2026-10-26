@@ -16,6 +16,10 @@ struct MonsterMessageView: View {
     let battle: EnemyBattle?
     let playerHP: Int
     let isTutorial: Bool
+    /// iPadの中央列で状況欄の上に置く表示(ステージ名)
+    var iPadHeader: AnyView? = nil
+    /// iPadの中央列で状況欄の下に置く表示(フリック案内)。戦闘中は渡さず、状況欄が広がる。
+    var iPadFooter: AnyView? = nil
 
     @State private var isBreathing = false
     @State private var actionFrame: String?
@@ -52,128 +56,199 @@ struct MonsterMessageView: View {
         battle?.message ?? message
     }
 
+    private var isPad: Bool { IPadLayoutMetrics.isPad }
+    /// iPhone基準(幅70pt)に対する拡大率。涙・ダメージ数の位置を合わせるのに使う。
+    private var characterScale: CGFloat { characterSize.width / 70 }
+    /// Playerドラゴンの表示サイズ。iPadでは動きが見やすいよう左の列いっぱいに大きくする。
+    private var characterSize: CGSize { isPad ? CGSize(width: 160, height: 174) : CGSize(width: 70, height: 76) }
+
     private var messageLineLimit: Int {
         guard battle == nil else { return 2 }
         return isTutorial || currentMessage.contains("\n") ? 3 : 2
     }
 
-    var body: some View {
+    /// iPhoneは従来の1枚の枠、iPadは3列の構成にする。
+    @ViewBuilder
+    private var layout: some View {
+        if isPad {
+            iPadLayout
+        } else {
+            phoneLayout
+        }
+    }
+
+    private var phoneLayout: some View {
         HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(currentMessage)
-                    .font(DungeonTypography.maruMonica(size: battle == nil ? 15 : 13))
-                    .foregroundStyle(.white)
-                    .lineLimit(messageLineLimit)
-                    .lineSpacing(2)
-                    .multilineTextAlignment(.leading)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack(spacing: 9) {
-                    hpBar(
-                        name: battle == nil ? "HP" : "YOU",
-                        current: playerHP,
-                        previousHP: playerHPBeforeDecrease,
-                        residualProgress: playerHPResidualProgress,
-                        maximum: GameState.playerMaxHP,
-                        color: Color(red: 0.28, green: 0.82, blue: 0.48)
-                    )
-                    if let battle {
-                        hpBar(
-                            name: battle.kind.name,
-                            current: battle.enemyHP,
-                            previousHP: enemyHPBeforeDecrease,
-                            residualProgress: enemyHPResidualProgress,
-                            maximum: battle.kind.maxHP,
-                            color: Color(red: 0.95, green: 0.31, blue: 0.24)
-                        )
-                    }
-                }
-            }
-
-            ZStack(alignment: .topTrailing) {
-                Image(imageName)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 70, height: 76)
-                    .offset(x: isTrapReactionActive ? trapAnimationOffset : collisionShakeOffset + attackOffset + damageShakeOffset)
-                    .scaleEffect(battle != nil ? (attackOffset == 0 ? (isBreathing ? 1.04 : 1) : 1.12) : 1)
-                    .rotationEffect(.degrees(isTrapReactionActive ? trapAnimationTilt : collisionTilt + damageTilt))
-                    .overlay {
-                        Image(imageName)
-                            .resizable()
-                            .scaledToFit()
-                            .colorMultiply(Color(red: 1.0, green: 0.10, blue: 0.08))
-                            .opacity(damageFlashOpacity)
-                            .accessibilityHidden(true)
-                    }
-                    .accessibilityHidden(true)
-                    .animation(.easeInOut(duration: 0.08), value: imageName)
-
-                Text("-\(damageNumberAmount)")
-                    .font(DungeonTypography.maruMonica(size: 19))
-                    .foregroundStyle(Color(red: 1.0, green: 0.30, blue: 0.25))
-                    .shadow(color: .black, radius: 2, y: 1)
-                    .opacity(damageNumberOpacity)
-                    .offset(x: -21, y: damageNumberOffset)
-                    .accessibilityLabel("HPが\(damageNumberAmount)減少")
-                    .accessibilityHidden(damageNumberOpacity == 0)
-
-                if isTrapReactionActive {
-                    Text("！？")
-                        .font(DungeonTypography.maruMonica(size: 21))
-                        .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.24))
-                        .shadow(color: .black, radius: 2, y: 1)
-                        .offset(x: -1, y: 0)
-                        .transition(.scale.combined(with: .opacity))
-                        .accessibilityHidden(true)
-                } else if battle != nil {
-                    Text("!")
-                        .font(DungeonTypography.maruMonica(size: 23))
-                        .foregroundStyle(Color(red: 1.0, green: 0.79, blue: 0.22))
-                        .shadow(color: .black, radius: 2, y: 1)
-                        .transition(.scale.combined(with: .opacity))
-                        .accessibilityHidden(true)
-                } else if isSurprised {
-                    Text("!")
-                        .font(DungeonTypography.maruMonica(size: 22))
-                        .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.24))
-                        .shadow(color: .black, radius: 2, y: 1)
-                        .offset(x: -3, y: 1)
-                        .transition(.scale.combined(with: .opacity))
-                        .accessibilityHidden(true)
-                }
-                if isCrying {
-                    HStack(spacing: 22) {
-                        tearDrop.rotationEffect(.degrees(18)).offset(y: 3)
-                        tearDrop.rotationEffect(.degrees(-18)).offset(y: 1)
-                    }
-                    .offset(x: -18, y: 44)
-                    .transition(.scale.combined(with: .opacity))
-                    .accessibilityHidden(true)
-                }
-                if isTrapReactionActive {
-                    HStack(spacing: 26) {
-                        tearDrop.rotationEffect(.degrees(18)).offset(y: 7)
-                        tearDrop.rotationEffect(.degrees(-18)).offset(y: 2)
-                    }
-                    .offset(x: -18, y: 43)
-                    .transition(.scale.combined(with: .opacity))
-                    .accessibilityHidden(true)
-                }
-            }
-            .frame(width: 70, height: 78)
+            messageColumn
+            characterStack
         }
         .padding(.horizontal, 10)
         .frame(maxWidth: .infinity)
         .frame(height: 100)
-        .background(Color(red: 0.075, green: 0.07, blue: 0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(red: 0.42, green: 0.39, blue: 0.32), lineWidth: 1)
+        .dungeonPanel()
+    }
+
+    /// iPad: 左にキャラクター、中央にステージ名・状況とHP・フリック案内を縦に並べる(右のマップ列はPlayView側)。
+    private var iPadLayout: some View {
+        HStack(alignment: .top, spacing: 8) {
+            characterStack
+                .frame(width: IPadLayoutMetrics.characterColumnWidth, height: IPadLayoutMetrics.infoPanelHeight)
+                .dungeonPanel()
+
+            VStack(spacing: 8) {
+                if let iPadHeader {
+                    iPadHeader
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: IPadLayoutMetrics.stageTitleHeight)
+                        .dungeonPanel(cornerRadius: 6)
+                }
+
+                messageColumn
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .dungeonPanel()
+
+                if let iPadFooter {
+                    iPadFooter
+                        .frame(maxWidth: .infinity)
+                        .frame(height: IPadLayoutMetrics.flickPanelHeight)
+                }
+            }
+            .frame(height: IPadLayoutMetrics.infoPanelHeight)
         }
+    }
+
+
+    /// 状況メッセージとHPバー
+    private var messageColumn: some View {
+        VStack(alignment: .leading, spacing: isPad ? 8 : 5) {
+            Text(currentMessage)
+                .font(DungeonTypography.maruMonica(size: (battle == nil ? 15 : 13) + (isPad ? 4 : 0)))
+                .foregroundStyle(.white)
+                .lineLimit(messageLineLimit + (isPad ? 1 : 0))
+                .lineSpacing(2)
+                .multilineTextAlignment(.leading)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // iPadでは文字を上、HPバーを下に寄せて、状況欄の高さを使い切る。
+            if isPad {
+                Spacer(minLength: 0)
+            }
+
+            hpBarContainer {
+                hpBar(
+                    name: battle == nil ? "HP" : "YOU",
+                    current: playerHP,
+                    previousHP: playerHPBeforeDecrease,
+                    residualProgress: playerHPResidualProgress,
+                    maximum: GameState.playerMaxHP,
+                    color: Color(red: 0.28, green: 0.82, blue: 0.48)
+                )
+                if let battle {
+                    hpBar(
+                        name: battle.kind.name,
+                        current: battle.enemyHP,
+                        previousHP: enemyHPBeforeDecrease,
+                        residualProgress: enemyHPResidualProgress,
+                        maximum: battle.kind.maxHP,
+                        color: Color(red: 0.95, green: 0.31, blue: 0.24)
+                    )
+                }
+            }
+        }
+    }
+
+    /// Playerドラゴン(動き・反応・ダメージ表示を含む)
+    private var characterStack: some View {
+        ZStack(alignment: .topTrailing) {
+            Image(imageName)
+                .interpolation(.none)
+                .resizable()
+                .scaledToFit()
+                .frame(width: characterSize.width, height: characterSize.height)
+                .offset(x: isTrapReactionActive ? trapAnimationOffset : collisionShakeOffset + attackOffset + damageShakeOffset)
+                .scaleEffect(battle != nil ? (attackOffset == 0 ? (isBreathing ? 1.04 : 1) : 1.12) : 1)
+                .rotationEffect(.degrees(isTrapReactionActive ? trapAnimationTilt : collisionTilt + damageTilt))
+                .overlay {
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .colorMultiply(Color(red: 1.0, green: 0.10, blue: 0.08))
+                        .opacity(damageFlashOpacity)
+                        .accessibilityHidden(true)
+                }
+                .accessibilityHidden(true)
+                .animation(.easeInOut(duration: 0.08), value: imageName)
+
+            Text("-\(damageNumberAmount)")
+                .font(DungeonTypography.maruMonica(size: 19))
+                .foregroundStyle(Color(red: 1.0, green: 0.30, blue: 0.25))
+                .shadow(color: .black, radius: 2, y: 1)
+                .opacity(damageNumberOpacity)
+                .offset(x: -21 * characterScale, y: damageNumberOffset)
+                .accessibilityLabel("HPが\(damageNumberAmount)減少")
+                .accessibilityHidden(damageNumberOpacity == 0)
+
+            if isTrapReactionActive {
+                Text("！？")
+                    .font(DungeonTypography.maruMonica(size: 21))
+                    .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.24))
+                    .shadow(color: .black, radius: 2, y: 1)
+                    .offset(x: -1, y: 0)
+                    .transition(.scale.combined(with: .opacity))
+                    .accessibilityHidden(true)
+            } else if battle != nil {
+                Text("!")
+                    .font(DungeonTypography.maruMonica(size: 23))
+                    .foregroundStyle(Color(red: 1.0, green: 0.79, blue: 0.22))
+                    .shadow(color: .black, radius: 2, y: 1)
+                    .transition(.scale.combined(with: .opacity))
+                    .accessibilityHidden(true)
+            } else if isSurprised {
+                Text("!")
+                    .font(DungeonTypography.maruMonica(size: 22))
+                    .foregroundStyle(Color(red: 1.0, green: 0.72, blue: 0.24))
+                    .shadow(color: .black, radius: 2, y: 1)
+                    .offset(x: -3, y: 1)
+                    .transition(.scale.combined(with: .opacity))
+                    .accessibilityHidden(true)
+            }
+            if isCrying {
+                HStack(spacing: 22) {
+                    tearDrop.rotationEffect(.degrees(18)).offset(y: 3)
+                    tearDrop.rotationEffect(.degrees(-18)).offset(y: 1)
+                }
+                .offset(x: -18 * characterScale, y: 44 * characterScale)
+                .transition(.scale.combined(with: .opacity))
+                .accessibilityHidden(true)
+            }
+            if isTrapReactionActive {
+                HStack(spacing: 26) {
+                    tearDrop.rotationEffect(.degrees(18)).offset(y: 7)
+                    tearDrop.rotationEffect(.degrees(-18)).offset(y: 2)
+                }
+                .offset(x: -18 * characterScale, y: 43 * characterScale)
+                .transition(.scale.combined(with: .opacity))
+                .accessibilityHidden(true)
+            }
+        }
+        .frame(width: characterSize.width, height: characterSize.height + 2)
+    }
+
+    /// HPバーの並べ方。iPhoneは横並び、iPadは文字を読みやすくするため縦に積む。
+    @ViewBuilder
+    private func hpBarContainer<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if isPad {
+            VStack(spacing: 8) { content() }
+        } else {
+            HStack(spacing: 9) { content() }
+        }
+    }
+
+    var body: some View {
+        layout
         .onChangeCompat(of: reactionID) { _, _ in
             playMovementAnimation()
         }
@@ -238,7 +313,7 @@ struct MonsterMessageView: View {
                 Spacer(minLength: 1)
                 Text("\(current)/\(maximum)").monospacedDigit()
             }
-            .font(DungeonTypography.maruMonica(size: 10))
+            .font(DungeonTypography.maruMonica(size: isPad ? 14 : 10))
             .foregroundStyle(.white.opacity(0.92))
             GeometryReader { geometry in
                 let safeMaximum = max(1, maximum)
@@ -258,7 +333,7 @@ struct MonsterMessageView: View {
                         .frame(width: currentWidth)
                 }
             }
-            .frame(height: 6)
+            .frame(height: isPad ? 11 : 6)
         }
         .frame(maxWidth: .infinity)
     }
@@ -453,5 +528,18 @@ struct MonsterMessageView: View {
             }
             actionFrame = nil
         }
+    }
+}
+
+extension View {
+    /// 暗い地に細い縁を引いた、探索・戦闘画面の情報枠。
+    func dungeonPanel(cornerRadius: CGFloat = 8) -> some View {
+        self
+            .background(Color(red: 0.075, green: 0.07, blue: 0.06))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(Color(red: 0.42, green: 0.39, blue: 0.32), lineWidth: 1)
+            }
     }
 }

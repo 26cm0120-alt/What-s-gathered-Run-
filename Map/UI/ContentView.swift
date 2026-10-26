@@ -9,83 +9,84 @@ struct ContentView: View {
     #endif
 
     var body: some View {
-        ZStack {
-            DungeonBackground()
+        // iPadでは仮想キャンバスに描いて画面いっぱいに拡大表示し、iPhoneではそのまま表示する。
+        DeviceAdaptiveContainer {
+            ZStack {
+                DungeonBackground()
 
-            switch flow.screen {
-            case .start:
-                // スタート画面(面を選ぶ)
-                StartView(
-                    stages: Stages.all,
-                    lastRandomSeed: flow.lastRandomSeed,
-                    onSelect: flow.startGame,
-                    onRandomStage: flow.startRandomGame,
-                    onReplayRandomStage: flow.replayRandomGame,
-                    onAudioVolumeChanged: flow.applyAudioVolumes
-                )
-
-            case .playing, .cleared, .gameOver:
-                // ダンジョンのプレイ画面に、クリアまたはゲームオーバー表示を重ねる。
-                if let game = flow.game {
-                    PlayView(
-                        game: game,
-                        isInputEnabled: flow.screen == .playing,
-                        timerStartedAt: flow.timerStartedAt,
-                        onGiveUp: flow.returnToStart
+                switch flow.screen {
+                case .start:
+                    // スタート画面(面を選ぶ)
+                    StartView(
+                        stages: Stages.all,
+                        lastRandomSeed: flow.lastRandomSeed,
+                        onSelect: flow.startGame,
+                        onRandomStage: flow.startRandomGame,
+                        onReplayRandomStage: flow.replayRandomGame,
+                        onAudioVolumeChanged: flow.applyAudioVolumes
                     )
-                        // GameManagerが切り替わったらPlayViewも作り直し、前ステージの演出状態を引き継がない。
-                        .id(ObjectIdentifier(game))
-                        .overlay {
-                            if flow.screen == .cleared {
-                                ClearView(
-                                    currentRunTime: flow.currentRunTime,
-                                    bestClearTime: flow.bestClearTime,
-                                    nextStageTitle: flow.nextStageTitle,
-                                    leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
-                                    leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
-                                    leaderboardEntries: flow.leaderboardEntries,
-                                    theme: game.stage.dungeonTheme,
-                                    onSaveName: flow.saveLeaderboardEntry,
-                                    onUpdateName: flow.updateLeaderboardEntryName,
-                                    onNextStage: flow.startNextStage,
-                                    onReplay: flow.supportsReplayAndTiming
-                                        ? { flow.replayCurrentStage() }
-                                        : nil,
-                                    onReturn: flow.returnToStart
-                                )
-                            } else if flow.screen == .gameOver {
-                                GameOverView(
-                                    onReturn: flow.returnToStart,
-                                    reasonMessage: flow.gameOverReasonMessage,
-                                    detailMessage: flow.gameOverDetailMessage
-                                )
+
+                case .playing, .cleared, .gameOver:
+                    // ダンジョンのプレイ画面に、クリアまたはゲームオーバー表示を重ねる。
+                    if let game = flow.game {
+                        PlayView(
+                            game: game,
+                            isInputEnabled: flow.screen == .playing,
+                            timerStartedAt: flow.timerStartedAt,
+                            onGiveUp: flow.returnToStart
+                        )
+                            // GameManagerが切り替わったらPlayViewも作り直し、前ステージの演出状態を引き継がない。
+                            .id(ObjectIdentifier(game))
+                            .overlay {
+                                if flow.screen == .cleared {
+                                    ClearView(
+                                        currentRunTime: flow.currentRunTime,
+                                        bestClearTime: flow.bestClearTime,
+                                        nextStageTitle: flow.nextStageTitle,
+                                        leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
+                                        leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
+                                        leaderboardEntries: flow.leaderboardEntries,
+                                        theme: game.stage.dungeonTheme,
+                                        onSaveName: flow.saveLeaderboardEntry,
+                                        onUpdateName: flow.updateLeaderboardEntryName,
+                                        onNextStage: flow.startNextStage,
+                                        onReplay: flow.supportsReplayAndTiming
+                                            ? { flow.replayCurrentStage() }
+                                            : nil,
+                                        onReturn: flow.returnToStart
+                                    )
+                                } else if flow.screen == .gameOver {
+                                    GameOverView(
+                                        onReturn: flow.returnToStart,
+                                        reasonMessage: flow.gameOverReasonMessage,
+                                        detailMessage: flow.gameOverDetailMessage
+                                    )
+                                }
                             }
-                        }
-                }
+                    }
 
-            case .shiritoriPrologue:
-                ShiritoriStartView(
-                    isRandomStage: flow.game?.stage.seed != nil,
-                    onGameStart: flow.startShiritoriGame
-                )
+                case .shiritoriPrologue:
+                    ShiritoriStartView(
+                        isRandomStage: flow.game?.stage.seed != nil,
+                        onGameStart: flow.startShiritoriGame
+                    )
 
-            case .shiritoriGame:
-                ShiritoriGameView(
-                    cards: flow.game?.stage.seed != nil
-                        ? RandomShiritoriCardData.cards
-                        : CardData.cards,
-                    isRandomStage: flow.game?.stage.seed != nil,
-                    initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds,
-                    playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds,
-                    playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds
-                ) { playerWon in
-                    flow.finishShiritori(won: playerWon)
-                }
+                case .shiritoriGame:
+                    ShiritoriGameView(
+                        cards: CardData.cards,
+                        isRandomStage: flow.game?.stage.seed != nil,
+                        initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds,
+                        playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds,
+                        playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds
+                    ) { playerWon in
+                        flow.finishShiritori(won: playerWon)
+                    }
 
-            case .trialShiritoriGame:
-                // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
-                ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
-                    flow.finishShiritori(won: playerWon)
+                case .trialShiritoriGame:
+                    // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
+                    ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
+                        flow.finishShiritori(won: playerWon)
+                    }
                 }
             }
         }

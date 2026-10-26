@@ -1,0 +1,973 @@
+--- main/ワギャラン.xcodeproj/project.pbxproj
++++ local/ワギャラン.xcodeproj/project.pbxproj
+@@ -267,7 +267,7 @@
+ 					"@executable_path/Frameworks",
+ 				);
+ 				MARKETING_VERSION = 1.0;
+-				PRODUCT_BUNDLE_IDENTIFIER = jp.ac.jec.cm0130.Map;
++				PRODUCT_BUNDLE_IDENTIFIER = com.cm0130.wagyarun.personal;
+ 				PRODUCT_NAME = "ワギャラン";
+ 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+ 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+@@ -300,7 +300,7 @@
+ 					"@executable_path/Frameworks",
+ 				);
+ 				MARKETING_VERSION = 1.0;
+-				PRODUCT_BUNDLE_IDENTIFIER = jp.ac.jec.cm0130.Map;
++				PRODUCT_BUNDLE_IDENTIFIER = com.cm0130.wagyarun.personal;
+ 				PRODUCT_NAME = "ワギャラン";
+ 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+ 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+@@ -337,4 +337,3 @@
+ 	};
+ 	rootObject = 7F560A04306A388200A76BAC /* Project object */;
+ }
+-
+--- main/Map/Shiritori/Views/GameView.swift
++++ local/Map/Shiritori/Views/GameView.swift
+@@ -193,7 +193,18 @@
+             let verticalPadding: CGFloat = isVeryCompactHeight ? 0 : (isCompactHeight ? 4 : 8)
+             let hintRowHeight: CGFloat = isVeryCompactHeight ? 14 : (isCompactHeight ? 16 : 20)
+             let messageWindowHeight: CGFloat = 72
+-            let boardSize = max(0, geometry.size.width - 16)
++            // iPadでは、キャラクターを大きく見せるため盤面を正方形のまま少し小さくし、
++            // 上段(CPU+残り枚数+メッセージ)と下段(ヒント+残り時間+PLAYER)に縦幅を割り当てる。
++            let isPad = IPadLayoutMetrics.isPad
++            let padCPUSize = min(geometry.size.width * 0.34, geometry.size.height * 0.22)
++            let padPlayerSize = min(geometry.size.width * 0.28, geometry.size.height * 0.17)
++            let boardSize = isPad
++                ? max(0, min(
++                    geometry.size.width - 16,
++                    geometry.size.height - padCPUSize - padPlayerSize - hintRowHeight
++                        - verticalSpacing * 3 - verticalPadding * 2 - 6
++                ))
++                : max(0, geometry.size.width - 16)
+             let preferredCPUCharacterSize = min(geometry.size.width * 0.36, geometry.size.height * 0.19)
+             let preferredPlayerCharacterSize = min(geometry.size.width * 0.30, geometry.size.height * 0.15)
+             let nonCharacterHeight = boardSize
+@@ -206,11 +217,11 @@
+             let characterLayoutScale = preferredCharacterHeight > 0
+                 ? min(1, availableCharacterHeight / preferredCharacterHeight)
+                 : 1
+-            let characterDisplayScale = characterLayoutScale > 0
++            let characterDisplayScale = isPad ? 1 : characterLayoutScale > 0
+                 ? min(1.12, 1 / characterLayoutScale)
+                 : 1
+-            let cpuCharacterSize = preferredCPUCharacterSize * characterLayoutScale
+-            let characterSize = preferredPlayerCharacterSize * characterLayoutScale
++            let cpuCharacterSize = isPad ? padCPUSize : preferredCPUCharacterSize * characterLayoutScale
++            let characterSize = isPad ? padPlayerSize : preferredPlayerCharacterSize * characterLayoutScale
+ 
+             TimelineView(.periodic(from: Date(), by: 0.05)) { timeline in
+                 let now = timeline.date
+@@ -241,14 +252,20 @@
+                             VStack(spacing: 8) {
+                                 HeaderView(
+                                     remainingCardCount: remainingCardCount,
+-                                    currentPrompt: gameManager.currentPrompt
++                                    currentPrompt: gameManager.currentPrompt,
++                                    fontScale: isPad ? 1.4 : 1
+                                 )
+                                 .frame(maxWidth: .infinity)
+ 
+                                 Text("CPU")
+-                                    .font(DungeonTypography.maruMonica(size: 14))
++                                    .font(DungeonTypography.maruMonica(size: isPad ? 18 : 14))
+                                     .foregroundStyle(.white)
+                                     .fixedSize()
++
++                                // iPadでは、メッセージをCPUの横に置いて縦幅を節約する。
++                                if isPad {
++                                    messageWindow
++                                }
+                             }
+                             .frame(maxWidth: .infinity)
+                         }
+@@ -258,29 +275,11 @@
+                         HintLineView(text: bossHintMessages[upperHintIndex])
+                             .frame(height: hintRowHeight)
+ 
+-                        // MARK: - メッセージウィンドウ
+-
+-                        MessageWindowView(
+-                            message: isShowingOpeningDialogue
+-                                ? openingDialogueMessages[openingDialogueIndex]
+-                                : messageText,
+-                            typingDuration: isShowingOpeningDialogue && openingDialogueIndex < 2
+-                                ? 3.0
+-                                : nil,
+-                            displayImmediately: isShowingOpeningDialogue && openingDialogueIndex == 2,
+-                            // 導入会話と途中の特殊セリフは既存時間を維持し、最終セリフ後は統合用に3秒待機する
+-                            holdDuration: isShowingOpeningDialogue
+-                                ? (openingDialogueIndex < 2 ? 2.0 : 5.0)
+-                            : (playerLoseNMessageHoldDuration
+-                                ?? noCPUTargetVictoryMessageHoldDuration
+-                                ?? cpuFinalCardMessageHoldDuration
+-                                ?? timeoutMercyVictoryMessageHoldDuration),
+-                            // 最後の英語・署名メッセージだけ、2行とも中央揃えにする
+-                            centerText: isShowingOpeningDialogue && openingDialogueIndex == 2,
+-                            onCompleted: { completedMessage in
+-                                handleMessageDisplayCompleted(completedMessage)
+-                            }
+-                        )
++                        // MARK: - メッセージウィンドウ(iPadでは上段のCPUの横に表示する)
++
++                        if !isPad {
++                            messageWindow
++                        }
+ 
+                         // MARK: - 中央：25枚のカード
+ 
+@@ -301,16 +300,26 @@
+                         .frame(maxWidth: .infinity)
+ 
+                         // PLAYER向けヒントも1行分の高さで表示し、情報表示と重ならないようにする。
+-                        HintLineView(text: systemHintMessages[lowerHintIndex])
+-                            .frame(height: hintRowHeight)
++                        // iPadでは下段のPLAYER情報の上(同じ列)に置く。
++                        if !isPad {
++                            HintLineView(text: systemHintMessages[lowerHintIndex])
++                                .frame(height: hintRowHeight)
++                        }
+ 
+                         // MARK: - 下部：PLAYER情報・PLAYER画像
+ 
+                         HStack(alignment: .center, spacing: 8) {
+                             // PLAYERと残り時間を画像の左側に表示する
+-                            PlayerStatusView(
+-                                playerTime: gameManager.playerTime
+-                            )
++                            VStack(spacing: 6) {
++                                if isPad {
++                                    HintLineView(text: systemHintMessages[lowerHintIndex])
++                                        .frame(height: hintRowHeight)
++                                }
++                                PlayerStatusView(
++                                    playerTime: gameManager.playerTime,
++                                    fontScale: isPad ? 1.4 : 1
++                                )
++                            }
+                             .frame(maxWidth: .infinity)
+ 
+                             // 画面右側に向く配置に合わせ、PLAYER画像を水平方向に反転する
+@@ -350,6 +359,30 @@
+                 hintRotationTimer = nil
+             }
+         }
++    }
++
++    private var messageWindow: some View {
++        MessageWindowView(
++            message: isShowingOpeningDialogue
++                ? openingDialogueMessages[openingDialogueIndex]
++                : messageText,
++            typingDuration: isShowingOpeningDialogue && openingDialogueIndex < 2
++                ? 3.0
++                : nil,
++            displayImmediately: isShowingOpeningDialogue && openingDialogueIndex == 2,
++            // 導入会話と途中の特殊セリフは既存時間を維持し、最終セリフ後は統合用に3秒待機する
++            holdDuration: isShowingOpeningDialogue
++                ? (openingDialogueIndex < 2 ? 2.0 : 5.0)
++            : (playerLoseNMessageHoldDuration
++                ?? noCPUTargetVictoryMessageHoldDuration
++                ?? cpuFinalCardMessageHoldDuration
++                ?? timeoutMercyVictoryMessageHoldDuration),
++            // 最後の英語・署名メッセージだけ、2行とも中央揃えにする
++            centerText: isShowingOpeningDialogue && openingDialogueIndex == 2,
++            onCompleted: { completedMessage in
++                handleMessageDisplayCompleted(completedMessage)
++            }
++        )
+     }
+ 
+     // 上段・下段のヒントを独立して5秒ごとに切り替える
+@@ -959,4 +992,3 @@
+         }
+     }
+ }
+-
+--- main/Map/Shiritori/Views/PlayerStatusView.swift
++++ local/Map/Shiritori/Views/PlayerStatusView.swift
+@@ -13,14 +13,17 @@
+     // PLAYER TIMEの残り秒数
+     let playerTime: Int
+ 
++    // 文字の倍率(iPadで大きく表示するときに使う)
++    var fontScale: CGFloat = 1
++
+     var body: some View {
+         VStack(spacing: 4) {
+ 
+             // PLAYER用の表示領域
+             Text("PLAYER")
+-                .font(DungeonTypography.maruMonica(size: 12))
++                .font(DungeonTypography.maruMonica(size: 12 * fontScale))
+                 .foregroundStyle(.white)
+-                .frame(height: 36)
++                .frame(height: 36 * fontScale)
+ 
+             // PLAYER TIMEを表示する
+             HStack {
+@@ -30,7 +33,7 @@
+ 
+                 Text("\(playerTime)")
+             }
+-            .font(DungeonTypography.maruMonica(size: 16))
++            .font(DungeonTypography.maruMonica(size: 16 * fontScale))
+             .foregroundStyle(.white)
+         }
+     }
+@@ -45,4 +48,3 @@
+             .padding()
+     }
+ }
+-
+--- main/Map/Shiritori/Views/HeaderView.swift
++++ local/Map/Shiritori/Views/HeaderView.swift
+@@ -16,6 +16,9 @@
+     // 次に必要な文字
+     let currentPrompt: Character?
+ 
++    // 文字の倍率(iPadで大きく表示するときに使う)
++    var fontScale: CGFloat = 1
++
+     var body: some View {
+         HStack {
+             VStack(alignment: .leading, spacing: 2) {
+@@ -30,7 +33,7 @@
+                 Text(nextPromptText)
+             }
+         }
+-        .font(DungeonTypography.maruMonica(size: 13))
++        .font(DungeonTypography.maruMonica(size: 13 * fontScale))
+         .foregroundStyle(.white)
+     }
+ 
+@@ -56,4 +59,3 @@
+         .padding()
+     }
+ }
+-
+--- main/Map/UI/PlayView.swift
++++ local/Map/UI/PlayView.swift
+@@ -144,11 +144,15 @@
+ 
+     var body: some View {
+         GeometryReader { geometry in
++            let isPad = IPadLayoutMetrics.isPad
+             let isCompact = geometry.size.height < 700
+-            let dungeonHeight = min(geometry.size.height * (isCompact ? 0.38 : 0.41), geometry.size.width * 0.98)
++            // iPadでは、ダンジョン画面(正方形)を横幅いっぱいに近い大きさまで広げ、残りの縦幅をほかの段に割り当てる。
++            let dungeonHeight = isPad
++                ? max(300, min(geometry.size.width - 24, geometry.size.height - IPadLayoutMetrics.playViewNonDungeonHeight))
++                : min(geometry.size.height * (isCompact ? 0.38 : 0.41), geometry.size.width * 0.98)
+             let explorationMapHeight = max(geometry.size.height * (isCompact ? 0.14 : 0.18), isCompact ? 100 : 135)
+ 
+-            VStack(spacing: isCompact ? 6 : 10) {
++            VStack(spacing: isPad ? 8 : (isCompact ? 6 : 10)) {
+             // ① ダンジョン画面
+             DungeonView(
+                 map: game.map,
+@@ -285,55 +289,38 @@
+                 .clipped()
+             }
+ 
++            .overlay(alignment: .bottom) {
++                // iPadの戦闘中だけ、こうげき・にげる・ギブアップをダンジョン画面の下端に置く。
++                if isPad, game.state.enemyBattle != nil {
++                    iPadBattleCommandBar
++                        .frame(width: dungeonHeight)
++                        .padding(.horizontal, 12)
++                        .padding(.bottom, 12)
++                        .transition(.opacity)
++                        .zIndex(8)
++                }
++            }
++
+             // ステージと鍵の状態は、イベントメッセージが変わっても常に確認できる
+             statusBar
+                 .contentShape(Rectangle())
+                 .simultaneousGesture(movementFlickGesture)
+ 
+-            // ② メッセージ(段階案内と状況メッセージを固定の高さに表示する)
+-            MonsterMessageView(
+-                message: displayedMessage,
+-                reactionID: monsterReactionID,
+-                surpriseReactionID: game.surpriseReactionID,
+-                isTrapReactionActive: isTrapReactionActive,
+-                trapAnimationFrame: trapAnimationFrame,
+-                trapAnimationOffset: trapAnimationOffset,
+-                trapAnimationTilt: trapAnimationTilt,
+-                wallCollisionID: game.wallCollisionID,
+-                playerAttackAnimationID: playerAttackAnimationID,
+-                playerDamageAnimationID: game.playerDamageAnimationID,
+-                playerDamageAmount: game.playerDamageAmount,
+-                battle: game.state.enemyBattle,
+-                playerHP: game.state.playerHP,
+-                isTutorial: game.stage.isStepByStepTutorial
+-            )
+-                .contentShape(Rectangle())
+-                .simultaneousGesture(movementFlickGesture)
+-
+-            // ③ 探索マップ
+-            AutoMapView(
+-                map: game.map,
+-                explored: game.state.explored,
+-                player: game.state.player,
+-                defeatedEnemies: game.state.defeatedEnemies,
+-                defeatedEnemyKinds: game.state.defeatedEnemyKinds,
+-                activatedTrapPositions: game.state.activatedTrapPositions
+-            )
+-            .frame(maxWidth: .infinity)
+-            .frame(height: explorationMapHeight)
+-            .highPriorityGesture(
+-                MagnificationGesture()
+-                    .onChanged { scale in
+-                        suppressMovementDuringMapPinch()
+-                        if scale >= 1.12 {
+-                            let wasExpanded = isMapExpanded
+-                            withAnimation(.spring(response: 0.32)) { isMapExpanded = true }
+-                            if !wasExpanded { game.recordTutorialMapZoom() }
+-                        }
+-                    }
+-            )
+-            .contentShape(Rectangle())
+-            .simultaneousGesture(movementFlickGesture)
++            // ② メッセージ(段階案内と状況メッセージを固定の高さに表示する)/ ③ 探索マップ
++            if isPad {
++                // iPadでは横幅を活かし、メッセージ(左)と探索マップ(右)を横に並べる。
++                HStack(spacing: 8) {
++                    monsterMessageView
++                    explorationMapView
++                        .frame(width: IPadLayoutMetrics.explorationMapWidth)
++                }
++                .frame(height: IPadLayoutMetrics.middleRowHeight)
++            } else {
++                monsterMessageView
++                explorationMapView
++                    .frame(maxWidth: .infinity)
++                    .frame(height: explorationMapHeight)
++            }
+ 
+             // ④ コマンド
+             CommandView(
+@@ -750,6 +737,77 @@
+                 frameIndex += 1
+             }
+         }
++    }
++
++    private var monsterMessageView: some View {
++        MonsterMessageView(
++            message: displayedMessage,
++            reactionID: monsterReactionID,
++            surpriseReactionID: game.surpriseReactionID,
++            isTrapReactionActive: isTrapReactionActive,
++            trapAnimationFrame: trapAnimationFrame,
++            trapAnimationOffset: trapAnimationOffset,
++            trapAnimationTilt: trapAnimationTilt,
++            wallCollisionID: game.wallCollisionID,
++            playerAttackAnimationID: playerAttackAnimationID,
++            playerDamageAnimationID: game.playerDamageAnimationID,
++            playerDamageAmount: game.playerDamageAmount,
++            battle: game.state.enemyBattle,
++            playerHP: game.state.playerHP,
++            isTutorial: game.stage.isStepByStepTutorial
++        )
++            .contentShape(Rectangle())
++            .simultaneousGesture(movementFlickGesture)
++    }
++
++    private var explorationMapView: some View {
++        AutoMapView(
++            map: game.map,
++            explored: game.state.explored,
++            player: game.state.player,
++            defeatedEnemies: game.state.defeatedEnemies,
++            defeatedEnemyKinds: game.state.defeatedEnemyKinds,
++            activatedTrapPositions: game.state.activatedTrapPositions
++        )
++        .highPriorityGesture(
++            MagnificationGesture()
++                .onChanged { scale in
++                    suppressMovementDuringMapPinch()
++                    if scale >= 1.12 {
++                        let wasExpanded = isMapExpanded
++                        withAnimation(.spring(response: 0.32)) { isMapExpanded = true }
++                        if !wasExpanded { game.recordTutorialMapZoom() }
++                    }
++                }
++        )
++        .contentShape(Rectangle())
++        .simultaneousGesture(movementFlickGesture)
++    }
++
++    /// iPadの戦闘中に、ダンジョン画面の下端へ重ねる操作ボタン。
++    /// 画面下端のボタンは親指が届きにくいため、視線の先の戦闘画面に置く。
++    private var iPadBattleCommandBar: some View {
++        HStack(spacing: 8) {
++            iPadBattleButton(title: "こうげき", isDisabled: isBattleActionLocked || game.state.isGameOver) {
++                performBattleAttack()
++            }
++            iPadBattleButton(title: "にげる", isDisabled: isBattleActionLocked || game.state.isGameOver) {
++                performBattleFlee()
++            }
++            iPadBattleButton(title: "ギブアップ", isDisabled: false) {
++                isConfirmingGiveUp = true   // まず確認を表示する
++            }
++        }
++    }
++
++    private func iPadBattleButton(title: String, isDisabled: Bool, action: @escaping () -> Void) -> some View {
++        Button(action: action) {
++            Text(title)
++                .font(DungeonTypography.maruMonica(size: 17))
++                .frame(maxWidth: .infinity, minHeight: 58)
++        }
++        .buttonStyle(DungeonPressButtonStyle())
++        .disabled(isDisabled)
+     }
+ 
+     private var statusBar: some View {
+@@ -944,4 +1002,3 @@
+         .accessibilityHidden(true)
+     }
+ }
+-
+--- main/Map/UI/StartView.swift
++++ local/Map/UI/StartView.swift
+@@ -59,7 +59,7 @@
+                     .multilineTextAlignment(.center)
+                     .lineLimit(2)
+                     .minimumScaleFactor(0.82)
+-                    .frame(maxWidth: 360)
++                    .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
+                     .padding(.horizontal, compact ? 8 : 14)
+                     .padding(.vertical, compact ? 6 : 9)
+                     .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
+@@ -73,7 +73,7 @@
+                     Text("探索モードを選ぶ")
+                         .font(DungeonTypography.maruMonica(size: compact ? 17 : 19))
+                         .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
+-                        .frame(maxWidth: 360, alignment: .leading)
++                        .frame(maxWidth: IPadLayoutMetrics.startContentWidth, alignment: .leading)
+                         .padding(.top, compact ? 0 : 2)
+ 
+                     VStack(spacing: compact ? 5 : 8) {
+@@ -111,14 +111,14 @@
+                             }
+                         }
+                     }
+-                    .frame(maxWidth: 360)
++                    .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
+ 
+                     Text("上フリックで前進、左右で旋回、下で反転。\n鍵を手に入れてゴールへ。")
+                         .font(DungeonTypography.maruMonica(size: compact ? 12 : 14))
+                         .lineLimit(2)
+                         .multilineTextAlignment(.center)
+                         .foregroundStyle(Color.white.opacity(0.76))
+-                        .frame(maxWidth: 360)
++                        .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
+                         .padding(.horizontal, 4)
+                         .padding(.bottom, compact ? 3 : 8)
+                 }
+@@ -277,4 +277,3 @@
+         .accessibilityHidden(true)
+     }
+ }
+-
+--- main/Map/UI/AnimatedTitleMonsterView.swift
++++ local/Map/UI/AnimatedTitleMonsterView.swift
+@@ -41,7 +41,7 @@
+             }
+             .padding(.horizontal, 4)
+         }
+-        .frame(maxWidth: 360)
++        .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
+         .frame(height: compact ? 42 : 70)
+     }
+ }
+@@ -127,4 +127,3 @@
+             }
+     }
+ }
+-
+--- main/Map/UI/MonsterMessageView.swift
++++ local/Map/UI/MonsterMessageView.swift
+@@ -52,6 +52,12 @@
+         battle?.message ?? message
+     }
+ 
++    private var isPad: Bool { IPadLayoutMetrics.isPad }
++    /// Playerドラゴンの表示サイズ。iPadでは動きが見やすいよう大きくする。
++    /// iPhone基準(幅70pt)に対する拡大率。涙・ダメージ数の位置を合わせるのに使う。
++    private var characterScale: CGFloat { characterSize.width / 70 }
++    private var characterSize: CGSize { isPad ? CGSize(width: 122, height: 132) : CGSize(width: 70, height: 76) }
++
+     private var messageLineLimit: Int {
+         guard battle == nil else { return 2 }
+         return isTutorial || currentMessage.contains("\n") ? 3 : 2
+@@ -61,7 +67,7 @@
+         HStack(spacing: 8) {
+             VStack(alignment: .leading, spacing: 5) {
+                 Text(currentMessage)
+-                    .font(DungeonTypography.maruMonica(size: battle == nil ? 15 : 13))
++                    .font(DungeonTypography.maruMonica(size: (battle == nil ? 15 : 13) + (isPad ? 3 : 0)))
+                     .foregroundStyle(.white)
+                     .lineLimit(messageLineLimit)
+                     .lineSpacing(2)
+@@ -96,7 +102,7 @@
+                     .interpolation(.none)
+                     .resizable()
+                     .scaledToFit()
+-                    .frame(width: 70, height: 76)
++                    .frame(width: characterSize.width, height: characterSize.height)
+                     .offset(x: isTrapReactionActive ? trapAnimationOffset : collisionShakeOffset + attackOffset + damageShakeOffset)
+                     .scaleEffect(battle != nil ? (attackOffset == 0 ? (isBreathing ? 1.04 : 1) : 1.12) : 1)
+                     .rotationEffect(.degrees(isTrapReactionActive ? trapAnimationTilt : collisionTilt + damageTilt))
+@@ -116,7 +122,7 @@
+                     .foregroundStyle(Color(red: 1.0, green: 0.30, blue: 0.25))
+                     .shadow(color: .black, radius: 2, y: 1)
+                     .opacity(damageNumberOpacity)
+-                    .offset(x: -21, y: damageNumberOffset)
++                    .offset(x: -21 * characterScale, y: damageNumberOffset)
+                     .accessibilityLabel("HPが\(damageNumberAmount)減少")
+                     .accessibilityHidden(damageNumberOpacity == 0)
+ 
+@@ -149,7 +155,7 @@
+                         tearDrop.rotationEffect(.degrees(18)).offset(y: 3)
+                         tearDrop.rotationEffect(.degrees(-18)).offset(y: 1)
+                     }
+-                    .offset(x: -18, y: 44)
++                    .offset(x: -18 * characterScale, y: 44 * characterScale)
+                     .transition(.scale.combined(with: .opacity))
+                     .accessibilityHidden(true)
+                 }
+@@ -158,16 +164,16 @@
+                         tearDrop.rotationEffect(.degrees(18)).offset(y: 7)
+                         tearDrop.rotationEffect(.degrees(-18)).offset(y: 2)
+                     }
+-                    .offset(x: -18, y: 43)
++                    .offset(x: -18 * characterScale, y: 43 * characterScale)
+                     .transition(.scale.combined(with: .opacity))
+                     .accessibilityHidden(true)
+                 }
+             }
+-            .frame(width: 70, height: 78)
++            .frame(width: characterSize.width, height: characterSize.height + 2)
+         }
+         .padding(.horizontal, 10)
+         .frame(maxWidth: .infinity)
+-        .frame(height: 100)
++        .frame(height: isPad ? IPadLayoutMetrics.middleRowHeight : 100)
+         .background(Color(red: 0.075, green: 0.07, blue: 0.06))
+         .clipShape(RoundedRectangle(cornerRadius: 8))
+         .overlay {
+@@ -238,7 +244,7 @@
+                 Spacer(minLength: 1)
+                 Text("\(current)/\(maximum)").monospacedDigit()
+             }
+-            .font(DungeonTypography.maruMonica(size: 10))
++            .font(DungeonTypography.maruMonica(size: isPad ? 12 : 10))
+             .foregroundStyle(.white.opacity(0.92))
+             GeometryReader { geometry in
+                 let safeMaximum = max(1, maximum)
+@@ -258,7 +264,7 @@
+                         .frame(width: currentWidth)
+                 }
+             }
+-            .frame(height: 6)
++            .frame(height: isPad ? 9 : 6)
+         }
+         .frame(maxWidth: .infinity)
+     }
+@@ -455,4 +461,3 @@
+         }
+     }
+ }
+-
+--- main/Map/UI/CommandView.swift
++++ local/Map/UI/CommandView.swift
+@@ -69,6 +69,17 @@
+     let timerReductionSeconds: Int
+ 
+     var body: some View {
++        if isBattling && IPadLayoutMetrics.isPad {
++            // iPadの戦闘中は、操作ボタンをダンジョン画面の下端へ移す。画面が跳ねないよう高さだけ残す。
++            Color.clear
++                .frame(maxWidth: .infinity)
++                .frame(height: IPadLayoutMetrics.commandAreaHeight)
++        } else {
++            commandStack
++        }
++    }
++
++    private var commandStack: some View {
+         VStack(spacing: 8) {
+             if !isBattling {
+                 flickControl
+@@ -203,4 +214,3 @@
+         }
+     }
+ }
+-
+--- main/Map/UI/ContentView.swift
++++ local/Map/UI/ContentView.swift
+@@ -9,81 +9,84 @@
+     #endif
+ 
+     var body: some View {
+-        ZStack {
+-            DungeonBackground()
++        // iPadでは仮想キャンバスに描いて画面いっぱいに拡大表示し、iPhoneではそのまま表示する。
++        DeviceAdaptiveContainer {
++            ZStack {
++                DungeonBackground()
+ 
+-            switch flow.screen {
+-            case .start:
+-                // スタート画面(面を選ぶ)
+-                StartView(
+-                    stages: Stages.all,
+-                    lastRandomSeed: flow.lastRandomSeed,
+-                    onSelect: flow.startGame,
+-                    onRandomStage: flow.startRandomGame,
+-                    onReplayRandomStage: flow.replayRandomGame,
+-                    onAudioVolumeChanged: flow.applyAudioVolumes
+-                )
++                switch flow.screen {
++                case .start:
++                    // スタート画面(面を選ぶ)
++                    StartView(
++                        stages: Stages.all,
++                        lastRandomSeed: flow.lastRandomSeed,
++                        onSelect: flow.startGame,
++                        onRandomStage: flow.startRandomGame,
++                        onReplayRandomStage: flow.replayRandomGame,
++                        onAudioVolumeChanged: flow.applyAudioVolumes
++                    )
+ 
+-            case .playing, .cleared, .gameOver:
+-                // ダンジョンのプレイ画面に、クリアまたはゲームオーバー表示を重ねる。
+-                if let game = flow.game {
+-                    PlayView(
+-                        game: game,
+-                        isInputEnabled: flow.screen == .playing,
+-                        timerStartedAt: flow.timerStartedAt,
+-                        onGiveUp: flow.returnToStart
++                case .playing, .cleared, .gameOver:
++                    // ダンジョンのプレイ画面に、クリアまたはゲームオーバー表示を重ねる。
++                    if let game = flow.game {
++                        PlayView(
++                            game: game,
++                            isInputEnabled: flow.screen == .playing,
++                            timerStartedAt: flow.timerStartedAt,
++                            onGiveUp: flow.returnToStart
++                        )
++                            // GameManagerが切り替わったらPlayViewも作り直し、前ステージの演出状態を引き継がない。
++                            .id(ObjectIdentifier(game))
++                            .overlay {
++                                if flow.screen == .cleared {
++                                    ClearView(
++                                        currentRunTime: flow.currentRunTime,
++                                        bestClearTime: flow.bestClearTime,
++                                        nextStageTitle: flow.nextStageTitle,
++                                        leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
++                                        leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
++                                        leaderboardEntries: flow.leaderboardEntries,
++                                        theme: game.stage.dungeonTheme,
++                                        onSaveName: flow.saveLeaderboardEntry,
++                                        onUpdateName: flow.updateLeaderboardEntryName,
++                                        onNextStage: flow.startNextStage,
++                                        onReplay: flow.supportsReplayAndTiming
++                                            ? { flow.replayCurrentStage() }
++                                            : nil,
++                                        onReturn: flow.returnToStart
++                                    )
++                                } else if flow.screen == .gameOver {
++                                    GameOverView(
++                                        onReturn: flow.returnToStart,
++                                        reasonMessage: flow.gameOverReasonMessage,
++                                        detailMessage: flow.gameOverDetailMessage
++                                    )
++                                }
++                            }
++                    }
++
++                case .shiritoriPrologue:
++                    ShiritoriStartView(
++                        isRandomStage: flow.game?.stage.seed != nil,
++                        onGameStart: flow.startShiritoriGame
+                     )
+-                        // GameManagerが切り替わったらPlayViewも作り直し、前ステージの演出状態を引き継がない。
+-                        .id(ObjectIdentifier(game))
+-                        .overlay {
+-                            if flow.screen == .cleared {
+-                                ClearView(
+-                                    currentRunTime: flow.currentRunTime,
+-                                    bestClearTime: flow.bestClearTime,
+-                                    nextStageTitle: flow.nextStageTitle,
+-                                    leaderboardTitle: flow.game?.stage.seed == nil ? "試練の迷宮" : "ランダムステージ",
+-                                    leaderboardMode: flow.game?.stage.seed == nil ? .trial : .random,
+-                                    leaderboardEntries: flow.leaderboardEntries,
+-                                    theme: game.stage.dungeonTheme,
+-                                    onSaveName: flow.saveLeaderboardEntry,
+-                                    onUpdateName: flow.updateLeaderboardEntryName,
+-                                    onNextStage: flow.startNextStage,
+-                                    onReplay: flow.supportsReplayAndTiming
+-                                        ? { flow.replayCurrentStage() }
+-                                        : nil,
+-                                    onReturn: flow.returnToStart
+-                                )
+-                            } else if flow.screen == .gameOver {
+-                                GameOverView(
+-                                    onReturn: flow.returnToStart,
+-                                    reasonMessage: flow.gameOverReasonMessage,
+-                                    detailMessage: flow.gameOverDetailMessage
+-                                )
+-                            }
+-                        }
+-                }
+ 
+-            case .shiritoriPrologue:
+-                ShiritoriStartView(
+-                    isRandomStage: flow.game?.stage.seed != nil,
+-                    onGameStart: flow.startShiritoriGame
+-                )
++                case .shiritoriGame:
++                    ShiritoriGameView(
++                        cards: CardData.cards,
++                        isRandomStage: flow.game?.stage.seed != nil,
++                        initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds,
++                        playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds,
++                        playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds
++                    ) { playerWon in
++                        flow.finishShiritori(won: playerWon)
++                    }
+ 
+-            case .shiritoriGame:
+-                ShiritoriGameView(
+-                    cards: CardData.cards,
+-                    isRandomStage: flow.game?.stage.seed != nil,
+-                    initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds,
+-                    playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds,
+-                    playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds
+-                ) { playerWon in
+-                    flow.finishShiritori(won: playerWon)
+-                }
+-
+-            case .trialShiritoriGame:
+-                // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
+-                ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
+-                    flow.finishShiritori(won: playerWon)
++                case .trialShiritoriGame:
++                    // 試練専用データを使うが、ゲームルールと演出は既存版と共通にする。
++                    ShiritoriGameView(cards: CardData2.cards, stage: .trial, initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds, playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds, playerTimeHPBonusSeconds: flow.shiritoriHPBonusSeconds) { playerWon in
++                        flow.finishShiritori(won: playerWon)
++                    }
+                 }
+             }
+         }
+@@ -157,4 +160,3 @@
+ #Preview {
+     ContentView()
+ }
+-
+--- main/Map/UI/EnemyBattleView.swift
++++ local/Map/UI/EnemyBattleView.swift
+@@ -8,6 +8,9 @@
+     let counterAttackAnimationID: Int
+     let defeatRecoilAnimationID: Int
+ 
++    @Environment(\.scenePhase) private var scenePhase
++    @Environment(\.accessibilityReduceMotion) private var reduceMotion
++    @State private var isDefeating = false
+     @State private var isBreathing = false
+     @State private var isCountering = false
+     @State private var isHit = false
+@@ -25,6 +28,49 @@
+         return battle.kind.imageName
+     }
+ 
++    /// 素材の輪郭を保ったまま、種族ごとの重さ・浮遊感を付ける。
++    private var pose: (x: CGFloat, y: CGFloat, sx: CGFloat, sy: CGFloat, angle: Double, opacity: Double) {
++        guard battle.kind.usesProceduralMotion else { return (0, 0, 1, 1, 0, 1) }
++        if isDefeating {
++            return battle.kind == .ghost ? (0, -16, 0.72, 1.12, 0, 0.12) : (0, 18, 1, 0.55, 20, 0.55)
++        }
++        if reduceMotion { return (0, 0, 1, 1, 0, 1) }
++        if isCountering {
++            switch battle.kind {
++            case .imp: return (0, -12, 1.12, 1.12, -7, 1)
++            case .ghost: return (-14, -6, 1.18, 1.06, -10, 0.92)
++            case .cyclops: return (0, 12, 1.15, 0.94, 6, 1)
++            case .mimic: return (-12, -20, 1.12, 1.16, -12, 1)
++            default: break
++            }
++        }
++        guard !isHit else { return (0, 0, 1, 1, 0, 1) }
++        switch battle.kind {
++        case .imp: return (0, isBreathing ? -9 : 2, 1, 1, isBreathing ? -2 : 2, 1)
++        case .ghost: return (isBreathing ? -5 : 5, isBreathing ? -13 : 3, 1, isBreathing ? 1.04 : 0.98, isBreathing ? -4 : 4, isBreathing ? 0.72 : 0.96)
++        case .cyclops: return (0, isBreathing ? 2 : 0, isBreathing ? 1.025 : 1, isBreathing ? 0.98 : 1, 0, 1)
++        case .mimic: return (0, isBreathing ? -4 : 0, isBreathing ? 1.04 : 0.98, isBreathing ? 0.96 : 1.02, isBreathing ? -3 : 3, 1)
++        default: return (0, 0, 1, 1, 0, 1)
++        }
++    }
++
++    private var attackColor: Color {
++        switch battle.kind {
++        case .imp: .purple
++        case .ghost: .cyan
++        case .cyclops: .orange
++        default: .yellow
++        }
++    }
++
++    /// 敵の表示サイズ。iPadでは動きが見やすいよう大きくする(下端の操作ボタンと重ならない範囲)。
++    private func enemySize(in size: CGSize) -> CGSize {
++        if IPadLayoutMetrics.isPad {
++            return CGSize(width: min(size.width * 0.62, 340), height: min(size.height * 0.60, 340))
++        }
++        return CGSize(width: min(size.width * 0.62, 190), height: min(size.height * 0.76, 190))
++    }
++
+     var body: some View {
+         GeometryReader { geometry in
+             ZStack {
+@@ -32,25 +78,33 @@
+                     .interpolation(.none)
+                     .resizable()
+                     .scaledToFit()
+-                    .frame(
+-                        width: min(geometry.size.width * 0.62, 190),
+-                        height: min(geometry.size.height * 0.76, 190)
+-                    )
++                    .frame(width: enemySize(in: geometry.size).width, height: enemySize(in: geometry.size).height)
+                     .overlay {
+                         Image(enemyImage)
+                             .interpolation(.none)
+                             .resizable()
+                             .scaledToFit()
+-                            .frame(
+-                                width: min(geometry.size.width * 0.62, 190),
+-                                height: min(geometry.size.height * 0.76, 190)
+-                            )
++                            .frame(width: enemySize(in: geometry.size).width, height: enemySize(in: geometry.size).height)
+                             .colorMultiply(Color(red: 1.0, green: 0.08, blue: 0.06))
+                             .opacity(isHit ? 0.98 : 0)
+                             .animation(.easeOut(duration: 0.06), value: isHit)
+                     }
+-                    .offset(x: enemyOffset, y: isBreathing && enemyOffset == 0 ? -3 : 0)
+-                    .scaleEffect(isHit ? 1.06 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
++                    .overlay {
++                        if battle.kind.usesProceduralMotion && isCountering {
++                            Ellipse()
++                                .stroke(attackColor.opacity(0.8), lineWidth: 3)
++                                .frame(width: enemySize(in: geometry.size).width * 0.85,
++                                       height: enemySize(in: geometry.size).height * (battle.kind == .cyclops ? 0.22 : 0.85))
++                                .shadow(color: attackColor, radius: 10)
++                                .offset(y: battle.kind == .cyclops ? enemySize(in: geometry.size).height * 0.4 : 0)
++                                .accessibilityHidden(true)
++                        }
++                    }
++                    .scaleEffect(x: pose.sx, y: pose.sy)
++                    .rotationEffect(.degrees(pose.angle))
++                    .opacity(pose.opacity)
++                    .offset(x: enemyOffset + pose.x, y: battle.kind.usesProceduralMotion ? pose.y : (isBreathing && enemyOffset == 0 ? -3 : 0))
++                    .scaleEffect(isHit ? 1.06 : (!battle.kind.usesProceduralMotion && isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
+                     .rotationEffect(.degrees(isHit ? enemyHitTilt : (enemyOffset == 0 ? 0 : 5)))
+                     .shadow(
+                         color: isHit ? Color(red: 0.98, green: 0.12, blue: 0.08).opacity(0.95) : .black.opacity(0.72),
+@@ -58,7 +112,7 @@
+                         y: 6
+                     )
+                     .animation(.easeOut(duration: 0.08), value: isHit)
+-                    .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.57)
++                    .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57))
+                     .accessibilityLabel(battle.kind.name)
+ 
+                 if let damageLabel {
+@@ -68,7 +122,7 @@
+                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
+                         .shadow(color: .black, radius: 3, y: 2)
+                         .offset(y: damageLabelOffset - 12)
+-                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.82)
++                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.70 : 0.82))
+                         .transition(.scale.combined(with: .opacity))
+                         .accessibilityHidden(true)
+                 }
+@@ -76,7 +130,8 @@
+             .frame(maxWidth: .infinity, maxHeight: .infinity)
+         }
+         .allowsHitTesting(false)
+-        .task {
++        .task(id: scenePhase) {
++            guard scenePhase == .active, !reduceMotion else { return }
+             while !Task.isCancelled {
+                 try? await Task.sleep(nanoseconds: 640_000_000)
+                 guard !Task.isCancelled else { break }
+@@ -93,10 +148,22 @@
+         .onChangeCompat(of: defeatRecoilAnimationID) { _, _ in
+             playDefeatRecoil()
+         }
+-        .onDisappear {
+-            hitTask?.cancel()
+-            counterTask?.cancel()
+-        }
++        .onChangeCompat(of: scenePhase) { _, phase in
++            if phase != .active { resetMotion() }
++        }
++        .onDisappear { resetMotion() }
++    }
++
++    private func resetMotion() {
++        hitTask?.cancel()
++        counterTask?.cancel()
++        isBreathing = false
++        isHit = false
++        isCountering = false
++        isDefeating = false
++        enemyOffset = 0
++        enemyHitTilt = 0
++        damageLabel = nil
+     }
+ 
+     private func playHitReaction(damage: Int) {
+@@ -152,6 +219,11 @@
+     /// 撃破確定前に、赤い被弾表現を伴う最後ののけぞりを再生する。
+     private func playDefeatRecoil() {
+         hitTask?.cancel()
++        counterTask?.cancel()
++        isCountering = false
++        if battle.kind.usesProceduralMotion {
++            withAnimation(.easeOut(duration: 0.28)) { isDefeating = true }
++        }
+         hitTask = Task { @MainActor in
+             isHit = true
+             await playImpactMotion(recoil: 24)
+@@ -165,14 +237,16 @@
+         counterTask?.cancel()
+         counterTask = Task { @MainActor in
+             // 呼び出し直後に敵の反撃モーションを開始する。
+-            isCountering = true
+-            withAnimation(.easeOut(duration: 0.12)) { enemyOffset = 18 }
++            withAnimation(.easeOut(duration: 0.12)) {
++                isCountering = true
++                enemyOffset = battle.kind.usesProceduralMotion ? 0 : 18
++            }
+             try? await Task.sleep(nanoseconds: 170_000_000)
+             guard !Task.isCancelled else { return }
+             withAnimation(.easeOut(duration: 0.16)) { enemyOffset = 0 }
+             try? await Task.sleep(nanoseconds: 100_000_000)
+             guard !Task.isCancelled else { return }
+-            isCountering = false
++            withAnimation(.easeOut(duration: 0.12)) { isCountering = false }
+             counterTask = nil
+         }
+     }
+@@ -237,4 +311,3 @@
+             .shadow(color: .black.opacity(0.75), radius: 6, y: 3)
+     }
+ }
+-

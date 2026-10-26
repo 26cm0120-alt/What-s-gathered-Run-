@@ -95,9 +95,7 @@ final class SoundEffectManager: NSObject, AVAudioPlayerDelegate {
     /// しりとりでカードを選んだ時の軽い触覚を返す。
     /// CPUのスキャン移動ではなく、カード選択が確定した時に呼び出す。
     func playCardSelectionHaptic() {
-        let generator = UISelectionFeedbackGenerator()
-        generator.prepare()
-        generator.selectionChanged()
+        Haptics.selection()
     }
 
     /// 画面上のボタン押下音を再生する。既存の短いUIカーソル音を共用する。

@@ -16,6 +16,9 @@ struct HeaderView: View {
     // 次に必要な文字
     let currentPrompt: Character?
 
+    // 文字の倍率(iPadで大きく表示するときに使う)
+    var fontScale: CGFloat = 1
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
@@ -30,7 +33,7 @@ struct HeaderView: View {
                 Text(nextPromptText)
             }
         }
-        .font(DungeonTypography.maruMonica(size: 13))
+        .font(DungeonTypography.maruMonica(size: 13 * fontScale))
         .foregroundStyle(.white)
     }
 
