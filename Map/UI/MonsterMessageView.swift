@@ -124,7 +124,7 @@ struct MonsterMessageView: View {
     private var messageColumn: some View {
         VStack(alignment: .leading, spacing: isPad ? 8 : 5) {
             Text(currentMessage)
-                .font(DungeonTypography.maruMonica(size: (battle == nil ? 15 : 13) + (isPad ? 4 : 0)))
+                .font(DungeonTypography.maruMonica(size: ((battle == nil || isPad) ? 15 : 13) + (isPad ? 4 : 0)))
                 .foregroundStyle(.white)
                 .lineLimit(messageLineLimit + (isPad ? 1 : 0))
                 .lineSpacing(2)
