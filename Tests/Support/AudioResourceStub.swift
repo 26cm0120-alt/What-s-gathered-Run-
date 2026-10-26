@@ -15,7 +15,6 @@ enum AudioResource {
     case trapSlowFlick
     case trapPoison
 }
-}
 
 /// ゲームロジックのテストでは端末の音声出力だけを省略する。
 final class SoundEffectController {
