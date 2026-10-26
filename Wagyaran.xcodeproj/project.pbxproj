@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		7F560A0C306A388200A76BAC /* ワギャラン.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ワギャラン.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7F560A0C306A388200A76BAC /* Wagyaran.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Wagyaran.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -40,7 +40,7 @@
 		7F560A0D306A388200A76BAC /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7F560A0C306A388200A76BAC /* ワギャラン.app */,
+				7F560A0C306A388200A76BAC /* Wagyaran.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7F560A0B306A388200A76BAC /* ワギャラン */ = {
+		7F560A0B306A388200A76BAC /* Wagyaran */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "ワギャラン" */;
+			buildConfigurationList = 7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "Wagyaran" */;
 			buildPhases = (
 				7F560A08306A388200A76BAC /* Sources */,
 				7F560A09306A388200A76BAC /* Frameworks */,
@@ -63,11 +63,11 @@
 			fileSystemSynchronizedGroups = (
 				7F560A0E306A388200A76BAC /* Map */,
 			);
-			name = "ワギャラン";
+			name = "Wagyaran";
 			packageProductDependencies = (
 			);
-			productName = "ワギャラン";
-			productReference = 7F560A0C306A388200A76BAC /* ワギャラン.app */;
+			productName = "Wagyaran";
+			productReference = 7F560A0C306A388200A76BAC /* Wagyaran.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7F560A0B306A388200A76BAC /* ワギャラン */,
+				7F560A0B306A388200A76BAC /* Wagyaran */,
 			);
 		};
 /* End PBXProject section */
@@ -268,7 +268,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = jp.ac.jec.cm0130.Map;
-				PRODUCT_NAME = "ワギャラン";
+				PRODUCT_NAME = "Wagyaran";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -301,7 +301,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = jp.ac.jec.cm0130.Map;
-				PRODUCT_NAME = "ワギャラン";
+				PRODUCT_NAME = "Wagyaran";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -324,7 +324,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "ワギャラン" */ = {
+		7F560A2D306A388300A76BAC /* Build configuration list for PBXNativeTarget "Wagyaran" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7F560A2E306A388300A76BAC /* Debug */,
