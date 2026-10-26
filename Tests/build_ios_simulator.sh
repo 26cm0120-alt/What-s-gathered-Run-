@@ -18,7 +18,7 @@ xcodebuild -version
 RESULT_DIR=$(mktemp -d "$BUILD_OUTPUT_DIR/run-XXXXXX")
 if xcodebuild \
   -project "$PROJECT_PATH" \
-  -scheme 'ワギャラン' \
+  -scheme 'Wagyaran' \
   -configuration Release \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$BUILD_OUTPUT_DIR/DerivedData" \
