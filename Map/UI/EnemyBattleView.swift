@@ -77,6 +77,7 @@ struct EnemyBattleView: View {
                         x: geometry.size.width * (battle.kind == .imp && !isDefeated ? 0.40 : 0.5),
                         y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57)
                     )
+                    .zIndex(battle.kind == .imp ? 1 : 0)
                     .accessibilityLabel(battle.kind.name)
 
                 if battle.kind == .imp {
@@ -95,6 +96,7 @@ struct EnemyBattleView: View {
                             y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.43 : 0.47)
                         )
                         .animation(.easeOut(duration: 0.12), value: isDefeated)
+                        .zIndex(0)
                         .accessibilityLabel("メイジ")
                 }
 
