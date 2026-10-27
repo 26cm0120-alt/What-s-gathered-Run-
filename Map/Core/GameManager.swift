@@ -19,6 +19,8 @@ final class GameManager: ObservableObject {
     @Published private(set) var playerDamageAmount = 0
     @Published private(set) var encounterEnemySpeech: EnemyEncounterSpeech?
     @Published private(set) var defeatedEnemySpeech: EnemyDefeatSpeech?
+    /// 撃破セリフの表示中に限り、大きい敗北画像を表示するための敵種。
+    @Published private(set) var defeatedEnemyLargeGraphicKind: EnemyKind?
     @Published private(set) var pendingSkeletonDrop: SkeletonDropItem?
     /// 剣を落とす敵を倒した直後、撃破セリフが終わるまで取得を待っている状態。
     @Published private(set) var pendingSwordDrop: EnemyKind?
@@ -192,6 +194,8 @@ final class GameManager: ObservableObject {
         var newState = state
         newState.player.position = next
         newState.mapStepCount += 1
+        // 実際に1マス移動した時点で、大きい敗北画像を解除する。
+        defeatedEnemyLargeGraphicKind = nil
         newState.explored.insert(next)
         if cell.isTrap {
             newState.activatedTrapPositions.insert(next)
@@ -328,6 +332,7 @@ final class GameManager: ObservableObject {
             newState.enemyHPByPosition.removeValue(forKey: battle.enemyPosition)
             newState.defeatedEnemies.insert(battle.enemyPosition)
             newState.defeatedEnemyKinds[battle.enemyPosition] = battle.kind
+            defeatedEnemyLargeGraphicKind = battle.kind
             newState.enemyBattle = nil
             newState.message = "敵を倒した！探索を続けよう。"
             if battle.kind == .skeleton,
@@ -471,6 +476,7 @@ final class GameManager: ObservableObject {
         defeatedEnemySpeechTask?.cancel()
         defeatedEnemySpeechTask = nil
         defeatedEnemySpeech = nil
+        defeatedEnemyLargeGraphicKind = nil
         pendingDefeatedEnemyKind = nil
         encounterEnemySpeechID += 1
         let presentation = EnemyEncounterSpeech(
@@ -507,6 +513,7 @@ final class GameManager: ObservableObject {
             guard !Task.isCancelled, let self,
                   self.defeatedEnemySpeech?.id == presentation.id else { return }
             self.defeatedEnemySpeech = nil
+            self.defeatedEnemyLargeGraphicKind = nil
             self.defeatedEnemySpeechTask = nil
         }
     }
