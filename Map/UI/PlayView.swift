@@ -58,7 +58,6 @@ struct PlayView: View {
     @State private var battleScreenFlashOpacity = 0.0
     @State private var battleScreenFlashScale: CGFloat = 1
     @State private var battleScreenWhiteFlashOpacity = 0.0
-    @State private var battleScreenFlashExpands = false
     @State private var isBattleScreenMonochrome = false
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
@@ -551,7 +550,6 @@ struct PlayView: View {
     ) {
         battleScreenFlashTask?.cancel()
         battleScreenFlashColor = color
-        battleScreenFlashExpands = expands
         battleScreenFlashScale = expands ? 0.04 : 1
         battleScreenFlashOpacity = 0.92
         battleScreenWhiteFlashOpacity = 0.9
