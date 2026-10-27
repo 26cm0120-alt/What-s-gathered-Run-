@@ -562,8 +562,8 @@ struct PlayView: View {
         isBattleScreenMonochrome = true
 
         battleScreenFlashTask = Task { @MainActor in
-            // 中心の発光は先に短く見せてから、集中線を動かす。
-            try? await Task.sleep(nanoseconds: 55_000_000)
+            // 中心の発光を短めにし、敵ののけぞりと集中線の動きが揃って見えるようにする。
+            try? await Task.sleep(nanoseconds: 35_000_000)
             guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: 0.06)) {
                 battleScreenWhiteFlashOpacity = 0
@@ -571,16 +571,16 @@ struct PlayView: View {
 
             for index in 0..<max(1, repetitions) {
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeOut(duration: 0.16)) {
+                withAnimation(.easeOut(duration: 0.14)) {
                     battleScreenFlashScale = expands ? 1 : 0.04
                     battleScreenFlashOpacity = 0.92
                 }
-                try? await Task.sleep(nanoseconds: 165_000_000)
+                try? await Task.sleep(nanoseconds: 145_000_000)
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeOut(duration: 0.075)) {
+                withAnimation(.easeOut(duration: 0.065)) {
                     battleScreenFlashOpacity = 0
                 }
-                try? await Task.sleep(nanoseconds: 85_000_000)
+                try? await Task.sleep(nanoseconds: 70_000_000)
                 guard !Task.isCancelled else { return }
 
                 if index < max(1, repetitions) - 1 {
@@ -1035,7 +1035,7 @@ private struct BattleSpeedLinesShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.width * center.x, y: rect.height * center.y)
-        let rayCount = 120
+        let rayCount = 360
         let maxRadius = hypot(rect.width, rect.height) * 0.57
         var path = Path()
 
