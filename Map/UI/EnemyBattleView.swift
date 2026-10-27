@@ -19,12 +19,22 @@ struct EnemyBattleView: View {
     @State private var damageLabelOffset: CGFloat = 12
     @State private var hitTask: Task<Void, Never>?
     @State private var counterTask: Task<Void, Never>?
+    @State private var mageHitJumpOffset: CGFloat = 0
+    @State private var mageHitTask: Task<Void, Never>?
 
     private var enemyImage: String {
         if isDefeated { return battle.kind.defeatedImageName }
         if isCountering { return battle.kind.attackImageName }
         if isHit { return battle.kind.hitImageName }
         return battle.kind.imageName
+    }
+
+    /// IMPの後方に配置するメイジの画像。ほかの敵では表示しない。
+    private var mageImage: String {
+        if isDefeated { return "MgDefeated" }
+        if isCountering { return "MgAttack" }
+        if isHit { return "MgHit" }
+        return "DungeonMg"
     }
 
     /// 敵の表示サイズ。iPadでは動きが見やすいよう大きくする(下端の操作ボタンと重ならない範囲)。
@@ -63,8 +73,30 @@ struct EnemyBattleView: View {
                         y: 6
                     )
                     .animation(.easeOut(duration: 0.08), value: isHit)
-                    .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57))
+                    .position(
+                        x: geometry.size.width * (battle.kind == .imp && !isDefeated ? 0.40 : 0.5),
+                        y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57)
+                    )
                     .accessibilityLabel(battle.kind.name)
+
+                if battle.kind == .imp {
+                    Image(mageImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(
+                            width: enemySize(in: geometry.size).width * 0.42,
+                            height: enemySize(in: geometry.size).height * 0.42
+                        )
+                        .offset(y: isDefeated ? -42 : mageHitJumpOffset)
+                        .scaleEffect(isDefeated ? 0.5 : 1)
+                        .position(
+                            x: geometry.size.width * (isDefeated ? 0.82 : 0.79),
+                            y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.43 : 0.47)
+                        )
+                        .animation(.easeOut(duration: 0.12), value: isDefeated)
+                        .accessibilityLabel("メイジ")
+                }
 
                 if isCountering {
                     EnemyCounterattackEffect(kind: battle.kind, progress: reduceMotion ? 1 : attackProgress)
@@ -88,7 +120,7 @@ struct EnemyBattleView: View {
                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 12)
-                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.70 : 0.82))
+                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.70 : 0.82))
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
                 }
@@ -109,10 +141,25 @@ struct EnemyBattleView: View {
         .onDisappear {
             hitTask?.cancel()
             counterTask?.cancel()
+            mageHitTask?.cancel()
         }
     }
 
     private func playHitReaction(damage: Int) {
+        if battle.kind == .imp {
+            mageHitTask?.cancel()
+            mageHitTask = Task { @MainActor in
+                withAnimation(.spring(response: 0.18, dampingFraction: 0.48)) {
+                    mageHitJumpOffset = -28
+                }
+                try? await Task.sleep(nanoseconds: 220_000_000)
+                guard !Task.isCancelled else { return }
+                withAnimation(.spring(response: 0.24, dampingFraction: 0.7)) {
+                    mageHitJumpOffset = 0
+                }
+                mageHitTask = nil
+            }
+        }
         hitTask?.cancel()
         hitTask = Task { @MainActor in
             damageLabel = "−\(damage)"
