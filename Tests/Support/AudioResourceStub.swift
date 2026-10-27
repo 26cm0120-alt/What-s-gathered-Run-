@@ -10,6 +10,10 @@ enum AudioResource {
     case slimeCounterattack
     case skeletonCounterattack
     case gargoyleCounterattack
+    case impCounterattack
+    case ghostCounterattack
+    case cyclopsCounterattack
+    case mimicCounterattack
     // グループAのトラップ効果音
     case trapTurn
     case trapSlowFlick

@@ -45,15 +45,17 @@ struct KeyAcquisitionView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(
-                        width: geometry.size.width * 0.20,
-                        height: geometry.size.height * 0.22
+                        width: geometry.size.width * 0.34,
+                        height: geometry.size.height * 0.32
                     )
+                    .shadow(color: Color(red: 1.0, green: 0.85, blue: 0.35).opacity(keyVisible ? 0.95 : 0), radius: 18)
+                    .shadow(color: .black.opacity(0.7), radius: 3)
                     .scaleEffect(keyVisible ? 1 : 0.82)
                     .rotationEffect(.degrees(keyRotation))
                     .opacity(keyVisible ? 1 : 0)
                     .position(
                         x: geometry.size.width * 0.52,
-                        y: geometry.size.height * 0.57 + keyRise
+                        y: geometry.size.height * 0.52 + keyRise
                     )
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
@@ -80,17 +82,17 @@ struct KeyAcquisitionView: View {
                         keyVisible = true
                         keyRotation = 0
                     }
-                    try? await Task.sleep(for: .milliseconds(850))
+                    try? await Task.sleep(for: .milliseconds(1600))
                 } else {
                     withAnimation(.easeInOut(duration: 0.22)) {
                         chestIsOpen = true
                     }
                     withAnimation(.spring(response: 0.68, dampingFraction: 0.7)) {
                         keyVisible = true
-                        keyRise = -geometry.size.height * 0.14
+                        keyRise = -geometry.size.height * 0.26
                         keyRotation = 0
                     }
-                    try? await Task.sleep(for: .milliseconds(850))
+                    try? await Task.sleep(for: .milliseconds(1600))
                 }
 
                 guard !Task.isCancelled else { return }
@@ -161,12 +163,12 @@ struct SwordPickupView: View {
                 playItemFoundSound()
                 if reduceMotion {
                     isRevealed = true
-                    try? await Task.sleep(for: .milliseconds(1800))
+                    try? await Task.sleep(for: .milliseconds(3000))
                 } else {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.68)) {
                         isRevealed = true
                     }
-                    try? await Task.sleep(for: .milliseconds(1800))
+                    try? await Task.sleep(for: .milliseconds(3000))
                 }
                 guard !Task.isCancelled else { return }
                 onFinished()

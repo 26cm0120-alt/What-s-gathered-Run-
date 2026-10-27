@@ -18,7 +18,7 @@ enum TutorialStep: Equatable {
         case .checkMap:
             return "ステップ3/6：上のダンジョン画面で\n進む方向を見て、下の探索マップで\n現在地を確認しよう！"
         case .zoomMap:
-            return "ステップ4/6：探索マップを\n2本指で広げて拡大しよう！"
+            return "ステップ4/6：下の探索マップの上で\n2本指を広げて(ピンチアウト)\n拡大しよう！"
         case .findKey:
             return "ステップ5/6：宝箱を探して\n鍵を見つけよう！"
         case .reachGoal:

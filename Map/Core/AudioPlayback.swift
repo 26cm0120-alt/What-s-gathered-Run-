@@ -23,9 +23,15 @@ enum AudioResource: Hashable {
     case wallCollision
     case enemyDefeat
     case battleAttack
+    /// 剣を取得した後のプレイヤーの攻撃音
+    case swordAttack
     case slimeCounterattack
     case skeletonCounterattack
     case gargoyleCounterattack
+    case impCounterattack
+    case ghostCounterattack
+    case cyclopsCounterattack
+    case mimicCounterattack
     case battleEscape
     /// グループAの罠: 向きの変化(A1)
     case trapTurn
@@ -55,9 +61,14 @@ enum AudioResource: Hashable {
         case .wallCollision: return "壁衝突音"
         case .enemyDefeat: return "敵撃破"
         case .battleAttack: return "戦闘攻撃"
+        case .swordAttack: return "剣で斬る2"
         case .slimeCounterattack: return "スライム反撃"
         case .skeletonCounterattack: return "スケルトン反撃"
         case .gargoyleCounterattack: return "ガーゴイル反撃"
+        case .impCounterattack: return "小悪魔反撃"
+        case .ghostCounterattack: return "ゴースト反撃"
+        case .cyclopsCounterattack: return "サイクロプス反撃"
+        case .mimicCounterattack: return "ミミック反撃"
         case .battleEscape: return "戦闘逃走"
         case .trapTurn: return "トラップA1"
         case .trapSlowFlick: return "トラップA2"
@@ -70,11 +81,11 @@ enum AudioResource: Hashable {
         case .titleBGM, .explorationBGM, .normalBattleBGM, .gargoyleBattleBGM:
             return "m4a"
         case .trialBGM, .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen,
-             .battleAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack,
+             .battleAttack, .swordAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack,
              .trapTurn, .trapSlowFlick, .trapPoison:
             return "mp3"
         case .gameOver, .shiritoriEnemyFall, .movement, .wallCollision, .enemyDefeat,
-             .battleEscape:
+             .battleEscape, .impCounterattack, .ghostCounterattack, .cyclopsCounterattack, .mimicCounterattack:
             return "wav"
         }
     }

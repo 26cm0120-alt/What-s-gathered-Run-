@@ -15,6 +15,19 @@ struct DungeonView: View {
     /// 描画する最大の奥行き(マス数)。仕様書§12.5
     let maxDepth = 5
 
+    /// 宝箱画像ごとの、透明な余白を除いた箱の範囲(画像ピクセル座標)。
+    /// 画像を差し替えたら、この値も更新する。
+    private static let chestVisibleBounds: [String: CGRect] = [
+        "ChestClosedFront": CGRect(x: 112, y: 73, width: 576, height: 454),
+        "ChestClosedBack": CGRect(x: 14, y: 13, width: 447, height: 316),
+        "ChestClosedLeft": CGRect(x: 13, y: 13, width: 266, height: 328),
+        "ChestClosedRight": CGRect(x: 13, y: 14, width: 276, height: 328),
+        "ChestOpenFront": CGRect(x: 121, y: 59, width: 558, height: 482),
+        "ChestOpenBack": CGRect(x: 13, y: 14, width: 444, height: 360),
+        "ChestOpenLeft": CGRect(x: 13, y: 14, width: 282, height: 374),
+        "ChestOpenRight": CGRect(x: 13, y: 14, width: 290, height: 375)
+    ]
+
     /// 視点相対(前へd、右へi)のマスが壁か。
     /// プレイヤーの向きに合わせて、マップ上の絶対座標へ変換して調べる
     private func isWallRelative(_ d: Int, _ i: Int) -> Bool {
@@ -76,6 +89,9 @@ struct DungeonView: View {
                 }
             }()
             let chestImage = ctx.resolve(Image(chestImageName))
+            // ミミックは遭遇前、閉じた宝箱に化けている。プレイヤーの向きや鍵の取得状態に関係なく、常に正面向きの閉じた箱を使う。
+            let closedChestImageName = "ChestClosedFront"
+            let closedChestImage = ctx.resolve(Image(closedChestImageName))
 
             func polygon(_ points: [CGPoint]) -> Path {
                 var path = Path()
@@ -323,6 +339,11 @@ struct DungeonView: View {
                     let showsKeyChest = i == 0
                         && (1...2).contains(d)
                         && map.cell(at: positionRelative(d, i)) == .key
+                    let showsMimicChest = i == 0
+                        && (1...2).contains(d)
+                        && map.cell(at: positionRelative(d, i)) == .enemy
+                        && map.enemyKinds[positionRelative(d, i)] == .mimic
+                        && defeatedEnemyKinds[positionRelative(d, i)] == nil
 
                     stoneSurface([
                         project(xl, 0.5, z0), project(xr, 0.5, z0),
@@ -392,7 +413,9 @@ struct DungeonView: View {
                     }
 
                     // Kマスが前方2マス以内に見える場合、向きと開閉状態に合う宝箱を置く。
-                    if showsKeyChest {
+                    if showsKeyChest || showsMimicChest {
+                        let drawnChestImage = showsMimicChest ? closedChestImage : chestImage
+                        let drawnChestImageName = showsMimicChest ? closedChestImageName : chestImageName
                         let chestDepth = Double(d) + 1.0
                         let topLeft = project(-0.38, 0.05, chestDepth)
                         let bottomRight = project(0.38, -0.5, chestDepth)
@@ -402,32 +425,52 @@ struct DungeonView: View {
                             width: bottomRight.x - topLeft.x,
                             height: bottomRight.y - topLeft.y
                         )
-                        // 前後左右の画像は縦横比が異なるため、同じ矩形へ引き伸ばさず、
-                        // 画像本来の比率を保ったまま床位置に揃える。
-                        let imageSize = chestImage.size
-                        let chestRect: CGRect
-                        if imageSize.width > 0 && imageSize.height > 0 {
+                        // 宝箱画像は向きごとに透明な余白の量が違う(正面だけ800x600の中に小さく描かれている)。
+                        // 余白を除いた「箱の見えている範囲」を基準に、高さと足元の位置を向きに関わらずそろえる。
+                        let imageSize = drawnChestImage.size
+                        let visible = Self.chestVisibleBounds[drawnChestImageName]
+                            ?? CGRect(origin: .zero, size: imageSize)
+                        // 箱の見えている範囲(画面上の矩形)。傾きの軸にも使う。
+                        var visibleRect = chestBounds
+                        // 画像全体を描く矩形。
+                        var chestRect = chestBounds
+                        if imageSize.width > 0, imageSize.height > 0, visible.width > 0, visible.height > 0 {
                             let fitScale = min(
-                                chestBounds.width / imageSize.width,
-                                chestBounds.height / imageSize.height
+                                chestBounds.width / visible.width,
+                                chestBounds.height / visible.height
                             )
-                            let fittedSize = CGSize(
+                            let visibleSize = CGSize(
+                                width: visible.width * fitScale,
+                                height: visible.height * fitScale
+                            )
+                            visibleRect = CGRect(
+                                x: chestBounds.midX - visibleSize.width / 2,
+                                y: chestBounds.maxY - visibleSize.height,
+                                width: visibleSize.width,
+                                height: visibleSize.height
+                            )
+                            chestRect = CGRect(
+                                x: visibleRect.minX - visible.minX * fitScale,
+                                y: visibleRect.minY - visible.minY * fitScale,
                                 width: imageSize.width * fitScale,
                                 height: imageSize.height * fitScale
                             )
-                            chestRect = CGRect(
-                                x: chestBounds.midX - fittedSize.width / 2,
-                                y: chestBounds.maxY - fittedSize.height,
-                                width: fittedSize.width,
-                                height: fittedSize.height
-                            )
-                        } else {
-                            chestRect = chestBounds
                         }
-                        ctx.draw(
-                            chestImage,
-                            in: chestRect
-                        )
+                        if showsMimicChest {
+                            // ミミックは鍵の宝箱と見分けられるよう、箱の足元を軸に少し傾け、紫がかった色味にする。
+                            ctx.drawLayer { layer in
+                                layer.translateBy(x: visibleRect.midX, y: visibleRect.maxY)
+                                layer.rotate(by: .degrees(-5))
+                                layer.translateBy(x: -visibleRect.midX, y: -visibleRect.maxY)
+                                layer.addFilter(.colorMultiply(Color(red: 0.88, green: 0.70, blue: 1.0)))
+                                layer.draw(drawnChestImage, in: chestRect)
+                            }
+                        } else {
+                            ctx.draw(
+                                drawnChestImage,
+                                in: chestRect
+                            )
+                        }
                     }
                 }
             }

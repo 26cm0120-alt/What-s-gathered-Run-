@@ -40,7 +40,9 @@ struct AutoMapView: View {
                 case .enemy:
                     floorColor = defeatedEnemies.contains(pos)
                         ? Color(red: 0.055, green: 0.47, blue: 0.12)
-                        : Color(red: 0.40, green: 0.10, blue: 0.16)
+                        : isDisguisedMimic(at: pos)
+                            ? Color(red: 0.48, green: 0.34, blue: 0.08)
+                            : Color(red: 0.40, green: 0.10, blue: 0.16)
                 case .goal:
                     floorColor = Color(red: 0.48, green: 0.19, blue: 0.12)
                 default:
@@ -48,7 +50,7 @@ struct AutoMapView: View {
                 }
                 ctx.fill(Path(r), with: .color(floorColor))
 
-                if map.cell(at: pos) == .key {
+                if map.cell(at: pos) == .key || isDisguisedMimic(at: pos) {
                     let iconRect = r.insetBy(dx: cell * 0.14, dy: cell * 0.14)
                     drawPixelIcon(chestPixels, in: iconRect, context: &ctx, palette: chestPalette)
                 } else if map.cell(at: pos) == .sword {
@@ -162,6 +164,14 @@ struct AutoMapView: View {
     private var dragonPixels: [String] {
         ["....OO....", "...OBBO...", ".OOBBBBOO.", "OOBBBBBBBO", "OBBBYBBBBB",
          ".OBBBBBBO.", "..OBBBBO..", ".OBB..BBO.", "OBB....BBO", "OO......OO"]
+    }
+
+    /// 遭遇前のミミックは、探索マップでも宝箱として表示する。
+    private func isDisguisedMimic(at pos: GridPos) -> Bool {
+        map.cell(at: pos) == .enemy
+            && map.enemyKinds[pos] == .mimic
+            && !defeatedEnemies.contains(pos)
+            && defeatedEnemyKinds[pos] == nil
     }
 
     private var chestPalette: [Character: Color] {

@@ -1,0 +1,13 @@
+PASS: 新敵の出現・能力値・セリフ
+PASS: 罠抽選の境界値・除外・発生率補正
+PASS: 初回タイム計測ポリシー
+PASS: 500 seed の迷宮構造・到達可能性
+PASS: ランキング順とモード分離
+PASS: ランキング上限100件
+PASS: 名前更新時の記録情報維持
+PASS: 音量設定の初期値・範囲補正・保存
+PASS: しりとり判定ロジック（かな正規化・読み選択・メッセージ・カードデータ） (1469 assertions)
+PASS: ShiritoriGameManagerの開始・選択・判定・時間切れ・CPU取得 (73 assertions)
+PASS: GameManagerの毒・遅行・壁・取得ロック (207 assertions)
+完了: 12828 assertions
+PASS: 別プロセス間のseed再現性 (256 seeds)
