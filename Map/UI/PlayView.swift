@@ -59,6 +59,7 @@ struct PlayView: View {
     @State private var battleScreenFlashScale: CGFloat = 1
     @State private var battleScreenWhiteFlashOpacity = 0.0
     @State private var isBattleScreenMonochrome = false
+    @State private var battleScreenFlashCenter = UnitPoint(x: 0.5, y: 0.57)
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
@@ -324,7 +325,7 @@ struct PlayView: View {
             .saturation(isBattleScreenMonochrome ? 0 : 1)
             .overlay {
                 ZStack {
-                    BattleSpeedLinesShape()
+                    BattleSpeedLinesShape(center: battleScreenFlashCenter)
                         .stroke(
                             battleScreenFlashColor,
                             style: StrokeStyle(lineWidth: 1.15, lineCap: .round)
@@ -546,9 +547,14 @@ struct PlayView: View {
     private func triggerBattleScreenFlash(
         color: Color,
         expands: Bool,
+        enemyKind: EnemyKind,
         repetitions: Int = 2
     ) {
         battleScreenFlashTask?.cancel()
+        battleScreenFlashCenter = UnitPoint(
+            x: enemyKind == .imp ? 0.40 : 0.5,
+            y: IPadLayoutMetrics.isPad ? 0.52 : 0.57
+        )
         battleScreenFlashColor = color
         battleScreenFlashScale = expands ? 0.04 : 1
         battleScreenFlashOpacity = 0.92
@@ -624,7 +630,7 @@ struct PlayView: View {
             battleSoundEffects.play(game.state.hasSword ? .swordAttack : .battleAttack)
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            triggerBattleScreenFlash(color: .blue, expands: false)
+            triggerBattleScreenFlash(color: .blue, expands: false, enemyKind: battleBeforeAttack.kind)
 
             if willDefeatEnemy {
                 // 通常攻撃の収束演出を見せてから、撃破専用の拡散演出とのけぞりを再生する。
@@ -635,7 +641,7 @@ struct PlayView: View {
                     return
                 }
                 // 撃破時は青い集中線を敵の中心から外側へ1回だけ拡散させる。
-                triggerBattleScreenFlash(color: .blue, expands: true, repetitions: 1)
+                triggerBattleScreenFlash(color: .blue, expands: true, enemyKind: battleBeforeAttack.kind, repetitions: 1)
                 enemyDefeatRecoilAnimationID += 1
 
                 // IMP戦ではメイジの敗北画像が見える時間を確保してから、撃破処理を行う。
@@ -674,7 +680,7 @@ struct PlayView: View {
             }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.impactNanoseconds)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
-            triggerBattleScreenFlash(color: .red, expands: true)
+            triggerBattleScreenFlash(color: .red, expands: true, enemyKind: counterattackingEnemy.kind)
             Haptics.impact(.heavy, intensity: 1.0)
             game.counterattackEnemy()
 
@@ -1024,8 +1030,10 @@ struct PlayView: View {
 
 /// 長さ・間隔にばらつきを持たせた、漫画風の放射状集中線。
 private struct BattleSpeedLinesShape: Shape {
+    let center: UnitPoint
+
     func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let center = CGPoint(x: rect.width * center.x, y: rect.height * center.y)
         let rayCount = 120
         let maxRadius = hypot(rect.width, rect.height) * 0.57
         var path = Path()
