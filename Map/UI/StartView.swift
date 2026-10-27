@@ -29,23 +29,12 @@ struct StartView: View {
                         .frame(width: compact ? 50 : 64, height: compact ? 44 : 56)
                         .padding(.top, compact ? 2 : 4)
 
-                    VStack(spacing: 0) {
-                        VStack(spacing: -4) {
-                            Text("What's gathered?")
-                                .font(DungeonTypography.maruMonica(size: compact ? 26 : 30))
-                                .minimumScaleFactor(0.82)
-                                .lineLimit(1)
-                            Text("Run!")
-                                .font(DungeonTypography.maruMonica(size: compact ? 46 : 54))
-                        }
-                        .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
-                        AnimatedTitleDragonTitleRow(compact: compact)
-                    }
-                    .accessibilityElement(children: .combine)
+                    // タイトルロゴと、向かい合う2体のドラゴン
+                    TitleLogoWithDragons(compact: compact)
 
-                    Rectangle()
-                        .fill(Color(red: 0.64, green: 0.52, blue: 0.29).opacity(0.8))
-                        .frame(width: compact ? 160 : 210, height: 1)
+                    // しりとりカードが左端から1枚ずつ入れ替わる
+                    TitleCardStripView(compact: compact)
+                        .padding(.vertical, compact ? 1 : 4)
 
                     VStack(spacing: compact ? 3 : 6) {
                         Text("ファミコン時代の Wizardry・女神転生を思わせる、\nグリッド型の3Dダンジョン探索ゲーム")
@@ -68,7 +57,8 @@ struct StartView: View {
                             .stroke(Color(red: 0.67, green: 0.57, blue: 0.36).opacity(0.48), lineWidth: 1)
                     }
 
-                    AnimatedTitleMonsterView(compact: compact)
+                    // 青ドラゴンが左右の雑魚敵の間を走り、触れた側の敵を倒して入れ替える
+                    TitleRunStageView(compact: compact)
 
                     Text("探索モードを選ぶ")
                         .font(DungeonTypography.maruMonica(size: compact ? 17 : 19))

@@ -11,3 +11,5 @@ PASS: ShiritoriGameManagerの開始・選択・判定・時間切れ・CPU取得
 PASS: GameManagerの毒・遅行・壁・取得ロック (207 assertions)
 完了: 12828 assertions
 PASS: 別プロセス間のseed再現性 (256 seeds)
+
+2026-10-27 再実行: 12842 assertions PASS / 256 seeds PASS

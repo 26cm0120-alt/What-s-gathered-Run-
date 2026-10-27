@@ -1,90 +1,83 @@
 import SwiftUI
 
-/// タイトルロゴの左右に青いPlayerドラゴンと紫のドラゴンを表示する。
-struct AnimatedTitleDragonTitleRow: View {
+/// タイトルロゴ。両脇に青いPlayerドラゴンと紫のドラゴンを大きく向かい合わせ、待機ポーズで動かす。
+/// iPhoneでは小さめ、iPadでは仮想キャンバス(幅700pt)に合わせて大きく表示する。
+struct TitleLogoWithDragons: View {
     var compact = false
 
-    var body: some View {
-        ZStack {
-            Text("ワギャラン")
-                .font(DungeonTypography.maruMonica(size: compact ? 15 : 20))
-                .tracking(4)
-                .foregroundStyle(Color(red: 0.89, green: 0.78, blue: 0.49))
+    private var isPad: Bool { IPadLayoutMetrics.isPad }
+    private var dragonSize: CGFloat { isPad ? 150 : (compact ? 72 : 94) }
 
-            HStack {
+    private let gold = Color(red: 0.89, green: 0.78, blue: 0.49)
+
+    var body: some View {
+        VStack(spacing: compact ? 0 : 2) {
+            Text("What's gathered?")
+                .font(DungeonTypography.maruMonica(size: isPad ? 38 : (compact ? 26 : 30)))
+                .minimumScaleFactor(0.82)
+                .lineLimit(1)
+                .foregroundStyle(gold)
+
+            HStack(alignment: .center, spacing: 0) {
+                // 左: 青いPlayerドラゴン(右=中央を向く)
                 AnimatedTitleCharacter(
                     label: "青いPlayerドラゴン",
                     frames: [
-                        ("PlayerIdle", 800_000_000),
-                        ("PlayerMove1", 120_000_000),
-                        ("PlayerMove2", 120_000_000),
-                        ("PlayerMove3", 240_000_000),
-                        ("PlayerBreath", 500_000_000)
+                        ("PlayerIdle", 900_000_000),
+                        ("PlayerBreath", 450_000_000),
+                        ("PlayerIdle", 700_000_000),
+                        ("PlayerBlink", 130_000_000)
                     ],
-                    size: CGSize(width: compact ? 38 : 54, height: compact ? 42 : 66),
+                    size: CGSize(width: dragonSize, height: dragonSize),
                     idlePhaseDelay: 0
                 )
-                Spacer(minLength: 8)
+
+                Spacer(minLength: 4)
+
+                VStack(spacing: -4) {
+                    Text("Run!")
+                        .font(DungeonTypography.maruMonica(size: isPad ? 70 : (compact ? 46 : 54)))
+                    Text("ワギャラン")
+                        .font(DungeonTypography.maruMonica(size: isPad ? 26 : (compact ? 15 : 20)))
+                        .tracking(4)
+                }
+                .foregroundStyle(gold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .accessibilityElement(children: .combine)
+
+                Spacer(minLength: 4)
+
+                // 右: 紫のドラゴン(左=中央を向く)
                 AnimatedTitleCharacter(
                     label: "紫のドラゴン",
                     frames: [
-                        ("MessageMonsterIdle", 850_000_000),
-                        ("MessageMonsterMove1", 500_000_000),
-                        ("MessageMonsterIdle", 350_000_000),
-                        ("MessageMonsterMove1", 110_000_000),
-                        ("MessageMonsterMove2", 110_000_000),
-                        ("MessageMonsterMove3", 260_000_000)
+                        ("MessageMonsterIdle", 1_100_000_000),
+                        ("MessageMonsterMove1", 420_000_000),
+                        ("MessageMonsterIdle", 800_000_000),
+                        ("MessageMonsterMove1", 300_000_000)
                     ],
-                    size: CGSize(width: compact ? 38 : 54, height: compact ? 42 : 66),
+                    size: CGSize(width: dragonSize, height: dragonSize),
                     idlePhaseDelay: 280_000_000
                 )
             }
-            .padding(.horizontal, 4)
+            .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
         }
-        .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
-        .frame(height: compact ? 42 : 70)
-    }
-}
-
-/// タイトル下に敵3種を横一列で表示する。
-struct AnimatedTitleMonsterView: View {
-    var compact = false
-
-    var body: some View {
-        HStack(spacing: compact ? 8 : 12) {
-            AnimatedTitleCharacter(
-                label: "スライム",
-                frames: [("DungeonSlime", 900_000_000)],
-                size: CGSize(width: compact ? 34 : 48, height: compact ? 40 : 60),
-                idlePhaseDelay: 120_000_000
-            )
-            AnimatedTitleCharacter(
-                label: "スケルトン",
-                frames: [("DungeonSkeleton", 900_000_000)],
-                size: CGSize(width: compact ? 34 : 48, height: compact ? 40 : 60),
-                idlePhaseDelay: 420_000_000
-            )
-            AnimatedTitleCharacter(
-                label: "ガーゴイル",
-                frames: [("DungeonGargoyle", 900_000_000)],
-                size: CGSize(width: compact ? 34 : 48, height: compact ? 40 : 60),
-                idlePhaseDelay: 720_000_000
-            )
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: compact ? 40 : 64)
     }
 }
 
 /// タイトルキャラクターの画像切り替えと、待機中の呼吸動作を行う。
-private struct AnimatedTitleCharacter: View {
+struct AnimatedTitleCharacter: View {
     let label: String
     let frames: [(image: String, duration: UInt64)]
     let size: CGSize
     let idlePhaseDelay: UInt64
 
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var running: Bool { scenePhase == .active && !reduceMotion }
+
     @State private var currentImage: String
-    @State private var isIdleLifted = false
 
     init(
         label: String,
@@ -105,18 +98,18 @@ private struct AnimatedTitleCharacter: View {
             .resizable()
             .scaledToFit()
             .frame(width: size.width, height: size.height)
-            .scaleEffect(isIdleLifted ? 1.035 : 1, anchor: .bottom)
-            .offset(y: isIdleLifted ? -2 : 0)
+            .modifier(EnemyIdleMotion(kind: .dragon, intensity: 0.7,
+                                      phaseOffset: Double(idlePhaseDelay) / 1_000_000_000))
             .accessibilityLabel("タイトルの\(label)キャラクター")
-            .animation(.easeInOut(duration: 0.08), value: currentImage)
-            .task {
+            .task(id: running) {
+                guard running else {
+                    if reduceMotion { currentImage = frames[0].image }
+                    return
+                }
                 if idlePhaseDelay > 0 {
                     try? await Task.sleep(nanoseconds: idlePhaseDelay)
                 }
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.72).repeatForever(autoreverses: true)) {
-                    isIdleLifted = true
-                }
                 while !Task.isCancelled {
                     for frame in frames {
                         guard !Task.isCancelled else { return }

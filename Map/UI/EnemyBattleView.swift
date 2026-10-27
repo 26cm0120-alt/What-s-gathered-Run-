@@ -11,7 +11,6 @@ struct EnemyBattleView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDefeated = false
     @State private var attackProgress = 0.0
-    @State private var isBreathing = false
     @State private var isCountering = false
     @State private var isHit = false
     @State private var enemyOffset: CGFloat = 0
@@ -25,7 +24,6 @@ struct EnemyBattleView: View {
         if isDefeated { return battle.kind.defeatedImageName }
         if isCountering { return battle.kind.attackImageName }
         if isHit { return battle.kind.hitImageName }
-        if battle.kind == .dragon && isBreathing { return "MessageMonsterMove1" }
         return battle.kind.imageName
     }
 
@@ -55,8 +53,9 @@ struct EnemyBattleView: View {
                             .opacity(isHit ? 0.98 : 0)
                             .animation(.easeOut(duration: 0.06), value: isHit)
                     }
-                    .offset(x: enemyOffset, y: isDefeated ? 30 : (isBreathing && enemyOffset == 0 ? -3 : 0))
-                    .scaleEffect(isDefeated ? 0.85 : isHit ? 1.06 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
+                    .modifier(EnemyIdleMotion(kind: battle.kind, enabled: !isHit && !isCountering && !isDefeated))
+                    .offset(x: enemyOffset, y: isDefeated ? 30 : 0)
+                    .scaleEffect(isDefeated ? 0.85 : isHit ? 1.06 : (isCountering ? 1.08 : 1))
                     .rotationEffect(.degrees(isHit ? enemyHitTilt : (enemyOffset == 0 ? 0 : 5)))
                     .shadow(
                         color: isHit ? Color(red: 0.98, green: 0.12, blue: 0.08).opacity(0.95) : .black.opacity(0.72),
@@ -97,14 +96,6 @@ struct EnemyBattleView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .allowsHitTesting(false)
-        .task {
-            guard !reduceMotion else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 640_000_000)
-                guard !Task.isCancelled else { break }
-                withAnimation(.easeInOut(duration: 0.5)) { isBreathing.toggle() }
-            }
-        }
         .onChangeCompat(of: battle.enemyHP) { oldHP, newHP in
             guard newHP < oldHP else { return }
             playHitReaction(damage: oldHP - newHP)
