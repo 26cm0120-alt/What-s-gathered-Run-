@@ -58,6 +58,8 @@ struct PlayView: View {
     @State private var battleScreenFlashOpacity = 0.0
     @State private var battleScreenFlashScale: CGFloat = 1
     @State private var battleScreenWhiteFlashOpacity = 0.0
+    @State private var isBattleScreenMonochrome = false
+    @State private var battleScreenFlashCenter = UnitPoint(x: 0.5, y: 0.57)
     @State private var battleScreenFlashTask: Task<Void, Never>?
 
     private let battleSoundEffects = SoundEffectController()
@@ -319,18 +321,25 @@ struct PlayView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(movementFlickGesture)
             .frame(height: dungeonHeight)
+            // フラッシュ中だけ戦闘画面全体をモノクロ化。集中線はこの処理の上にカラーで重ねる。
+            .saturation(isBattleScreenMonochrome ? 0 : 1)
             .overlay {
                 ZStack {
-                    BattleShockwaveShape()
-                        .fill(battleScreenFlashColor)
+                    BattleSpeedLinesShape(center: battleScreenFlashCenter)
+                        .stroke(
+                            battleScreenFlashColor,
+                            style: StrokeStyle(lineWidth: 1.15, lineCap: .round)
+                        )
                         .opacity(battleScreenFlashOpacity)
                         .scaleEffect(battleScreenFlashScale)
 
-                    // 衝撃の瞬間だけ、中心に短い白い閃光を重ねる。
-                    BattleShockwaveShape()
+                    // 衝撃の中心を一瞬だけ白く発光させる。
+                    Circle()
                         .fill(Color.white)
+                        .frame(width: 46, height: 46)
+                        .blur(radius: 12)
                         .opacity(battleScreenWhiteFlashOpacity)
-                        .scaleEffect(0.22)
+                        .scaleEffect(0.8)
                 }
                 .allowsHitTesting(false)
                 .clipped()
@@ -534,43 +543,66 @@ struct PlayView: View {
         }
     }
 
-    /// 3D描写画面内だけで、不規則な衝撃波を収縮または拡散させる。
-    private func triggerBattleScreenFlash(color: Color, expands: Bool) {
+    /// モノクロ化した戦闘画面に集中線を重ね、指定回数だけ収束・拡散させる。
+    private func triggerBattleScreenFlash(
+        color: Color,
+        expands: Bool,
+        enemyKind: EnemyKind,
+        repetitions: Int = 2
+    ) {
         battleScreenFlashTask?.cancel()
+        battleScreenFlashCenter = UnitPoint(
+            x: enemyKind == .imp ? 0.40 : 0.5,
+            y: IPadLayoutMetrics.isPad ? 0.52 : 0.57
+        )
         battleScreenFlashColor = color
         battleScreenFlashScale = expands ? 0.04 : 1
-        battleScreenFlashOpacity = 0.42
-        battleScreenWhiteFlashOpacity = 0.78
+        battleScreenFlashOpacity = 0.92
+        battleScreenWhiteFlashOpacity = 0.9
+        isBattleScreenMonochrome = true
 
         battleScreenFlashTask = Task { @MainActor in
-            // 白い閃光は衝撃の瞬間だけ表示し、すぐに消す。
+            // 中心の発光は先に短く見せてから、集中線を動かす。
             try? await Task.sleep(nanoseconds: 55_000_000)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.05)) {
+            withAnimation(.easeOut(duration: 0.06)) {
                 battleScreenWhiteFlashOpacity = 0
             }
 
-            for _ in 0..<2 {
+            for index in 0..<max(1, repetitions) {
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.14)) {
+                withAnimation(.easeOut(duration: 0.16)) {
                     battleScreenFlashScale = expands ? 1 : 0.04
+                    battleScreenFlashOpacity = 0.92
                 }
-                try? await Task.sleep(nanoseconds: 145_000_000)
+                try? await Task.sleep(nanoseconds: 165_000_000)
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeOut(duration: 0.045)) {
+                withAnimation(.easeOut(duration: 0.075)) {
                     battleScreenFlashOpacity = 0
                 }
-                try? await Task.sleep(nanoseconds: 55_000_000)
+                try? await Task.sleep(nanoseconds: 85_000_000)
                 guard !Task.isCancelled else { return }
-                battleScreenFlashScale = expands ? 0.04 : 1
-                withAnimation(.easeIn(duration: 0.035)) {
-                    battleScreenFlashOpacity = 0.42
+
+                if index < max(1, repetitions) - 1 {
+                    battleScreenFlashScale = expands ? 0.04 : 1
+                    battleScreenWhiteFlashOpacity = 0.62
+                    withAnimation(.easeIn(duration: 0.035)) {
+                        battleScreenFlashOpacity = 0.92
+                    }
+                    withAnimation(.easeOut(duration: 0.06)) {
+                        battleScreenWhiteFlashOpacity = 0
+                    }
                 }
             }
+
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.08)) {
+            withAnimation(.easeOut(duration: 0.09)) {
                 battleScreenFlashOpacity = 0
+                battleScreenWhiteFlashOpacity = 0
             }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled else { return }
+            isBattleScreenMonochrome = false
             battleScreenFlashTask = nil
         }
     }
@@ -598,17 +630,18 @@ struct PlayView: View {
             battleSoundEffects.play(game.state.hasSword ? .swordAttack : .battleAttack)
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
-            triggerBattleScreenFlash(color: .blue, expands: false)
+            triggerBattleScreenFlash(color: .blue, expands: false, enemyKind: battleBeforeAttack.kind)
 
             if willDefeatEnemy {
-                // 青い閃光のあと、赤い閃光とのけぞりを見せてから撃破処理を行う。
-                try? await Task.sleep(nanoseconds: 480_000_000)
+                // 通常攻撃の収束演出を見せてから、撃破専用の拡散演出とのけぞりを再生する。
+                try? await Task.sleep(nanoseconds: 600_000_000)
                 guard !Task.isCancelled, game.state.enemyBattle != nil else {
                     isBattleActionLocked = false
                     battleActionTask = nil
                     return
                 }
-                triggerBattleScreenFlash(color: .red, expands: true)
+                // 撃破時は青い集中線を敵の中心から外側へ1回だけ拡散させる。
+                triggerBattleScreenFlash(color: .blue, expands: true, enemyKind: battleBeforeAttack.kind, repetitions: 1)
                 enemyDefeatRecoilAnimationID += 1
 
                 // IMP戦ではメイジの敗北画像が見える時間を確保してから、撃破処理を行う。
@@ -647,7 +680,7 @@ struct PlayView: View {
             }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.impactNanoseconds)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
-            triggerBattleScreenFlash(color: .red, expands: true)
+            triggerBattleScreenFlash(color: .red, expands: true, enemyKind: counterattackingEnemy.kind)
             Haptics.impact(.heavy, intensity: 1.0)
             game.counterattackEnemy()
 
@@ -995,32 +1028,35 @@ struct PlayView: View {
     }
 }
 
-/// 戦闘時のフラッシュに使う、不規則な尖りを持つ衝撃波。
-private struct BattleShockwaveShape: Shape {
+/// 長さ・間隔にばらつきを持たせた、漫画風の放射状集中線。
+private struct BattleSpeedLinesShape: Shape {
+    let center: UnitPoint
+
     func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radii: [CGFloat] = [
-            0.48, 0.36, 0.49, 0.39, 0.44, 0.33, 0.50, 0.38,
-            0.46, 0.35, 0.49, 0.40, 0.43, 0.34, 0.50, 0.37,
-            0.47, 0.35, 0.49, 0.39, 0.44, 0.32, 0.50, 0.38,
-            0.45, 0.34, 0.49, 0.40, 0.43, 0.33, 0.50, 0.37
-        ]
+        let center = CGPoint(x: rect.width * center.x, y: rect.height * center.y)
+        let rayCount = 120
+        let maxRadius = hypot(rect.width, rect.height) * 0.57
         var path = Path()
 
-        for index in radii.indices {
-            let angle = CGFloat(index) * 2 * .pi / CGFloat(radii.count) - .pi / 2
-            let radius = radii[index]
-            let point = CGPoint(
-                x: center.x + cos(angle) * rect.width * radius,
-                y: center.y + sin(angle) * rect.height * radius
+        for index in 0..<rayCount {
+            // 固定した擬似乱数で線の長さと間隔に変化をつけ、描画中のちらつきを防ぐ。
+            let lengthNoise = CGFloat((index * 37 + 11) % 101) / 100
+            let innerNoise = CGFloat((index * 19 + 7) % 67) / 66
+            let angleJitter = (CGFloat((index * 13 + 5) % 17) / 16 - 0.5) * 0.025
+            let angle = CGFloat(index) * 2 * .pi / CGFloat(rayCount) + angleJitter - .pi / 2
+            let innerRadius = maxRadius * (0.13 + innerNoise * 0.36)
+            let outerRadius = maxRadius * (0.62 + lengthNoise * 0.48)
+            let start = CGPoint(
+                x: center.x + cos(angle) * innerRadius,
+                y: center.y + sin(angle) * innerRadius
             )
-            if index == radii.startIndex {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
+            let end = CGPoint(
+                x: center.x + cos(angle) * outerRadius,
+                y: center.y + sin(angle) * outerRadius
+            )
+            path.move(to: start)
+            path.addLine(to: end)
         }
-        path.closeSubpath()
         return path
     }
 }
