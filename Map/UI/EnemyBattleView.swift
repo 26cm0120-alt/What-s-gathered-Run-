@@ -122,7 +122,7 @@ struct EnemyBattleView: View {
                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 12)
-                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.60 : 0.5), y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.72 : 0.78))
+                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.78 : 0.88))
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
                 }
