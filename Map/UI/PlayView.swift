@@ -675,11 +675,13 @@ struct PlayView: View {
             guard !Task.isCancelled,
                   let counterattackingEnemy = game.state.enemyBattle else { return }
             enemyCounterAttackAnimationID += 1
+            // 敵の予備動作・移動が終わった着弾の瞬間に、効果音・フラッシュ・振動を揃える。
+            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.impactNanoseconds)
+            guard !Task.isCancelled,
+                  let counterattackingEnemy = game.state.enemyBattle else { return }
             if let counterattackAudioResource = counterattackingEnemy.kind.counterattackAudioResource {
                 battleSoundEffects.play(counterattackAudioResource)
             }
-            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.impactNanoseconds)
-            guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             triggerBattleScreenFlash(color: .red, expands: true, enemyKind: counterattackingEnemy.kind)
             Haptics.impact(.heavy, intensity: 1.0)
             game.counterattackEnemy()
