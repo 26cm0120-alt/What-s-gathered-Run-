@@ -120,33 +120,11 @@ struct MonsterMessageView: View {
     }
 
 
-    /// 状況メッセージとHPバー
+    /// 状況メッセージとHPバー。iPadの戦闘中は敵HP・メッセージ・味方HPを縦に分散する。
     private var messageColumn: some View {
-        VStack(alignment: .leading, spacing: isPad ? 8 : 5) {
-            Text(currentMessage)
-                .font(DungeonTypography.maruMonica(size: ((battle == nil || isPad) ? 15 : 13) + (isPad ? 4 : 0)))
-                .foregroundStyle(.white)
-                .lineLimit(messageLineLimit + (isPad ? 1 : 0))
-                .lineSpacing(2)
-                .multilineTextAlignment(.leading)
-                .minimumScaleFactor(0.75)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // iPadでは文字を上、HPバーを下に寄せて、状況欄の高さを使い切る。
-            if isPad {
-                Spacer(minLength: 0)
-            }
-
-            hpBarContainer {
-                hpBar(
-                    name: battle == nil ? "HP" : "YOU",
-                    current: playerHP,
-                    previousHP: playerHPBeforeDecrease,
-                    residualProgress: playerHPResidualProgress,
-                    maximum: GameState.playerMaxHP,
-                    color: Color(red: 0.28, green: 0.82, blue: 0.48)
-                )
-                if let battle {
+        Group {
+            if isPad, let battle {
+                VStack(alignment: .leading, spacing: 8) {
                     hpBar(
                         name: battle.kind.name,
                         current: battle.enemyHP,
@@ -155,6 +133,65 @@ struct MonsterMessageView: View {
                         maximum: battle.kind.maxHP,
                         color: Color(red: 0.95, green: 0.31, blue: 0.24)
                     )
+
+                    Spacer(minLength: 8)
+
+                    Text(currentMessage)
+                        .font(DungeonTypography.maruMonica(size: 19))
+                        .foregroundStyle(.white)
+                        .lineLimit(messageLineLimit + 1)
+                        .lineSpacing(2)
+                        .multilineTextAlignment(.leading)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 8)
+
+                    hpBar(
+                        name: "YOU",
+                        current: playerHP,
+                        previousHP: playerHPBeforeDecrease,
+                        residualProgress: playerHPResidualProgress,
+                        maximum: GameState.playerMaxHP,
+                        color: Color(red: 0.28, green: 0.82, blue: 0.48)
+                    )
+                }
+            } else {
+                VStack(alignment: .leading, spacing: isPad ? 8 : 5) {
+                    Text(currentMessage)
+                        .font(DungeonTypography.maruMonica(size: ((battle == nil || isPad) ? 15 : 13) + (isPad ? 4 : 0)))
+                        .foregroundStyle(.white)
+                        .lineLimit(messageLineLimit + (isPad ? 1 : 0))
+                        .lineSpacing(2)
+                        .multilineTextAlignment(.leading)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // iPadでは文字を上、HPバーを下に寄せて、状況欄の高さを使い切る。
+                    if isPad {
+                        Spacer(minLength: 0)
+                    }
+
+                    hpBarContainer {
+                        hpBar(
+                            name: battle == nil ? "HP" : "YOU",
+                            current: playerHP,
+                            previousHP: playerHPBeforeDecrease,
+                            residualProgress: playerHPResidualProgress,
+                            maximum: GameState.playerMaxHP,
+                            color: Color(red: 0.28, green: 0.82, blue: 0.48)
+                        )
+                        if let battle {
+                            hpBar(
+                                name: battle.kind.name,
+                                current: battle.enemyHP,
+                                previousHP: enemyHPBeforeDecrease,
+                                residualProgress: enemyHPResidualProgress,
+                                maximum: battle.kind.maxHP,
+                                color: Color(red: 0.95, green: 0.31, blue: 0.24)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -333,7 +370,7 @@ struct MonsterMessageView: View {
                         .frame(width: currentWidth)
                 }
             }
-            .frame(height: isPad ? 11 : 6)
+            .frame(height: isPad ? (battle == nil ? 11 : 20) : 6)
         }
         .frame(maxWidth: .infinity)
     }
