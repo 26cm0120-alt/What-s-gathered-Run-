@@ -212,6 +212,29 @@ struct PlayView: View {
                 }
             }
             .overlay {
+                // IMPの大きな敗北画像・敗北セリフと同じ表示期間で、メイジの逃走画像を表示する。
+                if let speech = game.defeatedEnemySpeech,
+                   speech.kind == .imp,
+                   game.defeatedEnemyLargeGraphicKind == .imp {
+                    GeometryReader { geometry in
+                        Image("MgDefeated")
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(
+                                width: min(geometry.size.width * 0.31, IPadLayoutMetrics.isPad ? 170 : 95),
+                                height: min(geometry.size.height * (IPadLayoutMetrics.isPad ? 0.30 : 0.38), IPadLayoutMetrics.isPad ? 170 : 95)
+                            )
+                            .position(
+                                x: geometry.size.width * 0.82,
+                                y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.43 : 0.47)
+                            )
+                    }
+                    .allowsHitTesting(false)
+                    .zIndex(2)
+                }
+            }
+            .overlay {
                 if let speech = game.defeatedEnemySpeech {
                     EnemyDefeatSpeechOverlay(speech: speech)
                         .id(speech.id)
