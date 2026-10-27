@@ -73,7 +73,9 @@ struct ContentView: View {
 
                 case .shiritoriGame:
                     ShiritoriGameView(
-                        cards: CardData.cards,
+                        cards: flow.game?.stage.seed != nil
+                            ? RandomShiritoriCardData.cards
+                            : CardData.cards,
                         isRandomStage: flow.game?.stage.seed != nil,
                         initialPlayerTimeBonusSeconds: flow.shiritoriTimeBonusSeconds,
                         playerTimePenaltySeconds: flow.shiritoriTimePenaltySeconds,
