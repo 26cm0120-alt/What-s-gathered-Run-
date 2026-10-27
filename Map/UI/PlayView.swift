@@ -627,7 +627,7 @@ struct PlayView: View {
             triggerBattleScreenFlash(color: .blue, expands: false)
 
             if willDefeatEnemy {
-                // 青い閃光のあと、赤い閃光とのけぞりを見せてから撃破処理を行う。
+                // 通常攻撃の収束演出を見せてから、撃破専用の拡散演出とのけぞりを再生する。
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 guard !Task.isCancelled, game.state.enemyBattle != nil else {
                     isBattleActionLocked = false
