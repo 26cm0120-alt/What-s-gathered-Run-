@@ -189,6 +189,28 @@ struct PlayView: View {
                 }
             }
             .overlay {
+                if let speech = game.defeatedEnemySpeech,
+                   game.defeatedEnemyLargeGraphicKind == speech.kind {
+                    GeometryReader { geometry in
+                        Image(speech.kind.defeatedImageName)
+                            .interpolation(.none)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(
+                                width: min(geometry.size.width * 0.62, IPadLayoutMetrics.isPad ? 340 : 190),
+                                height: min(geometry.size.height * (IPadLayoutMetrics.isPad ? 0.60 : 0.76), IPadLayoutMetrics.isPad ? 340 : 190)
+                            )
+                            .shadow(color: .black.opacity(0.72), radius: 12, y: 6)
+                            .position(
+                                x: geometry.size.width * 0.5,
+                                y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57)
+                            )
+                    }
+                    .allowsHitTesting(false)
+                    .zIndex(2)
+                }
+            }
+            .overlay {
                 if let speech = game.defeatedEnemySpeech {
                     EnemyDefeatSpeechOverlay(speech: speech)
                         .id(speech.id)
