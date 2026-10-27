@@ -89,8 +89,8 @@ struct EnemyBattleView: View {
                             width: enemySize(in: geometry.size).width * 0.42,
                             height: enemySize(in: geometry.size).height * 0.42
                         )
-                        .offset(y: isDefeated ? -42 : mageHitJumpOffset)
-                        .scaleEffect(isDefeated ? 0.5 : 1)
+                        .offset(y: isDefeated ? -18 : mageHitJumpOffset)
+                        .scaleEffect(isDefeated ? 0.72 : 1)
                         .position(
                             x: geometry.size.width * (isDefeated ? 0.82 : 0.79),
                             y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.43 : 0.47)
