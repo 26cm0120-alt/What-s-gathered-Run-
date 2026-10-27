@@ -86,8 +86,8 @@ struct EnemyBattleView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(
-                            width: enemySize(in: geometry.size).width * 0.58,
-                            height: enemySize(in: geometry.size).height * 0.58
+                            width: enemySize(in: geometry.size).width * 0.65,
+                            height: enemySize(in: geometry.size).height * 0.65
                         )
                         .offset(y: isDefeated ? 0 : mageHitJumpOffset)
                         .position(
@@ -122,7 +122,7 @@ struct EnemyBattleView: View {
                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 12)
-                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (battle.kind == .imp ? (IPadLayoutMetrics.isPad ? 0.76 : 0.80) : (IPadLayoutMetrics.isPad ? 0.78 : 0.88)))
+                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (battle.kind == .imp ? (IPadLayoutMetrics.isPad ? 0.80 : 0.85) : (IPadLayoutMetrics.isPad ? 0.78 : 0.88)))
                         .zIndex(battle.kind == .imp ? 2 : 0)
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
