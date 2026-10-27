@@ -35,7 +35,7 @@ private struct EnemyRemainsPreviewCard: View {
         VStack(spacing: 5) {
             Text(kind.name).font(DungeonTypography.maruMonica(size: 14))
             DungeonView(map: map, player: player, theme: nil, hasKey: false, isGoalReached: false,
-                        defeatedEnemyKinds: [enemy: kind], activatedTrapPositions: [])
+                        defeatedEnemyKinds: [enemy: kind], largeDefeatGraphicPosition: nil, activatedTrapPositions: [])
                 .frame(height: 90)
             mapView.frame(height: 22)
             mapView.frame(height: 40)
