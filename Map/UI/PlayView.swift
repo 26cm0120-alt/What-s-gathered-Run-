@@ -24,6 +24,7 @@ struct PlayView: View {
     @State private var itemPickupUnlockTask: Task<Void, Never>?
     @State private var isShowingDropPickup = false
     @State private var dropPickupTask: Task<Void, Never>?
+    @State private var swordDropTask: Task<Void, Never>?
     @State private var dropItemAudioPlayer: AVAudioPlayer?
     @State private var dropItemAudioErrorDelegate: AudioPlaybackErrorDelegate?
     @State private var isMapExpanded = false
@@ -461,6 +462,7 @@ struct PlayView: View {
         .onChangeCompat(of: game.defeatedEnemySpeech) { oldSpeech, newSpeech in
             guard oldSpeech != nil, newSpeech == nil else { return }
             beginPendingDropPickup()
+            beginPendingSwordDrop()
         }
         .onDisappear {
             battleActionTask?.cancel()
@@ -470,6 +472,7 @@ struct PlayView: View {
             dungeonShakeOffset = 0
             collisionFlashOpacity = 0
             dropPickupTask?.cancel()
+            swordDropTask?.cancel()
             itemPickupUnlockTask?.cancel()
             itemPickupUnlockTask = nil
             game.cancelItemPickupPresentation()
@@ -545,7 +548,8 @@ struct PlayView: View {
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
             playerAttackAnimationID += 1
-            battleSoundEffects.play(.battleAttack)
+            // 剣を持っている間は、プレイヤーの攻撃音を剣の斬撃音に変える。
+            battleSoundEffects.play(game.state.hasSword ? .swordAttack : .battleAttack)
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             triggerBattleScreenFlash(color: .blue, expands: false)
@@ -591,16 +595,30 @@ struct PlayView: View {
             if let counterattackAudioResource = counterattackingEnemy.kind.counterattackAudioResource {
                 battleSoundEffects.play(counterattackAudioResource)
             }
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.impactNanoseconds)
             guard !Task.isCancelled, game.state.enemyBattle != nil else { return }
             triggerBattleScreenFlash(color: .red, expands: true)
             Haptics.impact(.heavy, intensity: 1.0)
             game.counterattackEnemy()
 
-            try? await Task.sleep(nanoseconds: 300_000_000)
+            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.recoveryNanoseconds)
             guard !Task.isCancelled else { return }
             isBattleActionLocked = false
             battleActionTask = nil
+        }
+    }
+
+    /// 撃破セリフが終わってから、少し間を置いて敵が落とした剣を取得する。
+    private func beginPendingSwordDrop() {
+        guard game.pendingSwordDrop != nil,
+              game.encounterEnemySpeech == nil,
+              game.defeatedEnemySpeech == nil else { return }
+        swordDropTask?.cancel()
+        swordDropTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard !Task.isCancelled else { return }
+            game.collectPendingSwordDrop()
+            swordDropTask = nil
         }
     }
 
@@ -795,6 +813,15 @@ struct PlayView: View {
         )
         .contentShape(Rectangle())
         .simultaneousGesture(movementFlickGesture)
+        .overlay {
+            // チュートリアルのステップ4だけ、2本指で広げる動きを指のアニメーションで示す。
+            if game.stage.isStepByStepTutorial,
+               game.state.tutorialStep == .zoomMap,
+               !isMapExpanded {
+                PinchOutHintView()
+                    .transition(.opacity)
+            }
+        }
     }
 
     /// iPadの戦闘中に、ダンジョン画面の下端へ重ねる操作ボタン。

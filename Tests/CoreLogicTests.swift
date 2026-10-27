@@ -15,6 +15,9 @@ struct CoreLogicTests {
 
         try testNewEnemyEncounters()
 
+        try testEnemyBalanceDesign()
+        print("PASS: 敵バランス(1戦で約半分・戦闘だけでは死なない)")
+
         try testTrapSelection()
         print("PASS: 罠抽選の境界値・除外・発生率補正")
 
@@ -58,6 +61,46 @@ struct CoreLogicTests {
         }
         try expect(!seen.contains(.dragon), "ランダム迷宮にラスボスが混ざらない")
         print("PASS: 新敵の出現・能力値・セリフ")
+    }
+
+    /// 「全員クリアできるが、仕組みを知らないと危なく見える」バランスを数値で守る。
+    /// 戦闘はプレイヤーが先に攻撃するので、受ける反撃は「倒すまでの攻撃回数 - 1」回。
+    private static func testEnemyBalanceDesign() throws {
+        let playerMaxHP = GameState.playerMaxHP
+        let swordlessDamage = 5
+        let swordDamage = 10
+
+        func damageTaken(from kind: EnemyKind, playerDamage: Int) -> Int {
+            let hitsToDefeat = (kind.maxHP + playerDamage - 1) / playerDamage
+            return (hitsToDefeat - 1) * kind.attackDamage
+        }
+
+        // 剣なしで戦う最初のテーマ敵は、どのテーマでもHPの4割〜5割を削る。
+        var worstFirstFight = 0
+        for theme in DungeonTheme.allCases {
+            let kind = EnemyKind.themeEnemy(for: theme)
+            let firstFight = damageTaken(from: kind, playerDamage: swordlessDamage)
+            try expect((playerMaxHP * 4 / 10...playerMaxHP / 2).contains(firstFight),
+                       "\(kind.name) との初戦はHPの約半分(4〜5割)を削る")
+            worstFirstFight = max(worstFirstFight, firstFight)
+        }
+
+        // 剣を取った後の戦い。ランダム迷宮の通常敵はスライムかスケルトン。
+        let gargoyleFight = damageTaken(from: .gargoyle, playerDamage: swordDamage)
+        let normalFight = EnemyKind.randomEncounterKinds
+            .map { damageTaken(from: $0, playerDamage: swordDamage) }
+            .max() ?? 0
+
+        // 回復なし・逃走なしで3戦連続しても、戦闘だけでは死なず2以上残る。
+        try expect(worstFirstFight + gargoyleFight + normalFight <= playerMaxHP - 2,
+                   "3戦連続でもHPが2以上残る")
+        // 戦闘後に毒の罠(最大5ダメージ)を踏んでも、通常は1戦目後に耐えられる余裕がある。
+        try expect(playerMaxHP - worstFirstFight > 5, "初戦後に毒の罠を1つ踏んでも倒れない")
+
+        // 能力値がHP・ダメージの前提(1回の反撃でHPの半分を超えない)を壊していない。
+        for kind in EnemyKind.allCases {
+            try expect(kind.attackDamage * 2 <= playerMaxHP, "\(kind.name) の1回の反撃がHPの半分以内")
+        }
     }
 
     private static func testTrapSelection() throws {
@@ -164,13 +207,16 @@ struct CoreLogicTests {
             try expect(map.rows == 17 && map.cols == 17, "seed \(seed): 17x17")
             try expect(cells.filter { $0 == .start }.count == 1, "seed \(seed): start が1つ")
             try expect(cells.filter { $0 == .goal }.count == 1, "seed \(seed): goal が1つ")
-            try expect(cells.filter { $0 == .sword }.count == 1, "seed \(seed): sword が1つ")
+            try expect(cells.filter { $0 == .sword }.count == 0, "seed \(seed): 剣はマスに置かずテーマ敵がドロップ")
             try expect(cells.filter { $0 == .key }.count == 1, "seed \(seed): key が1つ")
-            try expect(cells.filter { $0 == .enemy }.count == 2, "seed \(seed): enemy が2つ")
+            try expect(cells.filter { $0 == .enemy }.count == 3, "seed \(seed): enemy が3つ")
             try expect(cells.filter { $0.isTrap }.count == 2, "seed \(seed): trap が2つ")
-            try expect(map.enemyKinds.count == 2, "seed \(seed): 敵の種類定義が2つ")
+            try expect(map.enemyKinds.count == 3, "seed \(seed): 敵の種類定義が3つ")
             try expect(map.enemyKinds.values.filter { $0 == .gargoyle }.count == 1, "seed \(seed): gargoyle は必ず1体")
-            try expect(map.enemyKinds.values.filter { EnemyKind.randomEncounterKinds.contains($0) }.count == 1, "seed \(seed): もう1体は通常敵")
+            try expect(map.enemyKinds.values.filter { EnemyKind.randomEncounterKinds.contains($0) }.count == 1, "seed \(seed): 通常敵はスライムかスケルトンが1体")
+            let themeKind = EnemyKind.themeEnemy(for: DungeonTheme.forSeed(UInt64(seed)))
+            try expect(map.enemyKinds.values.filter { $0 == themeKind }.count == 1, "seed \(seed): テーマ敵が1体")
+            try expect(themeKind.dropsSword && themeKind.counterattackAudioResource != nil, "seed \(seed): テーマ敵は剣をドロップし反撃音を持つ")
             try expect(map.trapKinds.count == 2, "seed \(seed): trap の種類定義が2つ")
             try expect(map.trapKinds.values.allSatisfy { $0.group == .a }, "seed \(seed): trap はグループA")
             if Set(map.trapKinds.values).count == 1 {
@@ -192,11 +238,12 @@ struct CoreLogicTests {
             let goal = try unwrap(walkable.first { map.cell(at: $0) == .goal }, "ゴールが存在")
             let path = shortestTestPath(from: map.startPosition, to: goal, in: map)
             let events = path.map { map.cell(at: $0) }.filter { $0 != .floor }
-            try expect(events == [.start, .sword, .enemy, .key, .enemy, .goal], "seed \(seed): S→剣→敵→鍵→敵→G、選択経路に罠なし")
+            try expect(events == [.start, .enemy, .enemy, .key, .enemy, .goal], "seed \(seed): S→テーマ敵→ガーゴイル→鍵→通常敵→G、選択経路に罠なし")
             try expect(Set(path).isDisjoint(with: map.trapKinds.keys), "seed \(seed): 罠は選択された最短経路外")
-            if let firstEnemy = path.first(where: { map.cell(at: $0) == .enemy }) {
-                try expect(map.enemyKinds[firstEnemy] == .gargoyle, "seed \(seed): 剣の後の敵はガーゴイル")
-            }
+            let pathEnemies = path.filter { map.cell(at: $0) == .enemy }
+            try expect(pathEnemies.count == 3, "seed \(seed): 経路上に敵が3体")
+            try expect(map.enemyKinds[pathEnemies[0]] == themeKind, "seed \(seed): 最初の敵はテーマ敵(剣ドロップ)")
+            try expect(map.enemyKinds[pathEnemies[1]] == .gargoyle, "seed \(seed): 剣の後の敵はガーゴイル")
             let repeated = RandomMazeGenerator.generate(seed: UInt64(seed))
             try expect(mapSignature(map) == mapSignature(repeated), "seed \(seed): 同じseedで同じマップ")
         }

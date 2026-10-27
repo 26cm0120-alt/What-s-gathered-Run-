@@ -8,6 +8,9 @@ struct EnemyBattleView: View {
     let counterAttackAnimationID: Int
     let defeatRecoilAnimationID: Int
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDefeated = false
+    @State private var attackProgress = 0.0
     @State private var isBreathing = false
     @State private var isCountering = false
     @State private var isHit = false
@@ -19,6 +22,7 @@ struct EnemyBattleView: View {
     @State private var counterTask: Task<Void, Never>?
 
     private var enemyImage: String {
+        if isDefeated { return battle.kind.defeatedImageName }
         if isCountering { return battle.kind.attackImageName }
         if isHit { return battle.kind.hitImageName }
         if battle.kind == .dragon && isBreathing { return "MessageMonsterMove1" }
@@ -51,8 +55,8 @@ struct EnemyBattleView: View {
                             .opacity(isHit ? 0.98 : 0)
                             .animation(.easeOut(duration: 0.06), value: isHit)
                     }
-                    .offset(x: enemyOffset, y: isBreathing && enemyOffset == 0 ? -3 : 0)
-                    .scaleEffect(isHit ? 1.06 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
+                    .offset(x: enemyOffset, y: isDefeated ? 30 : (isBreathing && enemyOffset == 0 ? -3 : 0))
+                    .scaleEffect(isDefeated ? 0.85 : isHit ? 1.06 : (isBreathing && enemyOffset == 0 ? 1.035 : (isCountering ? 1.08 : 1)))
                     .rotationEffect(.degrees(isHit ? enemyHitTilt : (enemyOffset == 0 ? 0 : 5)))
                     .shadow(
                         color: isHit ? Color(red: 0.98, green: 0.12, blue: 0.08).opacity(0.95) : .black.opacity(0.72),
@@ -62,6 +66,21 @@ struct EnemyBattleView: View {
                     .animation(.easeOut(duration: 0.08), value: isHit)
                     .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57))
                     .accessibilityLabel(battle.kind.name)
+
+                if isCountering {
+                    EnemyCounterattackEffect(kind: battle.kind, progress: reduceMotion ? 1 : attackProgress)
+                    Text("\(battle.kind.name)の\(battle.kind.counterattackName)！")
+                        .font(DungeonTypography.maruMonica(size: 16))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.black.opacity(0.9), in: RoundedRectangle(cornerRadius: 6))
+                        .frame(maxWidth: geometry.size.width - 12)
+                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.84)
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
 
                 if let damageLabel {
                     Text(damageLabel)
@@ -79,6 +98,7 @@ struct EnemyBattleView: View {
         }
         .allowsHitTesting(false)
         .task {
+            guard !reduceMotion else { return }
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 640_000_000)
                 guard !Task.isCancelled else { break }
@@ -159,6 +179,7 @@ struct EnemyBattleView: View {
             await playImpactMotion(recoil: 24)
             guard !Task.isCancelled else { return }
             isHit = false
+            withAnimation(.easeOut(duration: 0.05)) { isDefeated = true }
             hitTask = nil
         }
     }
@@ -166,18 +187,25 @@ struct EnemyBattleView: View {
     private func playCounterReaction() {
         counterTask?.cancel()
         counterTask = Task { @MainActor in
-            // 呼び出し直後に敵の反撃モーションを開始する。
+            attackProgress = 0
             isCountering = true
-            withAnimation(.easeOut(duration: 0.12)) { enemyOffset = 18 }
-            try? await Task.sleep(nanoseconds: 170_000_000)
+            withAnimation(.easeOut(duration: 0.18)) { enemyOffset = -8 }
+            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.windupNanoseconds)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.16)) { enemyOffset = 0 }
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            withAnimation(.easeIn(duration: EnemyCounterattackTiming.travelDuration)) {
+                attackProgress = 1
+                enemyOffset = 12
+            }
+            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.travelNanoseconds)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.18)) { enemyOffset = 0 }
+            try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.recoveryNanoseconds)
             guard !Task.isCancelled else { return }
             isCountering = false
             counterTask = nil
         }
     }
+
 }
 
 struct EnemyEncounterSpeechOverlay: View {

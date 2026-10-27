@@ -1,0 +1,9 @@
+Debug Simulator: BUILD SUCCEEDED
+Xcode 26.3
+Build version 17C529
+Result bundle written to path:
+	/tmp/dungeon-motion-v2/ReleaseChecked/run-YhCK8p/Build.xcresult
+
+** BUILD SUCCEEDED **
+
+ビルドログ: /tmp/dungeon-motion-v2/ReleaseChecked/run-YhCK8p/build.log

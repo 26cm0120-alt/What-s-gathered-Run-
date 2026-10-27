@@ -40,7 +40,7 @@ enum GameManagerTests {
     }
 
     private static func testNewEnemyBattles() throws {
-        for kind in [EnemyKind.imp, .ghost, .cyclops, .mimic] {
+        for kind in EnemyKind.allCases {
             let position = GridPos(x: 1, y: 0)
             let map = MapData(cells: [[.start, .enemy, .floor]], startPosition: GridPos(x: 0, y: 0),
                               initialDirection: .east, enemyKinds: [position: kind])
@@ -53,6 +53,7 @@ enum GameManagerTests {
             g.attackEnemy()
             try expect(g.state.enemyBattle?.enemyHP == kind.maxHP - 5, "\(kind.name) の被弾")
             g.counterattackEnemy()
+            try expect(g.state.enemyBattle?.message.contains(kind.counterattackName) == true, "反撃の種類を表示")
             try expect(g.state.playerHP == 20 - kind.attackDamage, "\(kind.name) の反撃")
             for _ in 0..<4 { g.attackEnemy() }
             try expect(g.state.enemyBattle == nil, "\(kind.name) の戦闘終了")
@@ -60,6 +61,15 @@ enum GameManagerTests {
             let hp = g.state.playerHP
             g.counterattackEnemy()
             try expect(g.state.playerHP == hp, "撃破後は反撃しない")
+            g.collectPendingSkeletonDrop()
+            g.finishSkeletonDropPickupPresentation()
+            g.moveForward()
+            g.turnAround()
+            g.moveForward()
+            try expect(g.state.player.position == position, "撃破したマスに戻れる")
+            try expect(g.state.enemyBattle == nil, "撃破した敵は復活しない")
+            try expect(g.state.defeatedEnemyKinds[position] == kind, "移動後も撃破画像の種類を保持")
+            try expect(kind.defeatedImageName != kind.imageName, "専用の撃破画像を使用")
         }
     }
 

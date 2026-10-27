@@ -1,6 +1,6 @@
 import Foundation
 
-/// seedから必ず連結した迷宮を作り、剣・敵・鍵・トラップ・ゴールを配置する。
+/// seedから必ず連結した迷宮を作り、敵(剣はテーマ敵がドロップ)・鍵・トラップ・ゴールを配置する。
 enum RandomMazeGenerator {
     private static let mapSize = 17
     private static let directions = [(dx: 0, dy: -1), (dx: 1, dy: 0), (dx: 0, dy: 1), (dx: -1, dy: 0)]
@@ -76,21 +76,22 @@ enum RandomMazeGenerator {
         let path = shortestPath(from: start, to: goal, in: cells)
         precondition(path.count >= 6, "ランダム迷宮の経路が短すぎて剣・敵・鍵を配置できません")
         let keyIndex = min(path.count - 3, max(3, path.count / 2))
-        let swordIndex = max(1, keyIndex / 3)
-        let sword = path[swordIndex]
+        // 剣はマスに置かず、テーマ専用の敵が落とす。その敵を最初の敵マスにする。
+        let themeEnemyIndex = max(1, keyIndex / 3)
+        let themeEnemy = path[themeEnemyIndex]
         let key = path[keyIndex]
-        let preKeyEnemyCandidates = Array((swordIndex + 1)..<keyIndex).map { path[$0] }
+        let gargoyleCandidates = Array((themeEnemyIndex + 1)..<keyIndex).map { path[$0] }
         let postKeyEnemyCandidates = Array((keyIndex + 1)..<(path.count - 1)).map { path[$0] }
-        precondition(!preKeyEnemyCandidates.isEmpty && !postKeyEnemyCandidates.isEmpty, "剣・鍵の前後に敵を配置できません")
-        // 最初の敵は剣取得後・鍵の手前、2体目は鍵を取った後に配置する。
-        let firstEnemy = preKeyEnemyCandidates[random.nextInt(upperBound: preKeyEnemyCandidates.count)]
-        let secondEnemy = postKeyEnemyCandidates[random.nextInt(upperBound: postKeyEnemyCandidates.count)]
-        let enemies = [firstEnemy, secondEnemy]
-        // ガーゴイルは鍵の手前の1体だけ。2体目は通常敵に限定する。
-        let secondEnemyKind = EnemyKind.randomEncounter(seed: seed ^ 0xA5A5A5A5, position: secondEnemy)
+        precondition(!gargoyleCandidates.isEmpty && !postKeyEnemyCandidates.isEmpty, "鍵の前後に敵を配置できません")
+        // 順路は S→テーマ敵(剣)→ガーゴイル→鍵→通常敵→G。ガーゴイルは剣がないと倒せないため必ず剣の後ろに置く。
+        let gargoyle = gargoyleCandidates[random.nextInt(upperBound: gargoyleCandidates.count)]
+        let normalEnemy = postKeyEnemyCandidates[random.nextInt(upperBound: postKeyEnemyCandidates.count)]
+        let enemies = [themeEnemy, gargoyle, normalEnemy]
+        let normalEnemyKind = EnemyKind.randomEncounter(seed: seed ^ 0xA5A5A5A5, position: normalEnemy)
         let enemyKinds: [GridPos: EnemyKind] = [
-            firstEnemy: .gargoyle,
-            secondEnemy: secondEnemyKind
+            themeEnemy: EnemyKind.themeEnemy(for: DungeonTheme.forSeed(seed)),
+            gargoyle: .gargoyle,
+            normalEnemy: normalEnemyKind
         ]
 
         let routeToGoal = Set(path)
@@ -134,7 +135,6 @@ enum RandomMazeGenerator {
 
         // TはSからGへの選択された最短経路外に2つ置く。イベント記号の置換で通路の連結性は変わらない。
         cells[start.y][start.x] = "S"
-        cells[sword.y][sword.x] = "W"
         cells[key.y][key.x] = "K"
         for enemy in enemies {
             cells[enemy.y][enemy.x] = "E"

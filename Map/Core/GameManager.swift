@@ -20,6 +20,8 @@ final class GameManager: ObservableObject {
     @Published private(set) var encounterEnemySpeech: EnemyEncounterSpeech?
     @Published private(set) var defeatedEnemySpeech: EnemyDefeatSpeech?
     @Published private(set) var pendingSkeletonDrop: SkeletonDropItem?
+    /// 剣を落とす敵を倒した直後、撃破セリフが終わるまで取得を待っている状態。
+    @Published private(set) var pendingSwordDrop: EnemyKind?
 
     private var wallCollisionTask: Task<Void, Never>?
     private var encounterEnemySpeechTask: Task<Void, Never>?
@@ -333,6 +335,11 @@ final class GameManager: ObservableObject {
                 pendingSkeletonDrop = drop
                 isSkeletonDropPickupInputLocked = true
             }
+            if battle.kind.dropsSword && !newState.hasSword {
+                // 撃破セリフと倒れる動作が終わってから剣を取得させる。それまで移動は止める。
+                pendingSwordDrop = battle.kind
+                isSkeletonDropPickupInputLocked = true
+            }
             state = newState
             soundEffects.play(.enemyDefeat)
             showDefeatedEnemySpeech(battle.kind)
@@ -369,7 +376,7 @@ final class GameManager: ObservableObject {
             return
         }
 
-        battle.message += "\n反撃で\(enemyDamage)ダメージを受けた。"
+        battle.message = "\(battle.kind.name)の\(battle.kind.counterattackName)！\n\(enemyDamage)ダメージを受けた。"
         newState.enemyBattle = battle
         state = newState
     }
@@ -415,6 +422,19 @@ final class GameManager: ObservableObject {
         pendingSkeletonDrop = nil
     }
 
+    /// 撃破セリフの後に、敵が落とした剣を取得する。取得演出はhasSwordの変化で始まる。
+    func collectPendingSwordDrop() {
+        guard let kind = pendingSwordDrop else { return }
+        pendingSwordDrop = nil
+        isSkeletonDropPickupInputLocked = pendingSkeletonDrop != nil
+        guard !state.hasSword else { return }
+        var newState = state
+        newState.hasSword = true
+        newState.message = "\(kind.name)が剣を落とした！攻撃力が上がった！"
+        isItemPickupInputLocked = true
+        state = newState
+    }
+
     /// ドロップの効果適用後に、撃破時から保持していた移動ロックを解除する。
     func finishSkeletonDropPickupPresentation() {
         guard pendingSkeletonDrop == nil else { return }
@@ -434,6 +454,7 @@ final class GameManager: ObservableObject {
     /// プレイ画面を離れる場合は、未回収ドロップと対応する入力ロックを破棄する。
     func cancelSkeletonDropPickupPresentation() {
         pendingSkeletonDrop = nil
+        pendingSwordDrop = nil
         isSkeletonDropPickupInputLocked = false
     }
 

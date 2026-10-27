@@ -128,10 +128,21 @@ enum EnemyKind: CaseIterable, Equatable {
         return "まおうさまの ことだま は\nへんげんじざい だぜ・・・\nただ よむだけじゃ かてねぇぜ"
     }
 
+    // MARK: - バランス設計
+    //
+    // 狙い: 「全員クリアできるが、仕組みを知らないと全滅しそうに見える」。
+    //  - 剣なしで戦う最初のテーマ敵は、どのテーマでも1戦でHPがほぼ半分(9〜10)減る。
+    //  - 戦闘は必ずプレイヤーが先に攻撃するため、受ける反撃は「倒すまでの攻撃回数 - 1」回。
+    //    (剣なし=1回5ダメージ、剣あり=1回10ダメージ)
+    //  - 剣を取ったあとのガーゴイル・通常敵は1戦4以下。HP20なので、最初の戦闘から
+    //    回復なしで3戦連続しても必ず2以上残り、戦闘だけで死ぬことはない。
+    //  - 実際には歩行回復(5歩で1)や逃走もあるため、通常プレイの最低HPは6〜9程度になる。
+    // スライム・スケルトンは試練の迷宮(剣なし・スライム→スケルトンで合計10)の調整を保つため変更しない。
+    // 数値を変えたら Tests/CoreLogicTests.swift の testEnemyBalanceDesign も確認すること。
+
     var maxHP: Int {
         switch self {
-        case .dragon, .skeleton, .gargoyle, .imp, .mimic: return 15
-        case .ghost: return 10
+        case .dragon, .skeleton, .gargoyle, .imp, .mimic, .ghost: return 15
         case .cyclops: return 20
         case .slime: return 10
         }
@@ -139,18 +150,21 @@ enum EnemyKind: CaseIterable, Equatable {
 
     var attackDamage: Int {
         switch self {
-        case .dragon, .skeleton: return 4
+        case .dragon, .skeleton, .gargoyle: return 4
         case .slime: return 2
-        case .gargoyle, .cyclops: return 5
-        case .imp, .mimic: return 3
-        case .ghost: return 2
+        case .cyclops: return 3
+        case .imp, .mimic, .ghost: return 5
         }
     }
 
     /// 専用の反撃効果音が設定されている敵種の音源。ドラゴンは nil。
     var counterattackAudioResource: AudioResource? {
         switch self {
-        case .dragon, .imp, .ghost, .cyclops, .mimic: nil
+        case .dragon: nil
+        case .imp: .impCounterattack
+        case .ghost: .ghostCounterattack
+        case .cyclops: .cyclopsCounterattack
+        case .mimic: .mimicCounterattack
         case .slime: .slimeCounterattack
         case .skeleton: .skeletonCounterattack
         case .gargoyle: .gargoyleCounterattack
@@ -165,12 +179,31 @@ enum EnemyKind: CaseIterable, Equatable {
         }
     }
 
-    static let randomEncounterKinds: [EnemyKind] = [.slime, .skeleton, .imp, .ghost, .cyclops, .mimic]
+    /// ランダムステージの通常敵。スライムかスケルトンをseedから抽選する。
+    static let randomEncounterKinds: [EnemyKind] = [.slime, .skeleton]
 
     /// ガーゴイルは生成側で1体固定配置するため、この抽選には含めない。
     static func randomEncounter(seed: UInt64, position: GridPos) -> EnemyKind {
         let coordinate = (UInt64(position.x) << 32) ^ UInt64(position.y)
         return randomEncounterKinds[Int((seed ^ coordinate) % UInt64(randomEncounterKinds.count))]
+    }
+
+    /// ランダムステージのテーマごとに1体だけ配置される専用の敵。
+    static func themeEnemy(for theme: DungeonTheme) -> EnemyKind {
+        switch theme {
+        case .temple: .cyclops
+        case .cave: .mimic
+        case .forestMansion: .ghost
+        case .hell: .imp
+        }
+    }
+
+    /// 倒すと剣を落とす敵。
+    var dropsSword: Bool {
+        switch self {
+        case .cyclops, .mimic, .ghost, .imp: true
+        default: false
+        }
     }
 
     static func encounter(seed: UInt64?, position: GridPos) -> EnemyKind {
