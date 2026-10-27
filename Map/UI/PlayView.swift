@@ -1035,7 +1035,7 @@ private struct BattleSpeedLinesShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.width * center.x, y: rect.height * center.y)
-        let rayCount = 120
+        let rayCount = 360
         let maxRadius = hypot(rect.width, rect.height) * 0.57
         var path = Path()
 
