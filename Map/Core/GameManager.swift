@@ -98,6 +98,9 @@ final class GameManager: ObservableObject {
         guard !state.isCleared, !state.isGameOver, state.enemyBattle == nil,
               !isInputLocked, !isSkeletonDropPickupInputLocked,
               !isItemPickupInputLocked else { return }
+        // 実際に旋回した時点で大きい敗北画像を解除する。敗北セリフは表示終了時刻まで残す。
+        defeatedEnemyLargeGraphicKind = nil
+        defeatedEnemyLargeGraphicPosition = nil
         var newState = state
         newState.player.direction = direction
         newState.message = ""
