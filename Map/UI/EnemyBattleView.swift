@@ -10,7 +10,6 @@ struct EnemyBattleView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDefeated = false
-    @State private var attackProgress = 0.0
     @State private var isCountering = false
     @State private var isHit = false
     @State private var enemyOffset: CGFloat = 0
@@ -100,8 +99,6 @@ struct EnemyBattleView: View {
                 }
 
                 if isCountering {
-                    EnemyCounterattackEffect(kind: battle.kind, progress: reduceMotion ? 1 : attackProgress)
-                        .offset(x: geometry.size.width * (battle.kind == .imp ? -0.10 : 0))
                     Text("\(battle.kind.name)の\(battle.kind.counterattackName)！")
                         .font(DungeonTypography.maruMonica(size: 16))
                         .foregroundStyle(.white)
@@ -228,13 +225,11 @@ struct EnemyBattleView: View {
     private func playCounterReaction() {
         counterTask?.cancel()
         counterTask = Task { @MainActor in
-            attackProgress = 0
             isCountering = true
             withAnimation(.easeOut(duration: 0.18)) { enemyOffset = -8 }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.windupNanoseconds)
             guard !Task.isCancelled else { return }
             withAnimation(.easeIn(duration: EnemyCounterattackTiming.travelDuration)) {
-                attackProgress = 1
                 enemyOffset = 12
             }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.travelNanoseconds)
