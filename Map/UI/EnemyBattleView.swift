@@ -100,6 +100,7 @@ struct EnemyBattleView: View {
 
                 if isCountering {
                     EnemyCounterattackEffect(kind: battle.kind, progress: reduceMotion ? 1 : attackProgress)
+                        .offset(x: geometry.size.width * (battle.kind == .imp ? -0.10 : 0))
                     Text("\(battle.kind.name)の\(battle.kind.counterattackName)！")
                         .font(DungeonTypography.maruMonica(size: 16))
                         .foregroundStyle(.white)
