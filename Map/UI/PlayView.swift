@@ -222,8 +222,8 @@ struct PlayView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(
-                                width: min(geometry.size.width * 0.31, IPadLayoutMetrics.isPad ? 180 : 102),
-                                height: min(geometry.size.height * (IPadLayoutMetrics.isPad ? 0.32 : 0.40), IPadLayoutMetrics.isPad ? 180 : 102)
+                                width: min(geometry.size.width * 0.31, IPadLayoutMetrics.isPad ? 195 : 115),
+                                height: min(geometry.size.height * (IPadLayoutMetrics.isPad ? 0.35 : 0.43), IPadLayoutMetrics.isPad ? 180 : 102)
                             )
                             .position(
                                 x: geometry.size.width * 0.82,
