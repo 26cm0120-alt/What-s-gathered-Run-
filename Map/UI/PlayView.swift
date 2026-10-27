@@ -588,8 +588,12 @@ struct PlayView: View {
                 triggerBattleScreenFlash(color: .red, expands: true)
                 enemyDefeatRecoilAnimationID += 1
 
-                // のけぞりが終わるまで撃破処理を保留し、死体表示への切り替えを遅らせる。
-                try? await Task.sleep(nanoseconds: 330_000_000)
+                // IMP戦ではメイジの敗北画像が見える時間を確保してから、撃破処理を行う。
+                // ほかの敵は従来どおりの待ち時間を維持する。
+                let defeatPresentationDelay: UInt64 = battleBeforeAttack.kind == .imp
+                    ? 950_000_000
+                    : 330_000_000
+                try? await Task.sleep(nanoseconds: defeatPresentationDelay)
                 guard !Task.isCancelled, game.state.enemyBattle != nil else {
                     isBattleActionLocked = false
                     battleActionTask = nil
