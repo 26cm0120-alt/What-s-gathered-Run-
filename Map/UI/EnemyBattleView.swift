@@ -77,6 +77,7 @@ struct EnemyBattleView: View {
                         x: geometry.size.width * (battle.kind == .imp && !isDefeated ? 0.40 : 0.5),
                         y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57)
                     )
+                    .zIndex(battle.kind == .imp ? 1 : 0)
                     .accessibilityLabel(battle.kind.name)
 
                 if battle.kind == .imp {
@@ -88,13 +89,14 @@ struct EnemyBattleView: View {
                             width: enemySize(in: geometry.size).width * 0.42,
                             height: enemySize(in: geometry.size).height * 0.42
                         )
-                        .offset(y: isDefeated ? -42 : mageHitJumpOffset)
-                        .scaleEffect(isDefeated ? 0.5 : 1)
+                        .offset(y: isDefeated ? -18 : mageHitJumpOffset)
+                        .scaleEffect(isDefeated ? 0.72 : 1)
                         .position(
                             x: geometry.size.width * (isDefeated ? 0.82 : 0.79),
                             y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.43 : 0.47)
                         )
                         .animation(.easeOut(duration: 0.12), value: isDefeated)
+                        .zIndex(0)
                         .accessibilityLabel("メイジ")
                 }
 
