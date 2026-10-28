@@ -67,8 +67,8 @@ enum AudioResource: Hashable {
         case .gargoyleCounterattack: return "ガーゴイル反撃"
         case .impCounterattack: return "小悪魔反撃"
         case .ghostCounterattack: return "ゴースト反撃"
-        case .cyclopsCounterattack: return "サイクロプス反撃"
-        case .mimicCounterattack: return "ミミック反撃"
+        case .cyclopsCounterattack: return "気弾1"
+        case .mimicCounterattack: return "噛み付く音"
         case .battleEscape: return "戦闘逃走"
         case .trapTurn: return "トラップA1"
         case .trapSlowFlick: return "トラップA2"
@@ -82,10 +82,10 @@ enum AudioResource: Hashable {
             return "m4a"
         case .trialBGM, .templeBGM, .caveBGM, .hellBGM, .forestMansionBGM, .gameClear, .doorOpen, .itemFound, .chestOpen,
              .battleAttack, .swordAttack, .slimeCounterattack, .skeletonCounterattack, .gargoyleCounterattack,
-             .trapTurn, .trapSlowFlick, .trapPoison:
+             .trapTurn, .trapSlowFlick, .trapPoison, .cyclopsCounterattack, .mimicCounterattack:
             return "mp3"
         case .gameOver, .shiritoriEnemyFall, .movement, .wallCollision, .enemyDefeat,
-             .battleEscape, .impCounterattack, .ghostCounterattack, .cyclopsCounterattack, .mimicCounterattack:
+             .battleEscape, .impCounterattack, .ghostCounterattack:
             return "wav"
         }
     }

@@ -13,6 +13,11 @@ struct EnemyBattleView: View {
     @State private var isCountering = false
     @State private var isHit = false
     @State private var enemyOffset: CGFloat = 0
+    /// 浮遊・跳躍・踏み込みなど、敵ごとの縦方向の動き(上がマイナス)。
+    @State private var enemyLift: CGFloat = 0
+    /// デビル・アイの目からのビーム。0=なし、1=溜め(目が光る)、2=発射。
+    @State private var beamPhase = 0
+    @State private var beamExtent: CGFloat = 0
     @State private var enemyHitTilt = 0.0
     @State private var damageLabel: String?
     @State private var damageLabelOffset: CGFloat = 12
@@ -62,8 +67,9 @@ struct EnemyBattleView: View {
                             .opacity(isHit ? 0.98 : 0)
                             .animation(.easeOut(duration: 0.06), value: isHit)
                     }
+                    .overlay { eyeBeamOverlay(enemySize: enemySize(in: geometry.size)) }
                     .modifier(EnemyIdleMotion(kind: battle.kind, enabled: !isHit && !isCountering && !isDefeated))
-                    .offset(x: enemyOffset, y: isDefeated ? 30 : 0)
+                    .offset(x: enemyOffset, y: (isDefeated ? 30 : 0) + enemyLift)
                     .scaleEffect(isDefeated ? 0.85 : isHit ? 1.06 : (isCountering ? 1.08 : 1))
                     .rotationEffect(.degrees(isHit ? enemyHitTilt : (enemyOffset == 0 ? 0 : 5)))
                     .shadow(
@@ -108,7 +114,7 @@ struct EnemyBattleView: View {
                         .padding(.vertical, 6)
                         .background(.black.opacity(0.9), in: RoundedRectangle(cornerRadius: 6))
                         .frame(maxWidth: geometry.size.width - 12)
-                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.93)
+                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * (battle.kind == .imp ? 0.93 : 0.18))
                         .accessibilityAddTraits(.updatesFrequently)
                 }
 
@@ -119,7 +125,7 @@ struct EnemyBattleView: View {
                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 12)
-                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.80 : 0.85))
+                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (battle.kind == .imp ? (IPadLayoutMetrics.isPad ? 0.80 : 0.85) : (IPadLayoutMetrics.isPad ? 0.78 : 0.88)))
                         .zIndex(battle.kind == .imp ? 2 : 0)
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
@@ -142,6 +148,43 @@ struct EnemyBattleView: View {
             hitTask?.cancel()
             counterTask?.cancel()
             mageHitTask?.cancel()
+            beamPhase = 0
+            beamExtent = 0
+        }
+    }
+
+    /// 目の位置(画像の中央やや上)から、画面手前(下)へ広がりながら伸びるビーム。
+    @ViewBuilder
+    private func eyeBeamOverlay(enemySize size: CGSize) -> some View {
+        if battle.kind == .cyclops && beamPhase > 0 {
+            let displayedHeight = min(size.height, size.width / 1.397)
+            let eye = CGPoint(x: size.width * 0.5, y: size.height * 0.5 - displayedHeight * 0.19)
+            let length = size.height * 1.5
+            let glowRadius = size.width * (beamPhase == 1 ? 0.16 : 0.26)
+            ZStack {
+                if beamPhase == 2 {
+                    EyeBeamShape(origin: eye, length: length, startWidth: size.width * 0.16,
+                                 endWidth: size.width * 0.62, extent: beamExtent)
+                        .fill(Color(red: 1.0, green: 0.12, blue: 0.05).opacity(0.85))
+                        .blur(radius: 3)
+                    EyeBeamShape(origin: eye, length: length, startWidth: size.width * 0.10,
+                                 endWidth: size.width * 0.36, extent: beamExtent)
+                        .fill(Color(red: 1.0, green: 0.82, blue: 0.2))
+                    EyeBeamShape(origin: eye, length: length, startWidth: size.width * 0.04,
+                                 endWidth: size.width * 0.14, extent: beamExtent)
+                        .fill(.white)
+                }
+                Circle()
+                    .fill(RadialGradient(
+                        colors: [.white, Color(red: 1.0, green: 0.7, blue: 0.15), Color(red: 1.0, green: 0.2, blue: 0.05).opacity(0)],
+                        center: .center, startRadius: 0, endRadius: glowRadius))
+                    .frame(width: glowRadius * 2, height: glowRadius * 2)
+                    .position(eye)
+                    .animation(.easeOut(duration: 0.18), value: beamPhase)
+            }
+            .frame(width: size.width, height: size.height)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
 
@@ -184,6 +227,7 @@ struct EnemyBattleView: View {
         withAnimation(.easeOut(duration: 0.055)) {
             enemyOffset = -recoil
             enemyHitTilt = -5
+            enemyLift = Self.hitLift(for: battle.kind)
         }
         try? await Task.sleep(nanoseconds: 55_000_000)
         guard !Task.isCancelled else { return }
@@ -205,6 +249,7 @@ struct EnemyBattleView: View {
         withAnimation(.spring(response: 0.12, dampingFraction: 0.62)) {
             enemyOffset = 0
             enemyHitTilt = 0
+            enemyLift = 0
         }
         try? await Task.sleep(nanoseconds: 120_000_000)
     }
@@ -222,19 +267,56 @@ struct EnemyBattleView: View {
         }
     }
 
+    /// 被弾でのけぞった時の縦の動き。ゴーストは浮き上がり、ミミックは跳ね、デビル・アイは重く動かない。
+    private static func hitLift(for kind: EnemyKind) -> CGFloat {
+        switch kind {
+        case .ghost: -12
+        case .mimic: -10
+        default: 0
+        }
+    }
+
+    /// 反撃の予備動作と攻撃の横・縦の動き。ゴーストは浮いて急降下、デビル・アイはその場で踏ん張り目からビーム、ミミックは跳びつく。
+    private static func counterMotion(for kind: EnemyKind) -> (windupX: CGFloat, windupLift: CGFloat, strikeX: CGFloat, strikeLift: CGFloat) {
+        switch kind {
+        case .ghost: (-8, -18, 12, 12)
+        case .cyclops: (0, -4, 0, 2)   // 踏ん張って目からビームを撃つので、体は動かさない
+        case .mimic: (-8, -24, 12, 8)
+        default: (-8, 0, 12, 0)
+        }
+    }
+
     private func playCounterReaction() {
         counterTask?.cancel()
+        let motion = Self.counterMotion(for: battle.kind)
         counterTask = Task { @MainActor in
             isCountering = true
-            withAnimation(.easeOut(duration: 0.18)) { enemyOffset = -8 }
+            if battle.kind == .cyclops {
+                beamExtent = 0
+                beamPhase = 1
+            }
+            withAnimation(.easeOut(duration: 0.18)) {
+                enemyOffset = motion.windupX
+                enemyLift = motion.windupLift
+            }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.windupNanoseconds)
             guard !Task.isCancelled else { return }
+            if battle.kind == .cyclops {
+                beamPhase = 2
+                withAnimation(.easeIn(duration: 0.14)) { beamExtent = 1 }
+            }
             withAnimation(.easeIn(duration: EnemyCounterattackTiming.travelDuration)) {
-                enemyOffset = 12
+                enemyOffset = motion.strikeX
+                enemyLift = motion.strikeLift
             }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.travelNanoseconds)
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.18)) { enemyOffset = 0 }
+            beamPhase = 0
+            beamExtent = 0
+            withAnimation(.easeOut(duration: 0.18)) {
+                enemyOffset = 0
+                enemyLift = 0
+            }
             try? await Task.sleep(nanoseconds: EnemyCounterattackTiming.recoveryNanoseconds)
             guard !Task.isCancelled else { return }
             isCountering = false
@@ -304,5 +386,31 @@ private struct EnemySpeechBubbleView: View {
             .background(Color.black.opacity(0.94), in: RoundedRectangle(cornerRadius: isPad ? 12 : 8))
             .overlay(RoundedRectangle(cornerRadius: isPad ? 12 : 8).stroke(Color(red: 0.78, green: 0.66, blue: 0.38), lineWidth: isPad ? 2 : 1.5))
             .shadow(color: .black.opacity(0.75), radius: 6, y: 3)
+    }
+}
+
+/// デビル・アイの目から手前へ広がりながら伸びるビームの形。extent(0〜1)で長さと太さが変わる。
+private struct EyeBeamShape: Shape {
+    var origin: CGPoint
+    var length: CGFloat
+    var startWidth: CGFloat
+    var endWidth: CGFloat
+    var extent: CGFloat
+
+    var animatableData: CGFloat {
+        get { extent }
+        set { extent = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let reach = length * extent
+        let width = startWidth + (endWidth - startWidth) * extent
+        path.move(to: CGPoint(x: origin.x - startWidth / 2, y: origin.y))
+        path.addLine(to: CGPoint(x: origin.x + startWidth / 2, y: origin.y))
+        path.addLine(to: CGPoint(x: origin.x + width / 2, y: origin.y + reach))
+        path.addLine(to: CGPoint(x: origin.x - width / 2, y: origin.y + reach))
+        path.closeSubpath()
+        return path
     }
 }
