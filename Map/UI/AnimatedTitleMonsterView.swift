@@ -1,12 +1,28 @@
 import SwiftUI
 
-/// タイトルロゴ。両脇に青いPlayerドラゴンと紫のドラゴンを大きく向かい合わせ、待機ポーズで動かす。
+/// タイトルロゴ。両脇にしりとりCPU2と紫のドラゴンを向かい合わせ、それぞれ4枚の差分を切り替える。
 /// iPhoneでは小さめ、iPadでは仮想キャンバス(幅700pt)に合わせて大きく表示する。
 struct TitleLogoWithDragons: View {
     var compact = false
 
     private var isPad: Bool { IPadLayoutMetrics.isPad }
     private var dragonSize: CGFloat { isPad ? 150 : (compact ? 72 : 94) }
+
+    private static let cpu2Frames = ["TitleCPU2Idle", "character_cpu2_blink", "TitleCPU2Breath1", "TitleCPU2Breath2"]
+    private static let purpleFrames = ["MessageMonsterIdle", "MessageMonsterMove1", "MessageMonsterMove2", "MessageMonsterMove3"]
+    // 0.25秒単位。CPU2は2.5秒、右のドラゴンは1秒周期なので5秒で一巡する。
+    @State private var animationTick = 0
+    private var cpu2FrameIndex: Int {
+        switch animationTick % 10 {
+        case 0..<4: return 0 // 通常: 1秒
+        case 4..<6: return 1 // 瞬き: 0.5秒
+        case 6..<8: return 2 // 呼吸1: 0.5秒
+        default: return 3   // 呼吸2: 0.5秒
+        }
+    }
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var running: Bool { scenePhase == .active && !reduceMotion }
 
     private let gold = Color(red: 0.89, green: 0.78, blue: 0.49)
 
@@ -19,18 +35,8 @@ struct TitleLogoWithDragons: View {
                 .foregroundStyle(gold)
 
             HStack(alignment: .center, spacing: 0) {
-                // 左: 青いPlayerドラゴン(右=中央を向く)
-                AnimatedTitleCharacter(
-                    label: "青いPlayerドラゴン",
-                    frames: [
-                        ("PlayerIdle", 900_000_000),
-                        ("PlayerBreath", 450_000_000),
-                        ("PlayerIdle", 700_000_000),
-                        ("PlayerBlink", 130_000_000)
-                    ],
-                    size: CGSize(width: dragonSize, height: dragonSize),
-                    idlePhaseDelay: 0
-                )
+                // 左: しりとりCPU2の通常待機アニメーション
+                titleCharacter(image: Self.cpu2Frames[cpu2FrameIndex], label: "しりとりCPU2")
 
                 Spacer(minLength: 4)
 
@@ -49,74 +55,34 @@ struct TitleLogoWithDragons: View {
                 Spacer(minLength: 4)
 
                 // 右: 紫のドラゴン(左=中央を向く)
-                AnimatedTitleCharacter(
-                    label: "紫のドラゴン",
-                    frames: [
-                        ("MessageMonsterIdle", 1_100_000_000),
-                        ("MessageMonsterMove1", 420_000_000),
-                        ("MessageMonsterIdle", 800_000_000),
-                        ("MessageMonsterMove1", 300_000_000)
-                    ],
-                    size: CGSize(width: dragonSize, height: dragonSize),
-                    idlePhaseDelay: 280_000_000
-                )
+                titleCharacter(image: Self.purpleFrames[animationTick % Self.purpleFrames.count], label: "紫のドラゴン")
+                    .scaleEffect(x: -1, y: 1)
             }
             .frame(maxWidth: IPadLayoutMetrics.startContentWidth)
         }
-    }
-}
-
-/// タイトルキャラクターの画像切り替えと、待機中の呼吸動作を行う。
-struct AnimatedTitleCharacter: View {
-    let label: String
-    let frames: [(image: String, duration: UInt64)]
-    let size: CGSize
-    let idlePhaseDelay: UInt64
-
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private var running: Bool { scenePhase == .active && !reduceMotion }
-
-    @State private var currentImage: String
-
-    init(
-        label: String,
-        frames: [(image: String, duration: UInt64)],
-        size: CGSize,
-        idlePhaseDelay: UInt64
-    ) {
-        self.label = label
-        self.frames = frames
-        self.size = size
-        self.idlePhaseDelay = idlePhaseDelay
-        _currentImage = State(initialValue: frames[0].image)
+        .task(id: running) {
+            guard running else {
+                if reduceMotion { animationTick = 0 }
+                return
+            }
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 250_000_000)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                animationTick = (animationTick + 1) % 20
+            }
+        }
     }
 
-    var body: some View {
-        Image(currentImage)
+    private func titleCharacter(image: String, label: String) -> some View {
+        Image(image)
             .interpolation(.none)
             .resizable()
             .scaledToFit()
-            .frame(width: size.width, height: size.height)
-            .modifier(EnemyIdleMotion(kind: .dragon, intensity: 0.7,
-                                      phaseOffset: Double(idlePhaseDelay) / 1_000_000_000))
+            .frame(width: dragonSize, height: dragonSize)
             .accessibilityLabel("タイトルの\(label)キャラクター")
-            .task(id: running) {
-                guard running else {
-                    if reduceMotion { currentImage = frames[0].image }
-                    return
-                }
-                if idlePhaseDelay > 0 {
-                    try? await Task.sleep(nanoseconds: idlePhaseDelay)
-                }
-                guard !Task.isCancelled else { return }
-                while !Task.isCancelled {
-                    for frame in frames {
-                        guard !Task.isCancelled else { return }
-                        currentImage = frame.image
-                        try? await Task.sleep(nanoseconds: frame.duration)
-                    }
-                }
-            }
     }
 }
