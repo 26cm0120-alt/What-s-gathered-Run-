@@ -33,12 +33,20 @@ struct EnemyBattleView: View {
         return battle.kind.imageName
     }
 
-    /// IMPの後方に配置するメイジの画像。ほかの敵では表示しない。
+    /// 使い魔として横に配置するメイジの画像。状態に応じて既存の画像を切り替える。
     private var mageImage: String {
         if isDefeated { return "MgDefeated" }
         if isCountering { return "MgAttack" }
         if isHit { return "MgHit" }
         return "DungeonMg"
+    }
+
+    /// IMP・サイクロプス・ミミック・ゴーストは、メイジを使い魔として横に配置する。
+    private var hasMageFamiliar: Bool {
+        battle.kind == .imp
+            || battle.kind == .cyclops
+            || battle.kind == .mimic
+            || battle.kind == .ghost
     }
 
     /// 敵の表示サイズ。iPadでは動きが見やすいよう大きくする(下端の操作ボタンと重ならない範囲)。
@@ -79,13 +87,13 @@ struct EnemyBattleView: View {
                     )
                     .animation(.easeOut(duration: 0.08), value: isHit)
                     .position(
-                        x: geometry.size.width * (battle.kind == .imp && !isDefeated ? 0.40 : 0.5),
+                        x: geometry.size.width * (hasMageFamiliar && !isDefeated ? 0.40 : 0.5),
                         y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.52 : 0.57)
                     )
-                    .zIndex(battle.kind == .imp ? 1 : 0)
+                    .zIndex(hasMageFamiliar ? 1 : 0)
                     .accessibilityLabel(battle.kind.name)
 
-                if battle.kind == .imp {
+                if hasMageFamiliar {
                     Image(mageImage)
                         .interpolation(.none)
                         .resizable()
@@ -125,8 +133,8 @@ struct EnemyBattleView: View {
                         .shadow(color: Color(red: 0.98, green: 0.12, blue: 0.08), radius: 7)
                         .shadow(color: .black, radius: 3, y: 2)
                         .offset(y: damageLabelOffset - 12)
-                        .position(x: geometry.size.width * (battle.kind == .imp ? 0.40 : 0.5), y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.80 : 0.85))
-                        .zIndex(battle.kind == .imp ? 2 : 0)
+                        .position(x: geometry.size.width * (hasMageFamiliar ? 0.40 : 0.5), y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.80 : 0.85))
+                        .zIndex(hasMageFamiliar ? 2 : 0)
                         .transition(.scale.combined(with: .opacity))
                         .accessibilityHidden(true)
                 }
@@ -189,7 +197,7 @@ struct EnemyBattleView: View {
     }
 
     private func playHitReaction(damage: Int) {
-        if battle.kind == .imp {
+        if hasMageFamiliar {
             mageHitTask?.cancel()
             mageHitTask = Task { @MainActor in
                 withAnimation(.spring(response: 0.18, dampingFraction: 0.48)) {
