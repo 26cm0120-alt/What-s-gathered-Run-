@@ -168,6 +168,11 @@ struct PlayView: View {
                 activatedTrapPositions: game.state.activatedTrapPositions
             )
             .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(game.state.playerHP > 0 && game.state.playerHP <= 13 ? Color.red : Color.clear, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+            .overlay {
                 if let battle = game.state.enemyBattle {
                     EnemyBattleView(
                         battle: battle,
