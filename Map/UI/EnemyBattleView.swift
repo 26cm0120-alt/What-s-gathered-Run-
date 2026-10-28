@@ -114,7 +114,7 @@ struct EnemyBattleView: View {
                         .padding(.vertical, 6)
                         .background(.black.opacity(0.9), in: RoundedRectangle(cornerRadius: 6))
                         .frame(maxWidth: geometry.size.width - 12)
-                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * 0.93)
+                        .position(x: geometry.size.width * 0.5, y: geometry.size.height * (IPadLayoutMetrics.isPad ? 0.85 : 0.93))
                         .accessibilityAddTraits(.updatesFrequently)
                 }
 
