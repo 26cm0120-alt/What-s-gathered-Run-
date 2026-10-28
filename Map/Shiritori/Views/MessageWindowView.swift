@@ -167,7 +167,7 @@ struct MessageWindowView: View {
             .ignoresSafeArea()
 
         MessageWindowView(
-            message: "「さあ、始めるとしよう」"
+            message: "「さあ、はじめるとしよう」"
         )
         .padding()
     }
