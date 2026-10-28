@@ -44,9 +44,9 @@ enum EnemyKind: CaseIterable, Equatable {
         case .skeleton: return "SkeletonHit"
         case .gargoyle: return "GargoyleHit"
         case .imp: return "ImpHit"
-        case .ghost: return "DungeonGhost"
-        case .cyclops: return "DungeonCyclops"
-        case .mimic: return "DungeonMimic"
+        case .ghost: return "GhostHit"
+        case .cyclops: return "CyclopsHit"
+        case .mimic: return "MimicHit"
         }
     }
 
@@ -57,9 +57,9 @@ enum EnemyKind: CaseIterable, Equatable {
         case .skeleton: return "SkeletonAttack"
         case .gargoyle: return "GargoyleAttack"
         case .imp: return "ImpAttack"
-        case .ghost: return "DungeonGhost"
-        case .cyclops: return "DungeonCyclops"
-        case .mimic: return "DungeonMimic"
+        case .ghost: return "GhostAttack"
+        case .cyclops: return "CyclopsAttack"
+        case .mimic: return "MimicAttack"
         }
     }
 
