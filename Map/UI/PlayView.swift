@@ -168,6 +168,11 @@ struct PlayView: View {
                 activatedTrapPositions: game.state.activatedTrapPositions
             )
             .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(game.state.playerHP > 0 && game.state.playerHP <= 13 ? Color.red : Color.clear, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+            .overlay {
                 if let battle = game.state.enemyBattle {
                     EnemyBattleView(
                         battle: battle,
@@ -478,6 +483,7 @@ struct PlayView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
                     .zIndex(2)
             }
+            .environment(\.lowHPWarning, game.state.playerHP > 0 && game.state.playerHP <= 13)
         }
         .onChangeCompat(of: game.state.hasKey) { hadKey, hasKey in
             // hasKey が初めて false から true になったときだけ演出する
