@@ -2,6 +2,8 @@ import SwiftUI
 
 /// 押している間、色・枠・大きさを変えて操作を受け付けたことを伝える。
 struct DungeonPressButtonStyle: ButtonStyle {
+    @Environment(\.lowHPWarning) private var lowHPWarning
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
@@ -9,14 +11,14 @@ struct DungeonPressButtonStyle: ButtonStyle {
                 ? Color(red: 0.12, green: 0.43, blue: 0.19)
                 : Color(red: 0.075, green: 0.07, blue: 0.06)
             )
-            .foregroundColor(configuration.isPressed ? .white : Color.white.opacity(0.9))
+             .foregroundColor(lowHPWarning ? .yellow : (configuration.isPressed ? .white : Color.white.opacity(0.9)))
             .overlay {
                 Rectangle()
                     .stroke(
-                        configuration.isPressed
+                        lowHPWarning ? Color.red : (configuration.isPressed
                         ? Color(red: 0.84, green: 0.75, blue: 0.48)
-                        : Color(red: 0.58, green: 0.54, blue: 0.45).opacity(0.9),
-                        lineWidth: configuration.isPressed ? 2.5 : 1.5
+                        : Color(red: 0.58, green: 0.54, blue: 0.45).opacity(0.9)),
+                        lineWidth: lowHPWarning ? 2 : (configuration.isPressed ? 2.5 : 1.5)
                     )
             }
             .contentShape(Rectangle())
