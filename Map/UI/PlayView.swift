@@ -406,7 +406,14 @@ struct PlayView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // iPhoneでは、戦闘開始時にコマンド欄の高さが変わっても、
+            // VStack全体を縦中央へ再配置せず、ダンジョン画面の上端を固定する。
+            // iPadの既存配置は変更しない。
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: isPad ? .center : .top
+            )
             .background(DungeonBackground())
         }
         .overlay {
