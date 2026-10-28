@@ -50,7 +50,7 @@ struct MessageSelector {
             case .rare:
                 messages = [
                     "はうっ、「\(vocabulary.displayWord)」！？\nそれジョークか？\n面白いことを言うなあ\nこの蛆虫は。",
-                    "あががっ、「\(vocabulary.displayWord)」！？\n貴様ーっ、\n姫龍を愚弄する気かぁっ！"
+                    "あががっ、「\(vocabulary.displayWord)」！？\n貴様ーっ、それを言ったら殺されても\n文句は言えねぇぞっ！"
                 ]
             }
             return messages.randomElement() ?? ""
@@ -64,7 +64,7 @@ struct MessageSelector {
         case .surprise:
             return "むむむ！？ \(vocabulary.displayWord)・・・だと・・・？"
         case .rare:
-            return "なんと、\(vocabulary.displayWord) と来たか。"
+            return "なんと、\(vocabulary.displayWord) ときたか。"
         }
     }
 
@@ -102,7 +102,7 @@ struct MessageSelector {
             case .normal:
                 return ["しゃあっ、「\(vocabulary.displayWord)」！", "あざーす（ｶﾞｼｯ\n「\(vocabulary.displayWord)」！"]
             case .english:
-                return ["ヤンケ、「シバクヤンケ」\n「\(vocabulary.displayWord)」！", "英語読みはリラックスできますね。\n「\(vocabulary.displayWord)」！"]
+                return ["ヤンケ、シバクヤンケ\n「\(vocabulary.displayWord)」！", "英語読みはリラックスできますね。\n「\(vocabulary.displayWord)」！"]
             case .surprise:
                 return ["その読みはやめろーっ、てか？\n「\(vocabulary.displayWord)」！", "「\(vocabulary.displayWord)」はルールで\n禁止ㇲよね、ってか？\nへっ、あまちゃんが。"]
             case .rare:
@@ -123,11 +123,11 @@ struct MessageSelector {
             ]
         case .surprise:
             return [
-                "はっはっは、\(vocabulary.displayWord) という読み方もあるのだよ！"
+                "はっはっは、\(vocabulary.displayWord) というよみかたもあるのだよ！"
             ]
         case .rare:
             return [
-                "どうだ、\(vocabulary.displayWord) だ！参ったか！"
+                "どうだ、\(vocabulary.displayWord) だ！まいったか！"
             ]
         }
     }
@@ -160,8 +160,8 @@ struct MessageSelector {
             return "\(baseMessage)\nさあ、『\(promptText)』から\nはじまるカードをえらぶザンス！"
         }
         if isRandomStage {
-            return "\(baseMessage)\nほれ、「\(promptText)」からはじまるカードを選べ！"
+            return "\(baseMessage)\nほれ、「\(promptText)」からはじまるカードを選ばんかい！"
         }
-        return "\(baseMessage)\n「\(promptText)」から\nはじまるカードを選べ！"
+        return "\(baseMessage)\n「\(promptText)」から\nはじまるカードをえらべ！"
     }
 }
