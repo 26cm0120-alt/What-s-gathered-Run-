@@ -342,7 +342,6 @@ struct MonsterMessageView: View {
         maximum: Int,
         color: Color
     ) -> some View {
-        let isLowHP = playerHP > 0 && playerHP <= 13
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 3) {
                 if let name {
@@ -352,7 +351,7 @@ struct MonsterMessageView: View {
                 Text("\(current)/\(maximum)").monospacedDigit()
             }
             .font(DungeonTypography.maruMonica(size: isPad ? 14 : 10))
-            .foregroundStyle(isLowHP ? Color.yellow : Color.white.opacity(0.92))
+            .foregroundStyle(.white.opacity(0.92))
             GeometryReader { geometry in
                 let safeMaximum = max(1, maximum)
                 let currentWidth = geometry.size.width * CGFloat(max(0, min(current, safeMaximum))) / CGFloat(safeMaximum)
@@ -374,11 +373,6 @@ struct MonsterMessageView: View {
             .frame(height: isPad ? (battle == nil ? 11 : 20) : 6)
         }
         .frame(maxWidth: .infinity)
-        .overlay {
-            if isLowHP {
-                RoundedRectangle(cornerRadius: 4).stroke(Color.red, lineWidth: 2)
-            }
-        }
     }
 
     /// HP減少時は残像の幅を1.2秒かけて縮め、回復時は残像を解除する。
@@ -574,35 +568,15 @@ struct MonsterMessageView: View {
     }
 }
 
-private struct LowHPWarningKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    var lowHPWarning: Bool {
-        get { self[LowHPWarningKey.self] }
-        set { self[LowHPWarningKey.self] = newValue }
-    }
-}
-
 extension View {
     /// 暗い地に細い縁を引いた、探索・戦闘画面の情報枠。
     func dungeonPanel(cornerRadius: CGFloat = 8) -> some View {
-        modifier(DungeonPanelStyle(cornerRadius: cornerRadius))
-    }
-}
-
-private struct DungeonPanelStyle: ViewModifier {
-    @Environment(\.lowHPWarning) private var lowHPWarning
-    let cornerRadius: CGFloat
-
-    func body(content: Content) -> some View {
-        content
+        self
             .background(Color(red: 0.075, green: 0.07, blue: 0.06))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(lowHPWarning ? Color.red : Color(red: 0.42, green: 0.39, blue: 0.32), lineWidth: lowHPWarning ? 2 : 1)
+                    .stroke(Color(red: 0.42, green: 0.39, blue: 0.32), lineWidth: 1)
             }
     }
 }
