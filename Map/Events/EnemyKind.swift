@@ -80,12 +80,12 @@ enum EnemyKind: CaseIterable, Equatable {
         switch self {
         case .dragon: "ほのおのブレス"
         case .slime: "たいあたり"
-        case .skeleton: "つるぎ斬り"
-        case .gargoyle: "かぎ爪"
+        case .skeleton: "袈裟斬り"
+        case .gargoyle: "鋭い爪"
         case .imp: "魔法弾"
-        case .ghost: "霊気"
-        case .cyclops: "鉄拳"
-        case .mimic: "かみつき"
+        case .ghost: "呪怨"
+        case .cyclops: "怪光線"
+        case .mimic: "鋭い牙"
         }
     }
 
