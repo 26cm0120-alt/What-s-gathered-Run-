@@ -214,10 +214,13 @@ struct PlayView: View {
                 }
             }
             .overlay {
-                // IMPの大きな敗北画像・敗北セリフと同じ表示期間で、メイジの逃走画像を表示する。
+                // メイジを使い魔とする敵は、大きな敗北画像・敗北セリフと同じ表示期間でメイジの敗北画像も表示する。
                 if let speech = game.defeatedEnemySpeech,
-                   speech.kind == .imp,
-                   game.defeatedEnemyLargeGraphicKind == .imp {
+                   (speech.kind == .imp
+                    || speech.kind == .cyclops
+                    || speech.kind == .mimic
+                    || speech.kind == .ghost),
+                   game.defeatedEnemyLargeGraphicKind == speech.kind {
                     GeometryReader { geometry in
                         Image("MgDefeated")
                             .interpolation(.none)
@@ -651,9 +654,13 @@ struct PlayView: View {
                 triggerBattleScreenFlash(color: .blue, expands: true, enemyKind: battleBeforeAttack.kind, repetitions: 1)
                 enemyDefeatRecoilAnimationID += 1
 
-                // IMP戦ではメイジの敗北画像が見える時間を確保してから、撃破処理を行う。
+                // メイジを使い魔とする敵は、メイジの敗北画像が見える時間を確保してから撃破処理を行う。
                 // ほかの敵は従来どおりの待ち時間を維持する。
-                let defeatPresentationDelay: UInt64 = battleBeforeAttack.kind == .imp
+                let usesMageFamiliar = battleBeforeAttack.kind == .imp
+                    || battleBeforeAttack.kind == .cyclops
+                    || battleBeforeAttack.kind == .mimic
+                    || battleBeforeAttack.kind == .ghost
+                let defeatPresentationDelay: UInt64 = usesMageFamiliar
                     ? 950_000_000
                     : 330_000_000
                 try? await Task.sleep(nanoseconds: defeatPresentationDelay)
