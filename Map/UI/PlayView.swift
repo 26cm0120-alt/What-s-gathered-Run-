@@ -478,6 +478,7 @@ struct PlayView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
                     .zIndex(2)
             }
+            .environment(\.lowHPWarning, game.state.playerHP > 0 && game.state.playerHP <= 13)
         }
         .onChangeCompat(of: game.state.hasKey) { hadKey, hasKey in
             // hasKey が初めて false から true になったときだけ演出する
