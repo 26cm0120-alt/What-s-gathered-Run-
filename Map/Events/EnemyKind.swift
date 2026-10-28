@@ -96,9 +96,9 @@ enum EnemyKind: CaseIterable, Equatable {
         case .gargoyle: return "おろかものめっ！よわいものは\nさらに よわいものを みつけて\nたたかいを いどめっ！"
         case .dragon: return "う ぁ ぁ ぁ ぁ ぁ（書き文字）\nり・・・龍が廊下を\n練り歩いてるっ！"
         case .imp: return "お、丁度いいくらいの竜が\nいるじゃない。こんなガキの\n竜なら私たちでも殺れるわ"
-        case .ghost: return "ゆらり ゆらり・・・\nその あしおと きこえるぞ。\nここで いっしょに さまよおう。"
-        case .cyclops: return "この めからは にがさない！\nちいさな ゆうしゃよ\nおれの こぶしを うけてみろ！"
-        case .mimic: return "おたからだと おもったか？\nざんねん！ おまえの ほうが\nごちそう だったのさ！"
+        case .ghost: return "お、丁度いいくらいの竜が\nいるじゃない。こんなガキの\n竜なら私たちでも殺れるわ"
+        case .cyclops: return "お、丁度いいくらいの竜が\nいるじゃない。こんなガキの\n竜なら私たちでも殺れるわ"
+        case .mimic: return "お、丁度いいくらいの竜が\nいるじゃない。こんなガキの\n竜なら私たちでも殺れるわ"
         }
     }
 
@@ -114,9 +114,9 @@ enum EnemyKind: CaseIterable, Equatable {
         case .gargoyle: return "そんなわけ ないッス！おれが\nまけるわけ ないッス！やっぱし\nこわいスね、ドラゴンぞくは。"
         case .dragon: return "弱きものから\n狩る・・・！\n次なる標的は・・・！？"
         case .imp: return "う…ウソやろ、こ…こんなことが\nこ…こんなことが許されて\nいいのか！まおうさまーーっ！"
-        case .ghost: return "ああ・・・きりが はれる。\nおまえの ゆくみちが\nあかるく ありますように・・・"
-        case .cyclops: return "ぐおお・・・みえていたのに。\nちからだけでは だめなのか。\nその ゆうき おぼえておくぞ！"
-        case .mimic: return "ぐえっ！ かたい ごちそうだ！\nきょうは もう へいてん！\nふたを しめて ねるとするか。"
+        case .ghost: return "う…ウソやろ、こ…こんなことが\nこ…こんなことが許されて\nいいのか！まおうさまーーっ！"
+        case .cyclops: return "う…ウソやろ、こ…こんなことが\nこ…こんなことが許されて\nいいのか！まおうさまーーっ！"
+        case .mimic: return "う…ウソやろ、こ…こんなことが\nこ…こんなことが許されて\nいいのか！まおうさまーーっ！"
         }
     }
 
