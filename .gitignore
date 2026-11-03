@@ -19,3 +19,24 @@ xcuserdata/
 # エディタ
 .idea/
 .vscode/
+
+# Firebaseのローカル検証
+node_modules/
+*-debug.log
+.firebase/
+.env*
+*.backup.json
+
+# 公開資料は作品紹介・画像・ライセンスに限定（内部資料はローカル保持）
+/docs/*
+!/docs/portfolio/
+!/docs/licenses/
+/docs/portfolio/*
+!/docs/portfolio/作品紹介.md
+!/docs/portfolio/images/
+!/docs/portfolio/posters/
+/FEATURE_PLAN.md
+/FIREBASE_RANKING_SETUP.md
+/INTEGRATION_HANDOFF.md
+/output/
+/tmp/
