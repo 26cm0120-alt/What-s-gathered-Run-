@@ -35,6 +35,7 @@ node_modules/
 !/docs/portfolio/作品紹介.md
 !/docs/portfolio/images/
 !/docs/portfolio/posters/
+!/docs/portfolio/documents/
 /FEATURE_PLAN.md
 /FIREBASE_RANKING_SETUP.md
 /INTEGRATION_HANDOFF.md
