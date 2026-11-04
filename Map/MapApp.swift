@@ -30,6 +30,7 @@ enum DungeonTypography {
 struct MapApp: App {
     init() {
         if FirebaseApp.app() == nil {
+            FirebaseAppCheckSetup.configure()
             FirebaseApp.configure()
         }
         guard let fontURL = Bundle.main.url(forResource: "x12y16pxMaruMonica", withExtension: "ttf") else { return }

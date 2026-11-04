@@ -10,6 +10,7 @@
 		A00000000000000000000001 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000003 /* FirebaseAuth */; };
 		A00000000000000000000002 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000004 /* FirebaseFirestore */; };
 		7F738CDA3091CC8C00467584 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 7F738CD93091CC8C00467584 /* GoogleService-Info.plist */; };
+		A00000000000000000000005 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000006 /* FirebaseAppCheck */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 			files = (
 				A00000000000000000000001 /* FirebaseAuth in Frameworks */,
 				A00000000000000000000002 /* FirebaseFirestore in Frameworks */,
+				A00000000000000000000005 /* FirebaseAppCheck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +79,7 @@
 			packageProductDependencies = (
 				A00000000000000000000003 /* FirebaseAuth */,
 				A00000000000000000000004 /* FirebaseFirestore */,
+				A00000000000000000000006 /* FirebaseAppCheck */,
 			);
 			productName = Wagyaran;
 			productReference = 7F560A0C306A388200A76BAC /* Wagyaran.app */;
@@ -267,6 +270,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Map/WagyaranDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 87TUT62R8F;
@@ -300,6 +304,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Map/Wagyaran.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 87TUT62R8F;
@@ -372,6 +377,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7F738CD83091CC6D00467584 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseFirestore;
+		};
+		A00000000000000000000006 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7F738CD83091CC6D00467584 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
